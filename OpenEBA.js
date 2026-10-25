@@ -23,6 +23,18 @@ const EBA_SCHEMA_VERSION = 2;
 // Obergrenze an Zeilen pro Zeitreihe, ab der ausgedünnt wird (nur mit aktivierter Kompaktierung)
 const EBA_HIST_MAX_LINES = 2000;
 
+// Bereichspräfixe aller servergetrennten Schlüssel. Direkt dahinter steht
+// srvKey(), also "speed_" oder nichts. Siehe keyServer().
+// Bewusst NICHT hier: Optionen (eba_enable_*, eba_disable_*, eba_sort_*),
+// eba_shopfilter, eba_bookmarks, eba_note, eba_stock_items - die gelten für
+// beide Server.
+var EBA_SRV_PREFIXES = [
+  "eba_hist_", "eba_statistic_", "eba_food_", "eba_tickdur_",
+  "eba_schemaversion_", "eba_points_", "eba_hours_",
+  "eba_inventory_", "eba_shop_prices_", "eba_saved_state_",
+  "eba_shop_remember_price_"
+];
+
 const configItems = {
   "eba_disable_reload"                       : [disableReloadOnFinish, "Auto-Reload ausschalten", "Nach Ende eines Jobs, einer Forschung usw. wird die Seite nicht mehr neu geladen."],
   "eba_enable_sound_on_job_end"              : [enableSoundOnJobEnd, "Am Ende des Countdowns einen Sound abspielen"],
@@ -355,6 +367,27 @@ function isSpeedServer() { return /speed/i.test(location.hostname); }
 function getTickMinutes() { return isSpeedServer() ? 12 : 60; }
 // GM-Werte gelten für alle Subdomains, daher eigener Präfix für den Speed-Server
 function srvKey() { return isSpeedServer() ? "speed_" : ""; }
+// Klartextname zu einem Server-Präfix, für Dialoge
+function srvName(key) { return key === "speed_" ? "Speedserver" : "Normalserver"; }
+
+// Zu welchem Server gehört ein gespeicherter Wert?
+// Alle servergetrennten Schlüssel haben die Form "<bereich>" + srvKey() + "<rest>",
+// der Server steckt also direkt hinter dem festen Bereichspräfix.
+// Rückgabe: "" (Normalserver), "speed_" (Speedserver) oder null (gilt für beide).
+function keyServer(k) {
+  for (var i = 0; i < EBA_SRV_PREFIXES.length; i++) {
+    var p = EBA_SRV_PREFIXES[i];
+    if (k.indexOf(p) === 0) {
+      return k.substr(p.length).indexOf("speed_") === 0 ? "speed_" : "";
+    }
+  }
+  return null; // Optionen, Filter, Notizen, Bookmarks: bewusst für beide Server
+}
+// Gehört der Wert zum aktuellen Server (oder zu beiden)?
+function isOwnServerKey(k) {
+  var s = keyServer(k);
+  return s === null || s === srvKey();
+}
 
 // Dauer des letzten Ticks: pro Tick einmal von der Serverstatistik holen
 function refreshTickDuration() {
@@ -1739,6 +1772,18 @@ function enableBookmarks() {
   });
   $("#shopmenucats").append(html);
 }
+// Gespeicherte Werte löschen. onlyThisServer=true entfernt nur die Werte, die
+// den Präfix des aktuellen Servers tragen; Optionen, Filter und Notizen bleiben
+// stehen, weil sie bewusst für beide Server gelten.
+function resetStoredValues(onlyThisServer) {
+  var removed = 0;
+  $.each(GM_listValues(), function(i, k) {
+    if (onlyThisServer && keyServer(k) !== srvKey()) { return; }
+    GM_deleteValue(k);
+    removed++;
+  });
+  return removed;
+}
 function enableConfig() {
   if (!$("#shopmenu:contains('Statistik')").length) {return}
   //$("#shopmenucats").append("<a href='/stats.php?limitplayers=14'>14-Tage-Statistik</a>");
@@ -1766,7 +1811,8 @@ function enableConfig() {
     configHTML += "<div><button id='eba_io_export' type='button'>Exportieren</button> ";
     configHTML += "<button id='eba_io_import' type='button'>Importieren</button> <span id='eba_io_info'></span></div>";
     configHTML += "<div id='eba_io_usage' style='font-size:0.9em'></div>";
-    configHTML += "<div style='text-align:right;'><button id='eba_config_reset' type='button'>Alle gespeicherten Daten l&ouml;schen</button></div>";
+    configHTML += "<div style='text-align:right;'><button id='eba_config_reset_srv' type='button'>Nur die Daten dieses Servers l&ouml;schen</button> ";
+    configHTML += "<button id='eba_config_reset' type='button'>Alle gespeicherten Daten l&ouml;schen</button></div>";
     configHTML += "</div>";
     mainArea.append(configHTML);
 
@@ -1806,11 +1852,26 @@ function enableConfig() {
         $("#eba_io_info").text("Fehler: " + err.message);
       }
     });
-    //Reset
+    //Reset: beide Varianten fragen vorher nach, weil hier Monate an Historie hängen
     $("#eba_config_reset").on("click", function(e) {
-      $.each(GM_listValues(), function(i, e){
-        GM_deleteValue(e);
-      });
+      if (!window.confirm("ALLE gespeicherten openEBA-Daten werden unwiderruflich gelöscht - "
+        + "und zwar für BEIDE Server (Normalserver UND Speedserver), weil der Speicher "
+        + "für alle eatenbyants.de-Adressen derselbe ist.\n\n"
+        + "Betroffen sind sämtliche Historien (Formicarien, Futter, Geld, Punkte, "
+        + "Ticklänge, Suchen) sowie alle Optionen, Filter, Bookmarks und Notizen.\n\n"
+        + "Tipp: Vorher exportieren. Für nur einen Server gibt es den Knopf links daneben.\n\n"
+        + "Wirklich alles löschen?")) { return; }
+      resetStoredValues(false);
+      window.location.href = window.location.href.replace(/\?.*/, '');
+    });
+    $("#eba_config_reset_srv").on("click", function(e) {
+      if (!window.confirm("Es werden nur die Daten des aktuellen Servers ("
+        + srvName(srvKey()) + ", " + location.hostname + ") gelöscht: dessen Historien "
+        + "für Formicarien, Futter, Geld, Punkte, Ticklänge und Suchen.\n\n"
+        + "Der andere Server behält seine Historie. Optionen, Filter, Bookmarks und "
+        + "Notizen bleiben ebenfalls erhalten, weil sie für beide Server gelten.\n\n"
+        + "Wirklich die Daten von " + srvName(srvKey()) + " löschen?")) { return; }
+      resetStoredValues(true);
       window.location.href = window.location.href.replace(/\?.*/, '');
     });
   });
