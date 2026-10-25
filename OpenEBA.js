@@ -563,15 +563,25 @@ function enableSoundOnJobEnd() {
 function copyHungerPercentages() {
   if (!($("h3:contains('Formicarium')").length || $("h3:contains('Deine Formicarien')").length) || ($("h3:contains('einrichten')").length)) {return;}
 //  $("div[id='shopitem']").css("width", 650);
-  $("div[id='shopitem']:contains('Larven')").each(function(i, e) {
-    var div = $(this);
-    var sugarSpan = div.find("span[id^='sugarhunger']");
-    var sugarHunger = parseFloat(/.*\s+([\d\.]+),/.exec(sugarSpan.next().html())[1]);
-    sugarSpan.parent().get(0).childNodes[2].nodeValue = " "+sugarHunger+"%";
-    var proteinSpan = div.find("span[id^='proteinhunger']");
-    var proteinHunger = parseFloat(/.*\s+([\d\.]+),/.exec(proteinSpan.next().html())[1]);
-    proteinSpan.parent().get(0).childNodes[2].nodeValue = " "+proteinHunger+"%";
-  });
+  // genauen Wert aus dem Fortschrittsbalken-Skript hinter dem Span übernehmen
+  var copyPercentage = function(span) {
+    var m = /.*\s+([\d\.]+),/.exec(span.next().html() || "");
+    var textNode = span.parent().get(0) && span.parent().get(0).childNodes[2];
+    if (!m || !textNode) {return}
+    var text = " "+parseFloat(m[1])+"%";
+    if (textNode.nodeValue != text) {textNode.nodeValue = text;}
+  };
+  var copyAll = function() {
+    $("div[id='shopitem']:contains('Larven')").each(function(i, e) {
+      var div = $(this);
+      copyPercentage(div.find("span[id^='sugarhunger']"));
+      copyPercentage(div.find("span[id^='proteinhunger']"));
+    });
+  };
+  copyAll();
+  // Beim Füttern per Button lädt die Seite den Block per AJAX neu (gerundete Prozente),
+  // daher nach jeder DOM-Änderung erneut anwenden.
+  new MutationObserver(copyAll).observe(document.body, {childList: true, subtree: true});
 }
 function enableKeyNavi() {
   if (!$("h3:contains('Formicarium')").length || ($("h3:contains('einrichten')").length)) {return;}
