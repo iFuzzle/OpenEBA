@@ -592,8 +592,17 @@ function enableKeyNavi() {
 function processSingleFormicariumView() {
   if (!$("h3:contains('Formicarium')").length || ($("h3:contains('einrichten')").length)) {return}
   //move food table
-  var foodTable = $("div[id='shopitem'] b:contains('Futter') ~ div[id='text'] > table.liste");
-  foodTable.appendTo(foodTable.parent());
+  var moveFoodTable = function() {
+    var foodTable = $("div[id='shopitem'] b:contains('Futter') ~ div[id='text'] > table.liste");
+    // nur verschieben, wenn noch ein Formular dahinter steht (verhindert Endlosschleife mit dem Observer)
+    if (foodTable.nextAll("form").length) {
+      foodTable.appendTo(foodTable.parent());
+    }
+  };
+  moveFoodTable();
+  // Beim Füttern per Button lädt die Seite den Futter-Block per AJAX neu (Originalreihenfolge),
+  // daher nach jeder DOM-Änderung erneut anwenden.
+  new MutationObserver(moveFoodTable).observe(document.body, {childList: true, subtree: true});
 }
 function rememberShopPrices() {
   if (!$("center > b:contains('Kleinanzeigen')").length){return}
