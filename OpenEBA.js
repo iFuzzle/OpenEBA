@@ -71,8 +71,9 @@ const configItems = {
   "eba_enable_show_inventory"                : [showInventory, "Inventar in der Seitenleiste Anzeigen", "Bestimmte Items aus dem Lager in der linken Seitenleiste Anzeigen. Begriffe werden in der unteren Liste gepflegt"],
   "eba_enable_global_statistic"              : [updateGlobalStatistic, "Geld, Punkte und Tickl&auml;nge historisieren", "Je Tick wird einmal der Geldbestand, die Punktzahl und die Dauer des letzten Ticks mit Zeitstempel festgehalten. Die Erfassung l&auml;uft auf jeder Spielseite (die Werte stehen in der Statusbox oben), aber immer nur einmal pro Tick."],
   "eba_enable_search_statistic"              : [updateSearchStatistic, "Futter- und Ameisensuchen vollst&auml;ndig historisieren", "Das Spiel zeigt nur die letzten Ergebnisse einer Futtersuche bzw. K&ouml;niginnensuche. Beim Aufruf der jeweiligen Seite wird die angezeigte Tabelle mit der gespeicherten Historie verschmolzen, sodass auch &auml;ltere Treffer erhalten bleiben."],
-  "eba_enable_history_compaction"            : [function(){}, "Historien ausd&uuml;nnen, wenn sie zu gro&szlig; werden", "Ohne diese Option wachsen die Historien unbegrenzt (bisheriges Verhalten). Mit der Option wird in einer Reihe ab " + EBA_HIST_MAX_LINES + " Zeilen aus der <b>&auml;lteren H&auml;lfte</b> jede zweite Zeile entfernt. Die j&uuml;ngere H&auml;lfte und die Kopfzeile bleiben unangetastet. <b>Achtung:</b> Das entfernt alte Messpunkte unwiderruflich. Den aktuellen Speicherverbrauch zeigt die Zeile unten."],
-  "eba_enable_max_points"                    : [showMaxPoints, "Maximale Punktzahl in der Formicarien-&Uuml;bersicht anzeigen", "Hinter den Punkten jedes Formicariums erscheint die maximal erreichbare Punktzahl, z.B. <i>12.340 / 50.000</i>. Bei monogynen Arten ist das ein harter Wert, bei polygynen Arten wird der Zuwachs je weiterer K&ouml;nigin eingerechnet (auf dem Speedserver mit anderen Werten als auf dem Normalserver). Der Tooltip zeigt Arbeiterinnen-Maximum, Auslastung in Prozent und die gemessenen Punkte je Arbeiterin. Quelle der Werte ist die Spielhilfe; f&uuml;r zwei Arten ist der polygyne Zuwachs auf dem Speedserver dort unbekannt, dann erscheint ab zwei K&ouml;niginnen ein <i>?</i>."]
+  "eba_enable_history_compaction"            : [function(){}, "Historien ausd&uuml;nnen, wenn sie zu gro&szlig; werden", "Ohne diese Option wachsen die Historien unbegrenzt (bisheriges Verhalten). Mit der Option wird in einer Reihe ab " + EBA_HIST_MAX_LINES + " Zeilen aus der <b>&auml;lteren H&auml;lfte</b> jede zweite Zeile entfernt. Die j&uuml;ngere H&auml;lfte und die Kopfzeile bleiben unangetastet. <b>Achtung:</b> Das entfernt alte Messpunkte unwiderruflich. Den aktuellen Speicherverbrauch zeigt die Zeile unten. Vertr&auml;gt sich nicht mit dem WebDAV-Abgleich, der ist bei eingeschalteter Kompaktierung gesperrt."],
+  "eba_enable_max_points"                    : [showMaxPoints, "Maximale Punktzahl in der Formicarien-&Uuml;bersicht anzeigen", "Hinter den Punkten jedes Formicariums erscheint die maximal erreichbare Punktzahl, z.B. <i>12.340 / 50.000</i>. Bei monogynen Arten ist das ein harter Wert, bei polygynen Arten wird der Zuwachs je weiterer K&ouml;nigin eingerechnet (auf dem Speedserver mit anderen Werten als auf dem Normalserver). Der Tooltip zeigt Arbeiterinnen-Maximum, Auslastung in Prozent und die gemessenen Punkte je Arbeiterin. Quelle der Werte ist die Spielhilfe; f&uuml;r zwei Arten ist der polygyne Zuwachs auf dem Speedserver dort unbekannt, dann erscheint ab zwei K&ouml;niginnen ein <i>?</i>."],
+  "eba_enable_webdav_sync"                   : [enableWebdavSync, "Historien per WebDAV/Nextcloud zwischen Ger&auml;ten abgleichen", "Jede Zeitreihe (Formicarien, Futter, Geld, Punkte, Tickl&auml;nge, Suchen) liegt als eigene Datei in einem WebDAV-Ordner und wird mit den lokalen Daten verschmolzen, h&ouml;chstens einmal pro Tick und nur f&uuml;r den aktuellen Server. Lokal geht dabei nie etwas verloren. Einrichtung unten unter <i>Abgleich der Historien per WebDAV</i>; der automatische Abgleich startet erst nach einem erfolgreichen <i>Verbindung testen</i> auf diesem Ger&auml;t. Tampermonkey fragt dabei einmal, ob das Skript den Host erreichen darf. Ein Skriptmanager, der stattdessen hart blockt, braucht im Skriptkopf eine Zeile <i>// @connect &lt;host&gt;</i>. Optionen, Filter und Notizen werden nie abgeglichen. Vertr&auml;gt sich nicht mit der Kompaktierung."]
 }
 const shopPriceLimits = {
   "Camponotus ligniperda": 6.34,
@@ -1302,6 +1303,7 @@ function exportHistoryJSON(onlyThisServer) {
   };
   $.each(GM_listValues(), function(i, k) {
     if (k.indexOf("eba_") !== 0) { return; }
+    if (davIsOwnKey(k)) { return; } // Zugangsdaten und Zustand des WebDAV-Abgleichs nie exportieren
     if (onlyThisServer && !isOwnServerKey(k)) { return; } // Filtermuster wie in ebaFormiIds()
     out.values[k] = GM_getValue(k, null);
   });
@@ -1340,6 +1342,9 @@ function importHistoryJSON(text) {
     // die Daten. Würden sie übernommen, gälte eine fremde Migration hier als
     // erledigt. Sie werden unten von migrateHistorySchema() gesetzt.
     if (k === "eba_schema_version" || k.indexOf("eba_schemaversion_") === 0) { return; }
+    // Eine fremde Datei darf weder die Ziel-URL noch die Zugangsdaten des
+    // WebDAV-Abgleichs setzen - sonst ließen sich die Historien umleiten.
+    if (davIsOwnKey(k)) { return; }
     if (isHistoryKey(k) && typeof v === "string") {
       var mine = GM_getValue(k, "");
       var res;
@@ -2180,6 +2185,7 @@ function enableConfig() {
     configHTML += "<label><input type='checkbox' id='eba_io_only_srv'>nur dieser Server</label> ";
     configHTML += "<span id='eba_io_info'></span></div>";
     configHTML += "<div id='eba_io_usage' style='font-size:0.9em'></div>";
+    configHTML += davConfigHTML();
     configHTML += "<div style='text-align:right;'><button id='eba_config_reset_srv' type='button'>Nur die Daten dieses Servers l&ouml;schen</button> ";
     configHTML += "<button id='eba_config_reset' type='button'>Alle gespeicherten Daten l&ouml;schen</button></div>";
     configHTML += "</div>";
@@ -2226,6 +2232,7 @@ function enableConfig() {
         $("#eba_io_info").text("Fehler: " + err.message);
       }
     });
+    davConfigBind();
     //Reset: beide Varianten fragen vorher nach, weil hier Monate an Historie hängen
     $("#eba_config_reset").on("click", function(e) {
       if (!window.confirm("ALLE gespeicherten openEBA-Daten werden unwiderruflich gelöscht - "
@@ -2455,4 +2462,593 @@ function showMaxPoints() {
       } catch (err) {}
     });
   } catch (err) {}
+}
+
+// ---------------------------------------------------------------------------
+// Abgleich der Historien über WebDAV (z.B. Nextcloud)
+//
+// Wer auf mehreren Geräten spielt, erfasst auf jedem nur, was sein Tab
+// mitbekommt. Der Abgleich legt jede Zeitreihe als eigene Datei in einen
+// WebDAV-Ordner und verschmilzt sie mit den lokalen Daten:
+//   <Ordner>/eba_hist_money.tsv, <Ordner>/eba_hist_speed_money.tsv,
+//   <Ordner>/eba_statistic_17.tsv, <Ordner>/eba_food_17.tsv, ...
+// Dateiname = Storage-Schlüssel, Inhalt = der rohe TSV-String. Die Trennung
+// der Spielserver steckt schon im Schlüssel. Eine Datei pro Reihe hält die
+// Konfliktfläche klein: kollidieren zwei Geräte, betrifft das genau eine Reihe.
+//
+// Grundsätze, die beim Ändern erhalten bleiben müssen:
+// - Die lokalen Daten sind die Wahrheit, die Datei ist nur Austauschmedium.
+//   Lokal wird ausschließlich in der Form GM_setValue(k, merge(lokal, remote))
+//   geschrieben. Im ganzen Block gibt es kein GM_deleteValue und kein
+//   unbedingtes GM_setValue auf einen Historien-Schlüssel.
+// - Remote-Inhalt wird vollständig geprüft, bevor er verschmolzen wird
+//   (davValidate): HTML statt Daten, fremde Kopfzeile, neueres Schema und
+//   Zeitschlüssel außerhalb des plausiblen Bereichs (siehe ebaTimePlausible()).
+// - Nur Zeitreihen werden abgeglichen (isHistoryKey()). Optionen, Filter,
+//   Notizen und die Zugangsdaten selbst nie.
+// - Der Merge ist kommutativ und kanonisch (siehe mergeSeries()). Deshalb
+//   erkennt der Byte-Vergleich "nichts zu tun" und die Geräte erreichen einen
+//   Fixpunkt. Der Zähler "PUTs ohne inhaltliche Änderung" macht sichtbar, wenn
+//   das je nicht mehr stimmt.
+// - Kompaktierung und Abgleich vertragen sich nicht: das Ausdünnen entfernt
+//   Zeilen, das Verschmelzen bringt sie vom anderen Gerät zurück, endlos.
+//   Bei aktiver Kompaktierung wird daher nicht abgeglichen.
+//
+// GM_xmlhttpRequest und NICHT fetch(): Nextcloud setzt auf den DAV-Endpunkten
+// keine CORS-Header, ein fetch() mit Authorization scheitert am Preflight.
+// GM_xmlhttpRequest läuft im Kontext des Skriptmanagers ohne Preflight. Für
+// den fremden Host gibt es bewusst keine @connect-Zeile: Tampermonkey fragt
+// beim ersten Zugriff nach und merkt sich die Freigabe pro Skript und Host.
+// Damit diese Frage nicht im Hintergrund unbeantwortet hängt, läuft der
+// automatische Abgleich erst, wenn auf diesem Gerät ein Verbindungstest
+// geklappt hat (eba_dav_ok_ms).
+// ---------------------------------------------------------------------------
+
+var EBA_DAV_TIMEOUT = 20000;          // ms je Request
+var EBA_DAV_AUTO_BUDGET = 6;          // höchstens so viele Requests pro automatischem Lauf
+var EBA_DAV_AUTO_IDLE = 2;            // davon unveränderte Reihen im Rundlauf
+var EBA_DAV_WARN_CHARS = 1048576;     // Größenwarnung je Datei (~1 MB)
+var EBA_DAV_BACKOFF = [5, 15, 60];    // Minuten Wartezeit nach Netz- bzw. Serverfehlern
+var EBA_DAV_MAX_412 = 3;              // Wiederholungen bei konkurrierendem Schreiben
+
+// Schlüssel des Abgleichs selbst. Gelten für beide Server (ein Zugang für
+// Normal- und Speedserver) und werden weder exportiert noch importiert:
+// im Export stünde sonst das Passwort, und ein manipulierter Import könnte
+// die Ziel-URL umbiegen.
+function davIsOwnKey(k) { return k.indexOf("eba_dav_") === 0 || k.indexOf("eba_wdav_") === 0; }
+
+// Zugangsdaten. Die URL wird auf einen abschließenden "/" normiert.
+function davConf() {
+  var url = $.trim(GM_getValue("eba_dav_url", ""));
+  if (url && url.charAt(url.length - 1) !== "/") { url += "/"; }
+  return { url: url, user: GM_getValue("eba_dav_user", ""), pass: GM_getValue("eba_dav_pass", "") };
+}
+function davConfigured() { var c = davConf(); return /^https?:\/\/[^\/]+/i.test(c.url) && c.user !== ""; }
+function davFileUrl(key) { return davConf().url + key + ".tsv"; }
+
+// Basic-Auth, UTF-8-sicher (btoa() allein scheitert an Umlauten).
+function davAuth(user, pass) { return "Basic " + btoa(unescape(encodeURIComponent(user + ":" + pass))); }
+
+// ETag aus den rohen Antwort-Headern; das letzte Vorkommen gewinnt.
+// Apache mit mod_deflate hängt bei komprimierter Auslieferung "-gzip" an,
+// vergleicht If-Match aber gegen den ETag ohne Zusatz. Daher wird der Zusatz
+// abgeschnitten, sonst scheitert jedes bedingte PUT dauerhaft mit 412.
+function davParseEtag(raw) {
+  var re = /^etag:[ \t]*(.*?)[ \t]*$/gim, m, e = "";
+  while ((m = re.exec(raw || "")) !== null) { e = m[1]; }
+  return e.replace(/-gzip(")?$/, "$1");
+}
+
+// Ein Request mit einheitlichem Ergebnis {ok, status, body, etag, err}.
+function davRequest(method, url, body, headers, cb) {
+  var c = davConf();
+  var h = { "Authorization": davAuth(c.user, c.pass), "Accept-Encoding": "identity" };
+  for (var k in headers) { if (headers.hasOwnProperty(k)) { h[k] = headers[k]; } }
+  if (method === "PUT") { h["Content-Type"] = "text/plain; charset=utf-8"; }
+  var called = false;
+  var done = function(res) { if (called) { return; } called = true; cb(res); };
+  try {
+    GM_xmlhttpRequest({
+      method: method,
+      url: url,
+      headers: h,
+      data: body,
+      // ohne Cookies: sonst entscheidet Nextcloud womöglich über eine
+      // Browsersitzung statt über die Basic-Auth, und der Fehler tritt nur
+      // auf einem Gerät auf
+      anonymous: true,
+      timeout: EBA_DAV_TIMEOUT,
+      overrideMimeType: "text/plain; charset=utf-8",
+      onload: function(r) {
+        done({ ok: r.status >= 200 && r.status < 300, status: r.status,
+               body: r.responseText || "", etag: davParseEtag(r.responseHeaders), err: "" });
+      },
+      onerror: function(r) { done({ ok: false, status: (r && r.status) || 0, body: "", etag: "", err: "network" }); },
+      ontimeout: function() { done({ ok: false, status: 0, body: "", etag: "", err: "timeout" }); }
+    });
+  } catch (err) {
+    done({ ok: false, status: 0, body: "", etag: "", err: "exception: " + err.message });
+  }
+}
+
+// Welche Merge-Funktion gehört zu einem Schlüssel? Gleiche Zuordnung wie im Import.
+function davKind(key) {
+  if (key.indexOf("eba_statistic_") === 0) { return "formi"; }
+  if (key.indexOf("eba_food_") === 0) { return "food"; }
+  if (/_(foodsearch|antsearch)$/.test(key)) { return "search"; }
+  return "hist";
+}
+function davMerge(key, a, b) {
+  switch (davKind(key)) {
+    case "formi": return mergeFormiHistory(a, b);
+    case "food": return mergeSeries(a, b, false, false);
+    case "search": return mergeSeries(a, b, true, true);
+    default: return mergeSeries(a, b, true, false);
+  }
+}
+
+// Remote-Inhalt prüfen und filtern, ohne irgendetwas zu schreiben.
+// Rückgabe {ok, text, dropped, newer, reason}. text enthält nur noch Zeilen
+// mit plausiblem Zeitschlüssel; dropped zählt die verworfenen.
+function davValidate(key, text) {
+  var res = { ok: false, text: "", dropped: 0, newer: false, reason: "" };
+  if (typeof text !== "string") { res.reason = "kein Text"; return res; }
+  text = text.replace(/\r/g, "");
+  if (text === "") { res.ok = true; return res; }
+  if (/^\s*</.test(text)) { res.reason = "HTML statt Daten (Login-Seite oder Fehlerseite?)"; return res; }
+  var kind = davKind(key);
+  var lines = text.split("\n");
+  var out = [], start = 0;
+  if (kind === "formi") {
+    var base = parseInt(lines[0], 10);
+    if (isNaN(base) || !/^\d+\t/.test(lines[0]) || !ebaTimePlausible(base * 3600000)) {
+      res.reason = "Kopfzeile ist keine Formicarien-Historie"; return res;
+    }
+    out.push(lines[0]); start = 1;
+  } else if (kind !== "food") {
+    var head = lines[0].split("\t");
+    var name = key.substr(("eba_hist_" + (keyServer(key) || "")).length);
+    var schema = parseInt(head[0], 10);
+    if (isNaN(schema) || head[1] !== name) { res.reason = "Kopfzeile gehört nicht zu " + key; return res; }
+    if (schema > EBA_SCHEMA_VERSION) {
+      res.newer = true;
+      res.reason = "Datei hat Schema " + schema + ", dieses Skript kennt nur " + EBA_SCHEMA_VERSION + " - bitte openEBA aktualisieren";
+      return res;
+    }
+    out.push(lines[0]); start = 1;
+  }
+  for (var i = start; i < lines.length; i++) {
+    var line = lines[i];
+    if (!line) { continue; }
+    if (kind === "search" && line.indexOf("H\t") === 0) { out.push(line); continue; }
+    var t = parseFloat(line), ms;
+    if (kind === "formi") { ms = (base + t) * 3600000; }
+    else if (kind === "search") { ms = t; }
+    else { ms = t * 60000; }
+    if (isNaN(t) || !ebaTimePlausible(ms)) { res.dropped++; continue; }
+    out.push(line);
+  }
+  res.ok = true;
+  res.text = out.join("\n");
+  return res;
+}
+
+// Ist eine lokale Reihe so lesbar, dass sie gefahrlos verschmolzen werden kann?
+// Sonst bleibt sie unangetastet (mergeFormiHistory() würde bei unlesbarer
+// Kopfzeile eine Seite verwerfen).
+function davLocalReadable(key, text) {
+  if (!text) { return true; }
+  var kind = davKind(key);
+  if (kind === "formi") { return !isNaN(parseInt(text, 10)); }
+  if (kind === "food") { return true; }
+  return !isNaN(parseInt(text, 10));
+}
+
+// Was hochgeladen wird: die verschmolzene Reihe ohne unplausible Zeilen, in
+// kanonischer Form. Lokal bleiben solche Zeilen stehen (lokal ist die
+// Wahrheit), aber remote kommen sie nie an - sonst würde jedes andere Gerät
+// sie wieder herausfiltern und zurückschreiben, und die Geräte schaukelten sich
+// gegenseitig hoch.
+function davBody(key, merged) {
+  var v = davValidate(key, merged);
+  return v.ok ? davMerge(key, v.text, "") : null;
+}
+
+// Eine Reihe mit dem Remote-Stand verschmelzen. Schreibt lokal nur, wenn sich
+// etwas ändert, und dann in der Form GM_setValue(k, merge(lokal, remote)).
+// Der Name syncMergeOne ist in mergeFormiHistory() referenziert.
+// Rückgabe {ok, local, body, dropped, newer, reason, changed}
+function syncMergeOne(key, remoteText) {
+  var res = { ok: false, local: "", body: null, dropped: 0, newer: false, reason: "", changed: false };
+  var v = davValidate(key, remoteText);
+  res.dropped = v.dropped; res.newer = v.newer;
+  if (!v.ok) { res.reason = v.reason; return res; }
+  var mine = GM_getValue(key, "");
+  if (typeof mine !== "string") { res.reason = "lokaler Wert ist kein Text"; return res; }
+  if (!davLocalReadable(key, mine)) { res.reason = "lokale Reihe unlesbar, wird nicht angefasst"; return res; }
+  var merged = davMerge(key, mine, v.text);
+  var body = davBody(key, merged);
+  if (body === null) { res.reason = "verschmolzene Reihe ungültig"; return res; }
+  if (merged !== mine) { GM_setValue(key, merged); res.changed = true; }
+  res.ok = true; res.local = merged; res.body = body;
+  return res;
+}
+
+// Merkzustand je Reihe: ETag der Datei und Länge der lokalen Reihe beim
+// letzten erfolgreichen Abgleich. Jeder Append ändert die Länge, damit ist
+// "muss hoch" erkennbar, ohne die Erfassungspfade anzufassen.
+function davStateKey(key) { return "eba_dav_sync_" + key; }
+function davState(key) {
+  try { var s = JSON.parse(GM_getValue(davStateKey(key), "")); if (s && typeof s === "object") { return s; } } catch (err) {}
+  return { etag: "", len: -1 };
+}
+function davSetState(key, etag, len) { GM_setValue(davStateKey(key), JSON.stringify({ etag: etag || "", len: len })); }
+function davDirty(key) {
+  var v = GM_getValue(key, "");
+  return (typeof v === "string" ? v.length : -1) !== davState(key).len;
+}
+
+// Liste der Reihen mit ungültiger Remote-Datei (für "Remote-Dateien überschreiben")
+function davBadKey() { return "eba_dav_bad_" + srvKey(); }
+function davBadList() { return $.grep(("" + GM_getValue(davBadKey(), "")).split("\n"), function(k) { return !!k; }); }
+function davSetBad(key, bad) {
+  var l = $.grep(davBadList(), function(k) { return k !== key; });
+  if (bad) { l.push(key); }
+  l.sort();
+  GM_setValue(davBadKey(), l.join("\n"));
+}
+
+// Abzugleichende Reihen des aktuellen Servers, sortiert.
+function davKeys() {
+  var withFood = GM_getValue("eba_dav_food", true);
+  var out = [];
+  $.each(GM_listValues(), function(i, k) {
+    if (!isHistoryKey(k)) { return; }
+    if (keyServer(k) !== srvKey()) { return; } // Präfix-Falle: eba_hist_ ist auch Präfix von eba_hist_speed_
+    if (!withFood && k.indexOf("eba_food_") === 0) { return; }
+    if (!/^[a-z0-9_]+$/.test(k)) { return; } // wird Dateiname
+    out.push(k);
+  });
+  out.sort();
+  return out;
+}
+
+// Gleiche Zeilenmenge? Erkennt einen PUT, der nur die Reihenfolge ändert.
+function davSameLines(a, b) {
+  if (typeof a !== "string" || typeof b !== "string") { return false; }
+  return a.split("\n").sort().join("\n") === b.split("\n").sort().join("\n");
+}
+
+// Eine Reihe abgleichen: GET -> prüfen -> verschmelzen -> ggf. bedingtes PUT.
+// stats sammelt die Zahlen für die Statuszeile, cb(fatal) meldet einen Fehler,
+// nach dem der Lauf abgebrochen werden soll (Anmeldung, Netz, Server).
+function davSyncKey(key, stats, cb, attempt) {
+  attempt = attempt || 0;
+  var st = davState(key);
+  var dirty = davDirty(key);
+  var gh = {};
+  // Unverändert auf beiden Seiten kostet genau ein 304. Ist lokal etwas dazu-
+  // gekommen, wird der Inhalt in jedem Fall gebraucht.
+  if (!dirty && st.etag) { gh["If-None-Match"] = st.etag; }
+  stats.requests++;
+  davRequest("GET", davFileUrl(key), undefined, gh, function(g) {
+    stats.status = g.status;
+    if (g.status === 304) { stats.unchanged++; return cb(null); }
+    if (g.status !== 200 && g.status !== 404) { return cb(davFailure(g, key)); }
+    var remote = (g.status === 200) ? g.body : null;
+    var r = syncMergeOne(key, remote === null ? "" : remote);
+    stats.dropped += r.dropped;
+    if (!r.ok) {
+      stats.skipped.push(key + ": " + r.reason);
+      if (!r.newer && remote !== null) { davSetBad(key, true); }
+      return cb(null);
+    }
+    davSetBad(key, false);
+    if (r.changed) { stats.pulled++; }
+    if (r.body.length > EBA_DAV_WARN_CHARS) { stats.big.push(key); }
+    if (remote === null && r.body === "") { stats.equal++; return cb(null); } // nichts anzulegen
+    if (remote !== null && r.body === remote.replace(/\r/g, "")) {
+      davSetState(key, g.etag, r.local.length);
+      stats.equal++;
+      return cb(null);
+    }
+    // Erstanlage nur, wenn die Datei wirklich noch fehlt: If-None-Match: *
+    // schließt das Rennen zweier Geräte, die gleichzeitig zum ersten Mal schreiben.
+    // Liefert der Server keinen ETag, ist konkurrierendes Schreiben nicht
+    // abzusichern; der Verbindungstest weist darauf hin.
+    var ph = (remote === null) ? { "If-None-Match": "*" } : (g.etag ? { "If-Match": g.etag } : {});
+    stats.requests++;
+    davRequest("PUT", davFileUrl(key), r.body, ph, function(p) {
+      stats.status = p.status;
+      if (p.ok) {
+        // ETag der neuen Fassung, falls der Server ihn mitliefert. Sonst holt
+        // der nächste Lauf die Datei einmal vollständig.
+        davSetState(key, p.etag, r.local.length);
+        stats.pushed++;
+        if (remote !== null && davSameLines(r.body, remote.replace(/\r/g, ""))) {
+          stats.noChange++;
+          GM_setValue("eba_dav_nochange", GM_getValue("eba_dav_nochange", 0) + 1);
+        }
+        return cb(null);
+      }
+      if (p.status === 412) {
+        // Ein anderes Gerät war schneller: neu holen und neu verschmelzen,
+        // niemals einfach erneut PUTen.
+        stats.conflicts++;
+        if (attempt + 1 < EBA_DAV_MAX_412) { return davSyncKey(key, stats, cb, attempt + 1); }
+        return cb({ kind: "412", msg: "Datei " + key + ".tsv lässt sich dauerhaft nicht bedingt schreiben (412). "
+          + "Häufigste Ursache: ein Webserver, der den ETag verändert (Apache mod_deflate hängt \"-gzip\" an). "
+          + "Letzter ETag: " + (g.etag || "keiner") });
+      }
+      if ((p.status === 404 || p.status === 409) && remote === null) {
+        return cb({ kind: "folder", msg: "Zielordner existiert nicht (HTTP " + p.status + "). Bitte im Webinterface anlegen: " + davConf().url });
+      }
+      return cb(davFailure(p, key));
+    });
+  });
+}
+
+// Fehlerbild eines Requests als {kind, msg}. kind steuert die Reaktion:
+// auth = Abgleich anhalten, backoff = später wieder, quota/size = Hochladen
+// einstellen, other = nur melden.
+function davFailure(r, key) {
+  var s = r.status;
+  if (s === 401 || s === 403) {
+    return { kind: "auth", msg: "Anmeldung abgelehnt (HTTP " + s + "). Der automatische Abgleich ist angehalten, "
+      + "bis ein Verbindungstest oder ein manueller Abgleich klappt - Nextcloud sperrt nach wiederholten "
+      + "Fehlanmeldungen die IP." };
+  }
+  if (s === 0) {
+    return { kind: "backoff", msg: "Keine Verbindung (" + (r.err || "Netzwerk") + "): offline, DNS/TLS-Problem "
+      + "oder Tampermonkey-Freigabe für den Host abgelehnt." };
+  }
+  if (s === 413) {
+    return { kind: "size", msg: "Datei " + key + ".tsv ist für den Server zu groß (HTTP 413). Meist begrenzt ein "
+      + "Reverse Proxy die Uploadgröße (nginx: client_max_body_size, Standard 1 MB)." };
+  }
+  if (s === 507) { return { kind: "quota", msg: "Speicherplatz auf dem Server erschöpft (HTTP 507)." }; }
+  if (s === 423 || s === 429 || s >= 500) { return { kind: "backoff", msg: "Server meldet HTTP " + s + ", neuer Versuch später." }; }
+  return { kind: "other", msg: "Unerwartete Antwort HTTP " + s + " bei " + key + ".tsv" };
+}
+
+// Statuszeile des letzten Laufs (pro Server)
+function davStatusKey() { return "eba_dav_status_" + srvKey(); }
+function davSaveStatus(o) { o.time = new Date().getTime(); GM_setValue(davStatusKey(), JSON.stringify(o)); }
+function davStatusText() {
+  var s;
+  try { s = JSON.parse(GM_getValue(davStatusKey(), "")); } catch (err) { s = null; }
+  var out = [];
+  var halt = GM_getValue("eba_dav_halt", "");
+  if (halt) { out.push("ANGEHALTEN: " + halt); }
+  if (GM_getValue("eba_enable_history_compaction", false)) {
+    out.push("Kompaktierung ist eingeschaltet - der Abgleich ist deshalb gesperrt.");
+  }
+  if (!s) { out.push("Noch kein Abgleich auf dem " + srvName(srvKey()) + "."); return out.join("\n"); }
+  out.push("Letzter Abgleich (" + (s.manual ? "manuell" : "automatisch") + ", " + srvName(srvKey()) + "): "
+    + formatStatTime(s.time) + ", HTTP " + s.status + ", " + s.keys + " Reihen, " + s.requests + " Requests");
+  out.push("unverändert " + s.unchanged + " · gleich " + s.equal + " · geholt " + s.pulled + " · hochgeladen "
+    + s.pushed + " · Konflikte " + s.conflicts + " · verworfene Zeilen " + s.dropped
+    + " · PUTs ohne inhaltliche Änderung " + GM_getValue("eba_dav_nochange", 0));
+  if (s.big && s.big.length) { out.push("Größer als 1 MB: " + s.big.join(", ")); }
+  if (s.skipped && s.skipped.length) { out.push("Übersprungen: " + s.skipped.join("; ")); }
+  if (s.error) { out.push("Fehler: " + s.error); }
+  if (s.left) { out.push(s.left + " Reihen kommen beim nächsten Lauf dran."); }
+  return out.join("\n");
+}
+
+// Mehrere Reihen nacheinander abgleichen (300 ms Abstand, Muster runFoodQueue()).
+// budget begrenzt die Requests; ein schwerer Fehler bricht den Lauf ab.
+function davRun(keys, budget, manual, done) {
+  var stats = { keys: 0, requests: 0, status: 0, unchanged: 0, equal: 0, pulled: 0, pushed: 0,
+                conflicts: 0, dropped: 0, noChange: 0, skipped: [], big: [], error: "", left: 0, manual: !!manual };
+  var i = 0;
+  var finish = function(fail) {
+    if (fail) {
+      stats.error = fail.msg;
+      if (fail.kind === "auth") { GM_setValue("eba_dav_halt", fail.msg); }
+      if (fail.kind === "backoff") {
+        var lvl = Math.min(GM_getValue("eba_dav_backoff_lvl", 0), EBA_DAV_BACKOFF.length - 1);
+        GM_setValue("eba_dav_backoff_until", new Date().getTime() + EBA_DAV_BACKOFF[lvl] * 60000);
+        GM_setValue("eba_dav_backoff_lvl", lvl + 1);
+      }
+      if (fail.kind === "quota" || fail.kind === "size") { GM_setValue("eba_dav_halt", fail.msg); }
+    } else {
+      GM_setValue("eba_dav_backoff_lvl", 0);
+      GM_setValue("eba_dav_backoff_until", 0);
+      if (manual) { GM_setValue("eba_dav_halt", ""); }
+    }
+    stats.left = keys.length - i;
+    davSaveStatus(stats);
+    GM_setValue("eba_dav_busy", 0);
+    if (done) { done(stats); }
+  };
+  var step = function() {
+    // Eine Reihe kostet im Normalfall bis zu zwei Requests (GET + PUT).
+    if (i >= keys.length || stats.requests + 2 > budget) { return finish(null); }
+    var key = keys[i++];
+    stats.keys++;
+    davSyncKey(key, stats, function(fail) {
+      if (fail && fail.kind !== "other") { return finish(fail); }
+      if (fail) { stats.skipped.push(fail.msg); }
+      setTimeout(step, 300);
+    });
+  };
+  GM_setValue("eba_dav_busy", new Date().getTime());
+  step();
+}
+
+// Reihen für einen automatischen Lauf: zuerst alle mit lokalen Änderungen,
+// dann ein paar unveränderte im Rundlauf, damit auch Daten der anderen Geräte
+// irgendwann ankommen.
+function davAutoKeys() {
+  var all = davKeys(), dirty = [], idle = [];
+  $.each(all, function(i, k) { (davDirty(k) ? dirty : idle).push(k); });
+  if (idle.length) {
+    var rrKey = "eba_dav_rr_" + srvKey();
+    var rr = GM_getValue(rrKey, 0) % idle.length;
+    var n = Math.min(EBA_DAV_AUTO_IDLE, idle.length);
+    for (var j = 0; j < n; j++) { dirty.push(idle[(rr + j) % idle.length]); }
+    GM_setValue(rrKey, (rr + n) % idle.length);
+  }
+  return dirty;
+}
+
+// Automatischer Abgleich: höchstens einmal pro Tick, nach Ende des Ticks,
+// mit 60 s Abstand und nur in einem Tab gleichzeitig.
+function davAutoRun() {
+  if (!davConfigured()) { return; }
+  if (!GM_getValue("eba_dav_ok_ms", 0)) { return; }      // noch kein erfolgreicher Verbindungstest
+  if (GM_getValue("eba_dav_halt", "")) { return; }       // nach 401/403/507/413 nur manuell
+  if (GM_getValue("eba_enable_history_compaction", false)) { return; }
+  var now = new Date().getTime();
+  if (GM_getValue("eba_dav_backoff_until", 0) > now) { return; }
+  if (now - GM_getValue("eba_dav_busy", 0) < 60000) { return; } // anderer Tab gleicht gerade ab
+  if (now - GM_getValue("eba_dav_last_ms", 0) < 60000) { return; }
+  var tk = getTickInfo();
+  if (!tk.done) { return; } // erst nach dem Tick, dann ist er erfasst
+  var tickKey = "eba_dav_tick_" + srvKey();
+  if (GM_getValue(tickKey, 0) == tk.nowTick) { return; }
+  // Marker VOR dem Request setzen, sonst starten mehrere Tabs denselben Lauf
+  GM_setValue(tickKey, tk.nowTick);
+  GM_setValue("eba_dav_last_ms", now);
+  davRun(davAutoKeys(), EBA_DAV_AUTO_BUDGET, false, null);
+}
+
+// Option "Historien per WebDAV abgleichen". Die Init-Schleife hat kein
+// try/catch - ein Fehler hier darf die übrigen Features nicht abschalten, und
+// die eigentliche Arbeit läuft erst nach dem Seitenaufbau.
+function enableWebdavSync() {
+  try {
+    setTimeout(function() { try { davAutoRun(); } catch (err) {} }, 2000);
+  } catch (err) {}
+}
+
+// Verbindungstest: nur GET, ändert nichts. Erst den Ordner, dann eine Datei,
+// damit Fehlkonfigurationen beim Einrichten auffallen. Löst bei Tampermonkey
+// die Freigabe-Frage für den Host aus.
+function davTest(cb) {
+  if (!davConfigured()) { return cb("Bitte Ordner-URL und Benutzer eintragen."); }
+  var c = davConf();
+  var probe = davKeys()[0] || ("eba_hist_" + srvKey() + "money");
+  davRequest("GET", c.url, undefined, {}, function(f) {
+    if (f.status === 0) { return cb("Nicht erreichbar (" + (f.err || "Netzwerk") + "): offline, falsche Adresse, TLS-Problem oder Tampermonkey-Freigabe abgelehnt."); }
+    if (f.status === 401) { return cb("Anmeldung abgelehnt (401): Benutzer/Token oder Passwort falsch."); }
+    if (f.status === 403) { return cb("Zugriff verweigert (403)."); }
+    if (f.status === 404) { return cb("Ordner nicht gefunden (404): " + c.url + " - bitte im Webinterface anlegen bzw. URL prüfen."); }
+    davRequest("GET", davFileUrl(probe), undefined, {}, function(g) {
+      if (g.status === 401 || g.status === 403) { return cb("Anmeldung für Dateien abgelehnt (" + g.status + ")."); }
+      if (g.status !== 200 && g.status !== 404) { return cb("Unerwartete Antwort " + g.status + " für " + probe + ".tsv"); }
+      if (g.status === 200 && /^\s*</.test(g.body)) { return cb("Der Server liefert HTML statt Daten - leitet er auf eine Login-Seite um? URL prüfen."); }
+      GM_setValue("eba_dav_ok_ms", new Date().getTime());
+      GM_setValue("eba_dav_halt", "");
+      cb("Verbindung ok (Ordner HTTP " + f.status + ", " + probe + ".tsv HTTP " + g.status
+        + (g.etag ? ", ETag " + g.etag : (g.status === 200 ? ", OHNE ETag - konkurrierendes Schreiben ist nicht abgesichert" : "")) + ").");
+    });
+  });
+}
+
+// Remote-Dateien, die die Prüfung nicht bestanden haben, durch den lokalen
+// Stand ersetzen - ohne If-Match, nur nach ausdrücklicher Rückfrage.
+function davOverwriteBad(cb) {
+  var keys = davBadList(), i = 0, okN = 0, msgs = [];
+  var step = function() {
+    if (i >= keys.length) { return cb(okN + " von " + keys.length + " Dateien überschrieben." + (msgs.length ? " " + msgs.join("; ") : "")); }
+    var key = keys[i++];
+    var local = GM_getValue(key, "");
+    if (typeof local !== "string") { local = ""; }
+    var body = davBody(key, local);
+    if (body === null) { msgs.push(key + ": lokale Reihe ungültig"); return setTimeout(step, 300); }
+    davRequest("PUT", davFileUrl(key), body, {}, function(p) {
+      if (p.ok) { okN++; davSetBad(key, false); davSetState(key, p.etag, local.length); }
+      else { msgs.push(key + ": HTTP " + p.status); }
+      setTimeout(step, 300);
+    });
+  };
+  step();
+}
+
+// Abschnitt in der openEBA-Konfiguration. Das Passwort wird NIE in das HTML
+// geschrieben: die Konfiguration rendert in die Spielseite, fremde Skripte und
+// die DevTools lesen dort mit. Das Feld bleibt leer und speichert nur bei
+// Eingabe; ein Platzhalter zeigt, ob eines hinterlegt ist.
+function davConfigHTML() {
+  var h = "<br><b>Abgleich der Historien per WebDAV (z.B. Nextcloud)</b> - Option oben: <i>Historien per WebDAV abgleichen</i>";
+  h += "<div style='font-size:0.9em'>Empfohlen: in Nextcloud einen eigenen Ordner <i>openEBA</i> anlegen, ihn per Link freigeben "
+     + "mit <i>Hochladen und Bearbeiten erlauben</i> und den Freigabe-Token (letzter Teil des Links) als Benutzer verwenden, "
+     + "URL dann <i>https://&lt;host&gt;/public.php/webdav/</i>. So kommt man mit den Zugangsdaten nur an diesen einen Ordner. "
+     + "Zweitbeste Wahl: App-Passwort eines eigenen Nutzers mit kleinem Kontingent, URL "
+     + "<i>https://&lt;host&gt;/remote.php/dav/files/&lt;nutzer&gt;/openEBA/</i>. Nicht das eigene Konto verwenden. "
+     + "<b>Die Zugangsdaten liegen im Klartext im Speicher des Skriptmanagers</b> (auch in dessen Backups und Cloud-Sync).</div>";
+  h += "Ordner-URL<br><input type='text' id='eba_dav_url' style='width:90%' placeholder='https://cloud.example.de/public.php/webdav/'><br>";
+  h += "Benutzer bzw. Freigabe-Token<br><input type='text' id='eba_dav_user' style='width:45%' autocomplete='off'><br>";
+  h += "Passwort bzw. Freigabe-Passwort<br><input type='password' id='eba_dav_pass' style='width:45%' autocomplete='new-password'><br>";
+  h += "<label><input type='checkbox' id='eba_dav_food'>Futter-Snapshots mit abgleichen (größter Anteil der Daten)</label>";
+  h += "<div><button id='eba_dav_test' type='button'>Verbindung testen</button> ";
+  h += "<button id='eba_dav_sync' type='button'>Jetzt abgleichen</button> ";
+  h += "<button id='eba_dav_overwrite' type='button'>Ungültige Remote-Dateien überschreiben</button> ";
+  h += "<button id='eba_dav_clear' type='button'>Zugangsdaten löschen</button></div>";
+  h += "<div id='eba_dav_info'></div><div id='eba_dav_status' style='font-size:0.9em;white-space:pre-wrap'></div>";
+  return h;
+}
+function davConfigBind() {
+  var passHint = function() {
+    $("#eba_dav_pass").val("").attr("placeholder", GM_getValue("eba_dav_pass", "") ? "gespeichert - leer lassen, um es zu behalten" : "");
+  };
+  var showStatus = function() { $("#eba_dav_status").text(davStatusText()); };
+  $("#eba_dav_url").val(GM_getValue("eba_dav_url", "")).on("change", function() {
+    GM_setValue("eba_dav_url", $.trim($(this).val()));
+    GM_setValue("eba_dav_ok_ms", 0); // neue Adresse: erst wieder testen
+    if (/^http:/i.test($(this).val())) { $("#eba_dav_info").text("Achtung: http:// überträgt die Zugangsdaten unverschlüsselt."); }
+  });
+  $("#eba_dav_user").val(GM_getValue("eba_dav_user", "")).on("change", function() {
+    GM_setValue("eba_dav_user", $.trim($(this).val()));
+    GM_setValue("eba_dav_ok_ms", 0);
+  });
+  passHint();
+  $("#eba_dav_pass").on("change", function() {
+    var v = $(this).val();
+    if (v !== "") { GM_setValue("eba_dav_pass", v); GM_setValue("eba_dav_ok_ms", 0); }
+    passHint();
+  });
+  $("#eba_dav_food").prop("checked", GM_getValue("eba_dav_food", true)).on("change", function() {
+    GM_setValue("eba_dav_food", $(this).prop("checked"));
+  });
+  showStatus();
+  // Ein noch nicht per change gespeichertes Feld vor jeder Aktion übernehmen
+  var flush = function() { $("#eba_dav_url, #eba_dav_user, #eba_dav_pass").trigger("change"); };
+  $("#eba_dav_test").on("click", function() {
+    flush();
+    $("#eba_dav_info").text("Teste ...");
+    davTest(function(msg) { $("#eba_dav_info").text(msg); showStatus(); });
+  });
+  $("#eba_dav_sync").on("click", function() {
+    flush();
+    if (!davConfigured()) { $("#eba_dav_info").text("Bitte Ordner-URL und Benutzer eintragen."); return; }
+    if (GM_getValue("eba_enable_history_compaction", false)) {
+      $("#eba_dav_info").text("Die Kompaktierung ist eingeschaltet. Sie verträgt sich nicht mit dem Abgleich (ausgedünnte Zeilen kämen vom anderen Gerät zurück) - bitte erst ausschalten.");
+      return;
+    }
+    $("#eba_dav_info").text("Gleiche ab ...");
+    davRun(davKeys(), Infinity, true, function(s) {
+      $("#eba_dav_info").text(s.error ? "Abgebrochen: " + s.error : "Fertig.");
+      showStatus();
+    });
+  });
+  $("#eba_dav_overwrite").on("click", function() {
+    var bad = davBadList();
+    if (!bad.length) { $("#eba_dav_info").text("Keine ungültigen Remote-Dateien bekannt."); return; }
+    if (!window.confirm("Diese Remote-Dateien haben die Prüfung nicht bestanden und werden durch den lokalen Stand ersetzt:\n\n"
+      + bad.join("\n") + "\n\nIhr bisheriger Inhalt geht dabei verloren. Gehören sie zu einem Gerät mit neuerer "
+      + "openEBA-Version, besser erst dieses Skript aktualisieren.\n\nÜberschreiben?")) { return; }
+    $("#eba_dav_info").text("Überschreibe ...");
+    davOverwriteBad(function(msg) { $("#eba_dav_info").text(msg); showStatus(); });
+  });
+  $("#eba_dav_clear").on("click", function() {
+    if (!window.confirm("Ordner-URL, Benutzer und Passwort für den Abgleich auf diesem Gerät löschen? Die Historien bleiben erhalten.")) { return; }
+    GM_deleteValue("eba_dav_url"); GM_deleteValue("eba_dav_user"); GM_deleteValue("eba_dav_pass");
+    GM_setValue("eba_dav_ok_ms", 0);
+    $("#eba_dav_url, #eba_dav_user").val("");
+    passHint();
+    $("#eba_dav_info").text("Zugangsdaten gelöscht.");
+  });
 }
