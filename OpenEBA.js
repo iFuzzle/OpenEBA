@@ -16,6 +16,13 @@
 // @grant          GM_xmlhttpRequest
 // ==/UserScript==
 
+// Version des Speicherschemas der Historien.
+// 0/1 = Altbestand (nur Formi- und Futter-Historie, ohne Versionsschlüssel)
+// 2   = zusätzliche Zeitreihen für Geld, Punkte, Ticklänge sowie Futter-/Ameisensuchen
+const EBA_SCHEMA_VERSION = 2;
+// Obergrenze an Zeilen pro Zeitreihe, ab der ausgedünnt wird (nur mit aktivierter Kompaktierung)
+const EBA_HIST_MAX_LINES = 2000;
+
 const configItems = {
   "eba_disable_reload"                       : [disableReloadOnFinish, "Auto-Reload ausschalten", "Nach Ende eines Jobs, einer Forschung usw. wird die Seite nicht mehr neu geladen."],
   "eba_enable_sound_on_job_end"              : [enableSoundOnJobEnd, "Am Ende des Countdowns einen Sound abspielen"],
@@ -49,7 +56,10 @@ const configItems = {
   "eba_enable_food_move_form"                : [foodMoveForm, "Dialog 'Futtertierzucht einrichten' an den Anfang der Seite schieben"],
   "eba_enable_form_move_form"                : [formiMoveForm, "Dialog 'Formicarium einrichten' an den Anfang der Seite schieben"],
   "eba_enable_stock_sort"                    : [sortStock, "Nester und Formicarien im Lager nach Größe statt alphabetisch ordnen"],
-  "eba_enable_show_inventory"                : [showInventory, "Inventar in der Seitenleiste Anzeigen", "Bestimmte Items aus dem Lager in der linken Seitenleiste Anzeigen. Begriffe werden in der unteren Liste gepflegt"]
+  "eba_enable_show_inventory"                : [showInventory, "Inventar in der Seitenleiste Anzeigen", "Bestimmte Items aus dem Lager in der linken Seitenleiste Anzeigen. Begriffe werden in der unteren Liste gepflegt"],
+  "eba_enable_global_statistic"              : [updateGlobalStatistic, "Geld, Punkte und Tickl&auml;nge historisieren", "Je Tick wird einmal der Geldbestand, die Punktzahl und die Dauer des letzten Ticks mit Zeitstempel festgehalten. Die Erfassung l&auml;uft auf jeder Spielseite (die Werte stehen in der Statusbox oben), aber immer nur einmal pro Tick."],
+  "eba_enable_search_statistic"              : [updateSearchStatistic, "Futter- und Ameisensuchen vollst&auml;ndig historisieren", "Das Spiel zeigt nur die letzten Ergebnisse einer Futtersuche bzw. K&ouml;niginnensuche. Beim Aufruf der jeweiligen Seite wird die angezeigte Tabelle mit der gespeicherten Historie verschmolzen, sodass auch &auml;ltere Treffer erhalten bleiben."],
+  "eba_enable_history_compaction"            : [function(){}, "Historien ausd&uuml;nnen, wenn sie zu gro&szlig; werden", "Ohne diese Option wachsen die Historien unbegrenzt (bisheriges Verhalten). Mit der Option wird in einer Reihe ab " + EBA_HIST_MAX_LINES + " Zeilen aus der <b>&auml;lteren H&auml;lfte</b> jede zweite Zeile entfernt. Die j&uuml;ngere H&auml;lfte und die Kopfzeile bleiben unangetastet. <b>Achtung:</b> Das entfernt alte Messpunkte unwiderruflich. Den aktuellen Speicherverbrauch zeigt die Zeile unten."]
 }
 const shopPriceLimits = {
   "Camponotus ligniperda": 6.34,
@@ -109,6 +119,9 @@ var foodQueue = [];
 var foodQueueRunning = false;
 var foodQueued = {};
 
+// Einmalige Schema-Migration vor allen Features, damit der Versionsschlüssel
+// auch gesetzt wird, wenn keine der neuen Optionen aktiv ist.
+migrateHistorySchema();
 enableConfig();
 $.each(configItems, function(k, v) {
   var timer = new Date().getTime();
@@ -317,8 +330,14 @@ function refreshTickDuration() {
     onload: function(response) {
       var m = /Dauer des letzten Tick\s*<\/td>\s*<td[^>]*>\s*([\d.,]+)\s*s/.exec(response.responseText);
       if (m) {
-        GM_setValue(k + "ms", Math.round(parseFloat(m[1].replace(",", ".")) * 1000));
+        var ms = Math.round(parseFloat(m[1].replace(",", ".")) * 1000);
+        GM_setValue(k + "ms", ms);
         GM_setValue(k + "tick", tick);
+        // Ticklänge zusätzlich historisieren: genau eine Messung pro Tick,
+        // weil diese Funktion pro Tick nur einmal bis hierher kommt.
+        if (GM_getValue("eba_enable_global_statistic", false)) {
+          histAppend("tickdur", tick * getTickMinutes(), "" + ms, "ms");
+        }
       }
     }
   });
@@ -521,6 +540,556 @@ function updateFormiStatistic() {
       });
     });
   });
+}
+
+// ---------------------------------------------------------------------------
+// Erweiterte Historisierung (Schema-Version 2)
+//
+// Speicherformat aller Zeitreihen (gleiches Muster wie die Formi-Historie):
+//   Zeile 0  = Kopfzeile mit Metadaten, durch Tab getrennt
+//   Zeile 1+ = eine Messung, Felder durch Tab getrennt, Feld 0 = Zeitschlüssel
+// Vorteil gegenüber JSON-Objekten: keine wiederholten Schlüsselnamen, reines
+// Anhängen ohne Umbau des gespeicherten Werts, direkt in Excel einfügbar.
+//
+// Zeitschlüssel:
+//   eba_hist_*money/points/tickdur -> Tick-Beginn in Minuten seit Epoch (Serverzeit)
+//   eba_hist_*foodsearch/antsearch -> Zeitpunkt der Erfassung in ms seit Epoch
+//   eba_statistic_*                -> Stunden seit der Basis-Stunde aus Zeile 0
+//   eba_food_*                     -> Tick-Beginn in Minuten seit Epoch
+// ---------------------------------------------------------------------------
+
+// Schlüssel einer Zeitreihe. Der Server-Präfix trennt Normal- und Speed-Server,
+// weil GM-Werte für alle Subdomains gelten.
+function histKey(name) { return "eba_hist_" + srvKey() + name; }
+
+// Kopfzeile einer Zeitreihe: Schema, Name, Einheit, Ticklänge in Minuten
+function histHead(name, unit) {
+  return EBA_SCHEMA_VERSION + "\t" + name + "\t" + unit + "\t" + getTickMinutes();
+}
+
+// Messwert anhängen. Pro Zeitschlüssel landet nur ein Wert, geprüft an der
+// letzten Zeile (gleiches Muster wie hasFoodSnapshot()). Gibt true zurück,
+// wenn tatsächlich geschrieben wurde.
+function histAppend(name, timeKey, fields, unit) {
+  var key = histKey(name);
+  var saved = GM_getValue(key, "");
+  if (!saved) {
+    saved = histHead(name, unit);
+  } else {
+    var last = saved.substr(saved.lastIndexOf("\n") + 1);
+    var lastKey = parseFloat(last);
+    // lastIndexOf liefert -1, solange nur die Kopfzeile da ist; dann ist das
+    // erste Feld die Schema-Version und kleiner als jeder Zeitschlüssel.
+    if (saved.indexOf("\n") >= 0 && !isNaN(lastKey) && lastKey >= timeKey) { return false; }
+  }
+  GM_setValue(key, compactHistory(saved + "\n" + timeKey + "\t" + fields));
+  return true;
+}
+
+// Ausdünnen: Ist die Reihe zu lang, wird aus der ÄLTEREN Hälfte jede zweite
+// Zeile entfernt. Kopfzeile und jüngere Hälfte bleiben unangetastet, damit die
+// aktuelle Entwicklung in voller Auflösung erhalten bleibt. Nur aktiv, wenn der
+// Nutzer die Kompaktierung eingeschaltet hat.
+function compactHistory(data) {
+  if (!GM_getValue("eba_enable_history_compaction", false)) { return data; }
+  var lines = data.split("\n");
+  if (lines.length <= EBA_HIST_MAX_LINES) { return data; }
+  var half = 1 + Math.floor((lines.length - 1) / 2); // erste Zeile der jüngeren Hälfte
+  var keep = [lines[0]];
+  for (var i = 1; i < half; i++) {
+    if ((i % 2) == 1) { keep.push(lines[i]); }
+  }
+  for (var j = half; j < lines.length; j++) { keep.push(lines[j]); }
+  return keep.join("\n");
+}
+
+// Statusbox ohne eingeblendete Meldungen lesen. modifyGUI() verschiebt #message
+// bzw. #error in die Statusbox; dort könnten ebenfalls Beträge stehen.
+function statusText() {
+  var box = $("div#status").clone();
+  box.find("#message,#error,#headercountdown").remove();
+  return box.text();
+}
+// Geldbestand in Cent (ganzzahlig und damit exakt), null wenn nicht gefunden
+function readStatusMoney() {
+  var m = /Geld:\s*([\d.]+)(?:,(\d{1,2}))?/.exec(statusText());
+  if (!m) { return null; }
+  var euro = parseInt(m[1].replace(/\./g, ""), 10);
+  if (isNaN(euro)) { return null; }
+  var cent = m[2] ? parseInt((m[2] + "0").substr(0, 2), 10) : 0;
+  return euro * 100 + cent;
+}
+// Punktestand, null wenn nicht gefunden
+function readStatusPoints() {
+  var m = /Punkte:\s*([\d.]+)/.exec(statusText());
+  if (!m) { return null; }
+  var p = parseInt(m[1].replace(/\./g, ""), 10);
+  return isNaN(p) ? null : p;
+}
+
+// Geld und Punkte je Tick festhalten. Läuft auf jeder Spielseite mit Statusbox,
+// schreibt aber nur einmal pro Tick (kein Aufwand pro Rendering).
+function updateGlobalStatistic() {
+  if (!$("div#status").length) { return; }
+  refreshTickDuration(); // historisiert die Ticklänge in seinem Callback
+  var tk = getTickInfo();
+  if (!tk.done) { return; } // Tick läuft noch, die Werte können sich noch ändern
+  var timeKey = tk.nowTick / 60000;
+  var money = readStatusMoney();
+  if (money != null) { histAppend("money", timeKey, "" + money, "cent"); }
+  var points = readStatusPoints();
+  if (points != null) { histAppend("points", timeKey, "" + points, "punkte"); }
+}
+
+// ---------------------------------------------------------------------------
+// Futter- und Ameisensuchen: Das Spiel zeigt nur die letzten Treffer (10).
+// Bei jedem Seitenaufruf wird die angezeigte Tabelle mit der Historie
+// verschmolzen, indem die längste Überlappung gesucht wird.
+// ---------------------------------------------------------------------------
+
+// Art der Suchseite anhand der Überschrift, sonst anhand einer Tabelle, die
+// die Suche in der Kopfzeile nennt. Die Forschung nennt die Königinnensuche
+// ebenfalls, hat aber eine andere Überschrift und keine passende Tabelle.
+function searchPageKind() {
+  var h = $("h3").text();
+  if (/Futtersuche/i.test(h)) { return "foodsearch"; }
+  if (/(Königinnensuche|Ameisensuche)/i.test(h)) { return "antsearch"; }
+  // Forschung, Arbeitsamt und Aktionen listen die Suchen als Angebot auf,
+  // enthalten aber keine Ergebnisse. Dort nie erfassen.
+  if (/(Forschung|Arbeitsamt|Aktionen)/i.test(h)) { return null; }
+  var found = null;
+  $("table.liste").each(function() {
+    var head = $(this).find("tr").first().text();
+    if (/Futtersuche/i.test(head)) { found = "foodsearch"; return false; }
+    if (/(Königinnensuche|Ameisensuche)/i.test(head)) { found = "antsearch"; return false; }
+  });
+  return found;
+}
+
+// Ergebnistabelle der Suche: die Liste mit den meisten Datenzeilen
+function findSearchTable() {
+  var best = null, bestRows = 0;
+  $("table.liste").each(function() {
+    var rows = $(this).find("tr").length;
+    if (rows > bestRows) { bestRows = rows; best = $(this); }
+  });
+  return (bestRows >= 2) ? best : null;
+}
+
+// Zellen einer Zeile als Tab-getrennte Zeichenkette (Tabs/Umbrüche entschärft)
+function rowCells(tr) {
+  return $.map(tr.children("td,th").get(), function(td) {
+    return $.trim($(td).text()).replace(/[\t\r\n]+/g, " ");
+  }).join("\t");
+}
+
+// Zeitwert aus einer Zeile ziehen (Datum+Uhrzeit oder nur Uhrzeit), sonst null
+function rowTimeValue(row) {
+  var m = /(\d{1,2})\.(\d{1,2})\.(\d{2,4})(?:[\s,]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/.exec(row);
+  if (m) {
+    var y = m[3].length == 2 ? 2000 + parseInt(m[3], 10) : parseInt(m[3], 10);
+    return new Date(y, parseInt(m[2], 10) - 1, parseInt(m[1], 10),
+                    parseInt(m[4] || "0", 10), parseInt(m[5] || "0", 10), parseInt(m[6] || "0", 10)).getTime();
+  }
+  var t = /(\d{1,2}):(\d{2}):(\d{2})/.exec(row);
+  if (t) { return (parseInt(t[1], 10) * 3600 + parseInt(t[2], 10) * 60 + parseInt(t[3], 10)) * 1000; }
+  return null;
+}
+// Läuft die Tabelle zeitlich aufwärts? Ohne erkennbare Zeitspalte wird die
+// Anzeigereihenfolge übernommen.
+function rowsAscending(rows) {
+  var first = null, last = null;
+  for (var i = 0; i < rows.length; i++) {
+    var v = rowTimeValue(rows[i]);
+    if (v == null) { continue; }
+    if (first == null) { first = v; }
+    last = v;
+  }
+  if (first == null || first === last) { return true; }
+  return first <= last;
+}
+
+// Längste Überlappung zwischen dem Ende der Historie und dem Anfang der neu
+// gelesenen Zeilen bestimmen und nur den Rest zurückgeben. Positionsbezogen,
+// damit auch mehrere gleich aussehende Treffer hintereinander erhalten bleiben.
+function mergeRollingRows(oldRows, newRows) {
+  var max = Math.min(oldRows.length, newRows.length);
+  for (var k = max; k > 0; k--) {
+    var ok = true;
+    for (var i = 0; i < k; i++) {
+      if (oldRows[oldRows.length - k + i] !== newRows[i]) { ok = false; break; }
+    }
+    if (ok) { return newRows.slice(k); }
+  }
+  return newRows; // keine Überlappung: alles ist neu
+}
+
+function updateSearchStatistic() {
+  var kind = searchPageKind();
+  if (!kind) { return; }
+  var tbl = findSearchTable();
+  if (!tbl) { return; }
+  var trs = tbl.find("tr");
+  if (trs.length < 2) { return; }
+
+  var header = rowCells(trs.eq(0));
+  var rows = $.grep($.map(trs.slice(1).get(), function(tr) { return rowCells($(tr)); }), function(r) {
+    return /[^\t\s]/.test(r);
+  });
+  if (!rows.length) { return; }
+  if (!rowsAscending(rows)) { rows.reverse(); }
+
+  var key = histKey(kind);
+  var saved = GM_getValue(key, "");
+  var lines = saved ? saved.split("\n") : [histHead(kind, "ms") + "\t" + header];
+  // Nur Datenzeilen mit numerischem Zeitschlüssel vergleichen; "H"-Zeilen sind
+  // Marker für eine geänderte Spaltenbelegung.
+  var oldContent = [];
+  for (var i = 1; i < lines.length; i++) {
+    if (!/^\d/.test(lines[i])) { continue; }
+    oldContent.push(lines[i].substr(lines[i].indexOf("\t") + 1));
+  }
+  var fresh = mergeRollingRows(oldContent, rows);
+
+  // Spaltenbelegung geändert? Kopfzeile aktualisieren und den Wechsel als
+  // Marker festhalten, damit ältere Zeilen weiterhin deutbar bleiben.
+  var headFields = lines[0].split("\t");
+  var oldHeader = headFields.slice(4).join("\t");
+  if (oldHeader !== header) {
+    lines[0] = histHead(kind, "ms") + "\t" + header;
+    if (saved && oldContent.length) { lines.push("H\t" + header); }
+  } else if (!fresh.length) {
+    return;
+  }
+
+  var now = getServerNow(); // Erfassungszeitpunkt, für alle neuen Zeilen derselbe
+  for (var j = 0; j < fresh.length; j++) { lines.push(now + "\t" + fresh[j]); }
+  GM_setValue(key, compactHistory(lines.join("\n")));
+}
+
+// ---------------------------------------------------------------------------
+// Migration auf die aktuelle Schema-Version
+// ---------------------------------------------------------------------------
+
+// Die Formi- und Futter-Historien werden NICHT angefasst: Schema 2 erweitert
+// nur um neue Schlüssel. Zusätzlich werden die alten Einzelwerte aus
+// eba_points1/2 (Punkte je Epoch-Stunde) und eba_tickdur_* (eine Ticklänge)
+// verlustfrei als Startpunkte in die neuen Zeitreihen übernommen.
+function migrateHistorySchema() {
+  var from = parseInt(GM_getValue("eba_schema_version", 0), 10);
+  if (isNaN(from)) { from = 0; }
+  if (from >= EBA_SCHEMA_VERSION) { return; }
+
+  if (from < 2) {
+    // Punkte: die beiden gespeicherten Stützstellen von insertPointsDiff()
+    if (!GM_getValue(histKey("points"), "")) {
+      var seeds = [];
+      var add = function(h, p) {
+        h = parseInt(h, 10); p = parseInt(p, 10);
+        if (!isNaN(h) && !isNaN(p) && h > 0 && p > 0) { seeds.push([h * 60, p]); }
+      };
+      add(GM_getValue("eba_hours1", 0), GM_getValue("eba_points1", 0));
+      add(GM_getValue("eba_hours2", 0), GM_getValue("eba_points2", 0));
+      var out = [histHead("points", "punkte")];
+      var prev = -1;
+      for (var i = 0; i < seeds.length; i++) {
+        if (seeds[i][0] <= prev) { continue; }
+        prev = seeds[i][0];
+        out.push(seeds[i][0] + "\t" + seeds[i][1]);
+      }
+      if (out.length > 1) { GM_setValue(histKey("points"), out.join("\n")); }
+    }
+    // Ticklänge: der zuletzt gemessene Wert samt seines Ticks
+    if (!GM_getValue(histKey("tickdur"), "")) {
+      var tk = parseInt(GM_getValue("eba_tickdur_" + srvKey() + "tick", 0), 10);
+      var ms = parseInt(GM_getValue("eba_tickdur_" + srvKey() + "ms", 0), 10);
+      if (!isNaN(tk) && !isNaN(ms) && tk > 0 && ms > 0) {
+        GM_setValue(histKey("tickdur"), histHead("tickdur", "ms") + "\n" + (tk * getTickMinutes()) + "\t" + ms);
+      }
+    }
+  }
+  GM_setValue("eba_schema_version", EBA_SCHEMA_VERSION);
+}
+
+// ---------------------------------------------------------------------------
+// Export und Import (JSON)
+// ---------------------------------------------------------------------------
+
+// Zeitreihen-Schlüssel: werden beim Import verschmolzen statt überschrieben
+function isHistoryKey(k) {
+  return k.indexOf("eba_hist_") === 0 || k.indexOf("eba_statistic_") === 0 || k.indexOf("eba_food_") === 0;
+}
+
+// Zwei zeilenbasierte Reihen mit absolutem Zeitschlüssel verschmelzen.
+// hasHeader: Zeile 0 ist Kopfzeile (eba_hist_*) oder schon eine Datenzeile (eba_food_*).
+// byContent: nach Inhalt statt nach ganzer Zeile entdoppeln (Suchen, deren
+//            Erfassungszeitpunkt je Browser abweicht); dabei gewinnt der frühere Zeitpunkt.
+function mergeSeries(a, b, hasHeader, byContent) {
+  if (!a) { return b; }
+  if (!b) { return a; }
+  var la = a.split("\n"), lb = b.split("\n");
+  var start = hasHeader ? 1 : 0;
+  var seen = {}, data = [];
+  var collect = function(lines) {
+    for (var i = start; i < lines.length; i++) {
+      var line = lines[i];
+      if (!line) { continue; }
+      var t = parseFloat(line);
+      var content = line.substr(line.indexOf("\t") + 1);
+      var id = byContent ? content : line;
+      if (typeof seen[id] !== "undefined") {
+        if (byContent && !isNaN(t) && t < data[seen[id]][0]) { data[seen[id]][0] = t; }
+        continue;
+      }
+      seen[id] = data.length;
+      data.push([isNaN(t) ? null : t, content, line]);
+    }
+  };
+  collect(la); collect(lb);
+  // Zeilen ohne Zeitschlüssel (z.B. "H"-Marker) bleiben an ihrer Stelle
+  data.sort(function(x, y) {
+    if (x[0] == null || y[0] == null) { return 0; }
+    return x[0] - y[0];
+  });
+  var res = hasHeader ? [la[0]] : [];
+  for (var i = 0; i < data.length; i++) {
+    res.push(data[i][0] == null ? data[i][2] : (data[i][0] + "\t" + data[i][1]));
+  }
+  return res.join("\n");
+}
+
+// Formi-Historien speichern die Zeit relativ zur Basis-Stunde aus Zeile 0.
+// Beim Verschmelzen werden daher beide Seiten auf die kleinere Basis-Stunde
+// umgerechnet, damit die Zeitstempel zueinander passen und positiv bleiben.
+function mergeFormiHistory(a, b) {
+  if (!a) { return b; }
+  if (!b) { return a; }
+  var la = a.split("\n"), lb = b.split("\n");
+  var ba = parseInt(la[0], 10), bb = parseInt(lb[0], 10);
+  if (isNaN(ba) || isNaN(bb)) { return a; } // unerwartetes Format: lokale Daten behalten
+  var base = Math.min(ba, bb);
+  var shift = function(lines, oldBase) {
+    var out = [], d = oldBase - base;
+    for (var i = 1; i < lines.length; i++) {
+      var el = parseFloat(lines[i]);
+      var tab = lines[i].indexOf("\t");
+      if (isNaN(el) || tab < 0) { continue; }
+      out.push([Math.round((el + d) * 100) / 100, lines[i].substr(tab + 1)]);
+    }
+    return out;
+  };
+  var all = shift(la, ba).concat(shift(lb, bb));
+  all.sort(function(x, y) { return x[0] - y[0]; });
+  var res = [base === ba ? la[0] : lb[0]];
+  var lastTime = null, seen = {};
+  for (var i = 0; i < all.length; i++) {
+    var line = all[i][0] + "\t" + all[i][1];
+    if (seen[line] || all[i][0] === lastTime) { continue; } // Duplikat bzw. gleicher Tick
+    seen[line] = true;
+    lastTime = all[i][0];
+    res.push(line);
+  }
+  return res.join("\n");
+}
+
+// Alle openEBA-Werte als JSON ausgeben
+function exportHistoryJSON() {
+  var out = {
+    format: "openEBA-history",
+    schema: EBA_SCHEMA_VERSION,
+    exported: new Date().getTime(),
+    server: srvKey(),
+    values: {}
+  };
+  $.each(GM_listValues(), function(i, k) {
+    if (k.indexOf("eba_") !== 0) { return; }
+    out.values[k] = GM_getValue(k, null);
+  });
+  return JSON.stringify(out);
+}
+
+// JSON einlesen. Zeitreihen werden mit den vorhandenen Daten verschmolzen,
+// alle anderen Werte (Optionen, Filter, Notizen) ersetzt.
+function importHistoryJSON(text) {
+  var data = JSON.parse(text);
+  if (!data || data.format !== "openEBA-history" || !data.values) {
+    throw new Error("Unbekanntes Format");
+  }
+  var merged = 0, replaced = 0;
+  $.each(data.values, function(k, v) {
+    if (k.indexOf("eba_") !== 0) { return; }
+    if (isHistoryKey(k) && typeof v === "string") {
+      var mine = GM_getValue(k, "");
+      var res;
+      if (k.indexOf("eba_statistic_") === 0) {
+        res = mergeFormiHistory(mine, v);
+      } else if (k.indexOf("eba_food_") === 0) {
+        res = mergeSeries(mine, v, false, false);
+      } else if (/_(foodsearch|antsearch)$/.test(k)) {
+        res = mergeSeries(mine, v, true, true);
+      } else {
+        res = mergeSeries(mine, v, true, false);
+      }
+      GM_setValue(k, res);
+      merged++;
+    } else {
+      GM_setValue(k, v);
+      replaced++;
+    }
+  });
+  GM_setValue("eba_schema_version", EBA_SCHEMA_VERSION);
+  return merged + " Zeitreihen verschmolzen, " + replaced + " Werte ersetzt";
+}
+
+// Speicherverbrauch der openEBA-Daten (Zeichen), für die Anzeige in der Konfiguration
+function historyStorageInfo() {
+  var info = {chars: 0, series: 0, lines: 0};
+  $.each(GM_listValues(), function(i, k) {
+    if (k.indexOf("eba_") !== 0) { return; }
+    var v = GM_getValue(k, "");
+    var s = (typeof v === "string") ? v : "" + v;
+    info.chars += s.length + k.length;
+    if (isHistoryKey(k) && typeof v === "string" && v.length) {
+      info.series++;
+      info.lines += v.split("\n").length;
+    }
+  });
+  return info;
+}
+
+// ---------------------------------------------------------------------------
+// Lese-Zugriff für Auswertungen (z.B. eine Graphen-Ansicht)
+// Alle Zeitstempel sind Millisekunden seit Epoch.
+// ---------------------------------------------------------------------------
+
+// Globale Zeitreihe: metric = "money" (Cent) | "points" | "tickdur" (ms)
+// Rückgabe: [[tMs, wert], ...] chronologisch aufsteigend
+function ebaGlobalSeries(metric) {
+  var out = [];
+  var saved = GM_getValue(histKey(metric), "");
+  if (!saved) { return out; }
+  var lines = saved.split("\n");
+  for (var i = 1; i < lines.length; i++) {
+    var f = lines[i].split("\t");
+    var t = parseFloat(f[0]), v = parseFloat(f[1]);
+    if (isNaN(t) || isNaN(v)) { continue; }
+    out.push([t * 60000, v]);
+  }
+  return out;
+}
+
+// IDs aller Formicarien mit Historie auf dem aktuellen Server
+function ebaFormiIds() {
+  var pre = "eba_statistic_" + srvKey();
+  var out = [];
+  $.each(GM_listValues(), function(i, k) {
+    if (k.indexOf(pre) !== 0) { return; }
+    var rest = k.substr(pre.length);
+    if (/^\d+$/.test(rest)) { out.push(rest); } // filtert auf dem Normalserver die speed_-Schlüssel
+  });
+  return out;
+}
+
+// Art des Formicariums aus der Kopfzeile der Historie
+function ebaFormiKind(id) {
+  var saved = GM_getValue("eba_statistic_" + srvKey() + id, "");
+  if (!saved) { return ""; }
+  var head = saved.substring(0, saved.indexOf("\n") < 0 ? saved.length : saved.indexOf("\n")).split("\t");
+  return head[1] || "";
+}
+
+// Vollständige Formi-Historie als Objekte:
+// [{t, queens, ants, eggs, larvae, cocoons, points, nest, formicarium, sugar, protein, time}]
+// sugar/protein sind Prozentwerte (Zahl), nest/formicarium/time sind Texte.
+function ebaFormiRows(id) {
+  var out = [];
+  var saved = GM_getValue("eba_statistic_" + srvKey() + id, "");
+  if (!saved) { return out; }
+  var lines = saved.split("\n");
+  var baseHour = parseInt(lines[0], 10);
+  if (isNaN(baseHour)) { return out; }
+  var num = function(s) {
+    if (s == null) { return null; }
+    var v = parseFloat(("" + s).replace(",", "."));
+    return isNaN(v) ? null : v;
+  };
+  for (var i = 1; i < lines.length; i++) {
+    var f = lines[i].split("\t");
+    var el = parseFloat(f[0]);
+    if (isNaN(el)) { continue; }
+    out.push({
+      t: Math.round((baseHour + el) * 3600000),
+      elapsed: el,
+      queens: num(f[1]), ants: num(f[2]), eggs: num(f[3]), larvae: num(f[4]),
+      cocoons: num(f[5]), points: num(f[6]),
+      nest: f[7] || "", formicarium: f[8] || "",
+      sugar: num(f[9]), protein: num(f[10]),
+      time: f[11] || ""
+    });
+  }
+  return out;
+}
+
+// Einzelne Zahlenreihe eines Formicariums.
+// field = "queens"|"ants"|"eggs"|"larvae"|"cocoons"|"points"|"sugar"|"protein"
+// Rückgabe: [[tMs, wert], ...]
+function ebaFormiSeries(id, field) {
+  var out = [];
+  $.each(ebaFormiRows(id), function(i, r) {
+    if (r[field] != null && typeof r[field] === "number") { out.push([r.t, r[field]]); }
+  });
+  return out;
+}
+
+// Futter-Snapshots eines Formicariums:
+// [{t, servertime, raw, entries:[{name, gram, cond}]}]
+function ebaFoodSeries(id) {
+  var out = [];
+  var saved = GM_getValue("eba_food_" + srvKey() + id, "");
+  if (!saved) { return out; }
+  $.each(saved.split("\n"), function(i, line) {
+    if (!line) { return; }
+    var f = line.split("\t");
+    var t = parseFloat(f[0]);
+    if (isNaN(t)) { return; }
+    var entries = [];
+    if (f[2] && f[2] !== "leer") {
+      $.each(f[2].split(" | "), function(j, e) {
+        var m = /^(.*)\s([\d.,]+)g\s(.*)$/.exec(e);
+        if (m) {
+          entries.push({name: $.trim(m[1]), gram: parseFloat(m[2].replace(",", ".")), cond: $.trim(m[3])});
+        } else {
+          entries.push({name: e, gram: null, cond: ""});
+        }
+      });
+    }
+    out.push({t: t * 60000, servertime: f[1] || "", raw: f[2] || "", entries: entries});
+  });
+  return out;
+}
+
+// Suchen-Historie: kind = "foodsearch" | "antsearch"
+// Rückgabe: {header: [Spaltennamen], rows: [{t, cells:[...]}]}
+// t ist der Erfassungszeitpunkt (ms). Steht in den Zellen ein eigenes Datum,
+// ist dieses genauer - siehe Spaltennamen in header.
+function ebaSearchSeries(kind) {
+  var res = {header: [], rows: []};
+  var saved = GM_getValue(histKey(kind), "");
+  if (!saved) { return res; }
+  var lines = saved.split("\n");
+  res.header = lines[0].split("\t").slice(4);
+  for (var i = 1; i < lines.length; i++) {
+    var line = lines[i];
+    if (!line) { continue; }
+    if (line.indexOf("H\t") === 0) { // Spaltenwechsel ab hier
+      res.header = line.split("\t").slice(1);
+      continue;
+    }
+    var t = parseFloat(line);
+    if (isNaN(t)) { continue; }
+    res.rows.push({t: t, cells: line.split("\t").slice(1)});
+  }
+  return res;
 }
 
 // ---------------------------------------------------------------------------
@@ -1154,6 +1723,11 @@ function enableConfig() {
     configHTML += "<br>Kleinanzeigen- bzw. Nachrichten-Filter (ein Suchbegriff pro Zeile)<br><textarea id='eba_shopfilter' style='height:100px;width:90%'></textarea>";
     configHTML += "<br>Bookmarks in der Form <i>Text;Link</i><br><textarea id='eba_bookmarks' style='height:100px;width:90%'></textarea>";
     configHTML += "<br>Itemfilter für die linke Leiste (ein Begriff pro Zeile)<br><textarea id='eba_stock_items' style='height:100px;width:90%'></textarea>";
+    // Datensicherung/Umzug: Export erzeugt JSON, Import verschmilzt Zeitreihen
+    configHTML += "<br>Daten-Export/Import (JSON)<br><textarea id='eba_io' style='height:100px;width:90%'></textarea>";
+    configHTML += "<div><button id='eba_io_export' type='button'>Exportieren</button> ";
+    configHTML += "<button id='eba_io_import' type='button'>Importieren</button> <span id='eba_io_info'></span></div>";
+    configHTML += "<div id='eba_io_usage' style='font-size:0.9em'></div>";
     configHTML += "<div style='text-align:right;'><button id='eba_config_reset' type='button'>Alle gespeicherten Daten l&ouml;schen</button></div>";
     configHTML += "</div>";
     mainArea.append(configHTML);
@@ -1172,6 +1746,27 @@ function enableConfig() {
     });
     $("#eba_stock_items").val(GM_getValue("eba_stock_items", "")).on("blur", function() {
       GM_setValue("eba_stock_items", $("#eba_stock_items").val());
+    });
+    //Export/Import und Speicherverbrauch
+    var showUsage = function() {
+      var u = historyStorageInfo();
+      $("#eba_io_usage").text("Gespeichert: " + Math.round(u.chars / 1024) + " kB in "
+        + u.series + " Zeitreihen mit " + u.lines + " Messzeilen (Schema "
+        + GM_getValue("eba_schema_version", 0) + ", Grenze je Reihe " + EBA_HIST_MAX_LINES + " Zeilen).");
+    };
+    showUsage();
+    $("#eba_io_export").on("click", function(e) {
+      $("#eba_io").val(exportHistoryJSON()).select();
+      $("#eba_io_info").text("Exportiert - jetzt kopieren.");
+    });
+    $("#eba_io_import").on("click", function(e) {
+      if (!window.confirm("Import: Zeitreihen werden mit den vorhandenen Daten verschmolzen, Optionen und Filter werden ersetzt. Fortfahren?")) { return; }
+      try {
+        $("#eba_io_info").text(importHistoryJSON($("#eba_io").val()));
+        showUsage();
+      } catch (err) {
+        $("#eba_io_info").text("Fehler: " + err.message);
+      }
     });
     //Reset
     $("#eba_config_reset").on("click", function(e) {
