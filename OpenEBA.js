@@ -144,7 +144,10 @@ function showInventory(){
   var doInsert = function(rowsHTML) {
     $("body").append(rowsHTML);
   };
-  var storedData = GM_getValue("eba_inv", "0\nx").split("\n", 2);
+  // Ein Schlüssel für Lesen und Schreiben, mit Server-Präfix: vorher wurde
+  // eba_inv gelesen und eba_inventory geschrieben, der Cache griff also nie.
+  var invKey = "eba_inventory_" + srvKey();
+  var storedData = GM_getValue(invKey, "0\nx").split("\n", 2);
   var hours = Math.floor($.now()/3600000);
   //get schaben
   if (hours!=storedData[0]) {
@@ -180,7 +183,7 @@ function showInventory(){
           }
           eba_inv += "</p>";
         doInsert(eba_inv);
-        GM_setValue("eba_inventory", ""+hours+"\n"+eba_inv);
+        GM_setValue(invKey, ""+hours+"\n"+eba_inv);
       }
     });
   } else {
@@ -317,7 +320,10 @@ function alwaysShowShopPrices() {
     priceRows = rowsHTML;
     insertPrices();
   };
-  var storedData = GM_getValue("eba_shop_prices", "0\nx").split("\n", 2);
+  // Preis-Cache pro Server: die Abfrage-URL ist serverlokal, der Schlüssel war
+  // es nicht - wer zuerst lud, hat dem anderen Server seine Preise gezeigt.
+  var priceKey = "eba_shop_prices_" + srvKey();
+  var storedData = GM_getValue(priceKey, "0\nx").split("\n", 2);
   var hours = Math.floor($.now()/3600000);
   if (hours!=storedData[0]) {
     GM_xmlhttpRequest({
@@ -328,7 +334,7 @@ function alwaysShowShopPrices() {
         var regexp = /<table class=liste>(.*?)<\/table>/g;
         var rows = regexp.exec(response.responseText)[1];
         doInsert(rows);
-        GM_setValue("eba_shop_prices", ""+hours+"\n"+rows);
+        GM_setValue(priceKey, ""+hours+"\n"+rows);
       }
     });
   } else {
@@ -362,7 +368,9 @@ function getServerNow() {
   return d.getTime() + diff;
 }
 
-function isSpeedServer() { return /speed/i.test(location.hostname); }
+// Nur die Subdomain speed.* ist der Speed-Server. Die frühere, unverankerte
+// Prüfung hat jedes "speed" im Hostnamen erkannt (z.B. speedtest.eatenbyants.de).
+function isSpeedServer() { return /^speed\./i.test(location.hostname); }
 // Tick-Länge in Minuten: Normal = 60, Speed = 12
 function getTickMinutes() { return isSpeedServer() ? 12 : 60; }
 // GM-Werte gelten für alle Subdomains, daher eigener Präfix für den Speed-Server
@@ -1038,17 +1046,22 @@ function mergeFormiHistory(a, b) {
   return res.join("\n");
 }
 
-// Alle openEBA-Werte als JSON ausgeben
-function exportHistoryJSON() {
+// Alle openEBA-Werte als JSON ausgeben. Ohne Argument ein Voll-Backup über
+// beide Server; mit onlyThisServer=true nur die Werte des aktuellen Servers
+// plus die für beide geltenden Optionen, Filter und Notizen.
+// Das Feld "onlyServer" merkt sich das, damit der Import es benennen kann.
+function exportHistoryJSON(onlyThisServer) {
   var out = {
     format: "openEBA-history",
     schema: EBA_SCHEMA_VERSION,
     exported: new Date().getTime(),
     server: srvKey(),
+    onlyServer: !!onlyThisServer,
     values: {}
   };
   $.each(GM_listValues(), function(i, k) {
     if (k.indexOf("eba_") !== 0) { return; }
+    if (onlyThisServer && !isOwnServerKey(k)) { return; } // Filtermuster wie in ebaFormiIds()
     out.values[k] = GM_getValue(k, null);
   });
   return JSON.stringify(out);
@@ -1060,6 +1073,20 @@ function importHistoryJSON(text) {
   var data = JSON.parse(text);
   if (!data || data.format !== "openEBA-history" || !data.values) {
     throw new Error("Unbekanntes Format");
+  }
+  // Der Export notiert, von welchem Server er stammt. Passt das nicht zum
+  // aktuellen Server, wird nachgefragt. Die Reihen vermischen sich dabei nicht
+  // (verschmolzen wird schlüsseltreu), aber ein Export des einen Servers auf
+  // dem anderen einzuspielen ist fast immer ein Versehen.
+  if (typeof data.server === "string" && data.server !== srvKey()) {
+    if (!window.confirm("Dieser Export stammt vom " + srvName(data.server)
+      + ", du bist aber auf dem " + srvName(srvKey()) + " (" + location.hostname + ").\n\n"
+      + "Die Zeitreihen werden schlüsseltreu verschmolzen, vermischen sich also nicht: "
+      + "die Daten des " + srvName(data.server) + " landen in dessen Schlüsseln.\n\n"
+      + "Achtung: Optionen, Filter, Bookmarks und Notizen gelten für beide Server "
+      + "und werden ersetzt.\n\nTrotzdem importieren?")) {
+      return "Import abgebrochen (Export vom " + srvName(data.server) + ")";
+    }
   }
   var merged = 0, replaced = 0;
   $.each(data.values, function(k, v) {
@@ -1339,6 +1366,10 @@ function processSingleFormicariumView() {
   // daher nach jeder DOM-Änderung erneut anwenden.
   new MutationObserver(moveFoodTable).observe(document.body, {childList: true, subtree: true});
 }
+// Schlüssel der gemerkten Menge/Preis-Vorgabe eines Artikels. Mit Server-Präfix,
+// weil der Spielermarkt je Server andere Spieler und Preise hat. Das frühere
+// Präfix eba_enable_* war irreführend - es ist kein Optionsschalter.
+function shopPriceKey(item) { return "eba_shop_remember_price_" + srvKey() + item; }
 function rememberShopPrices() {
   if (!$("center > b:contains('Kleinanzeigen')").length){return}
   //remember price
@@ -1347,13 +1378,13 @@ function rememberShopPrices() {
     text = text.substring(0, text.indexOf(" ("));
     var amount = $("#shopitem input[name='amount']").val();
     var price = $("#shopitem input[name='price_cent']").val().replace(",", ".");
-    GM_setValue("eba_enable_shop_remember_prices_"+text, amount+"|"+price);
+    GM_setValue(shopPriceKey(text), amount+"|"+price);
   });
   //use price
   $("#shopitem select").on("change", function(e){
     var text = $("#shopitem option:selected").text();
     text = text.substring(0, text.indexOf(" ("));
-    var values = GM_getValue("eba_enable_shop_remember_prices_"+text, "1|1.00").split("|");
+    var values = GM_getValue(shopPriceKey(text), "1|1.00").split("|");
     var amount = values[0];
     var price = values[1];
     if (!$("#shopitem input[name='amount']").length) {
@@ -1612,7 +1643,8 @@ function sortAndFilterOptions() {
     select.append(html);
 
     //select the last active item
-    var key = "eba_saved_state_"+select.attr("name")+"_"+index;
+    // Mit Server-Präfix: die Auswahllisten unterscheiden sich je Server.
+    var key = "eba_saved_state_"+srvKey()+select.attr("name")+"_"+index;
     var last = GM_getValue(key, "null");
     var opt = null;
     do {
@@ -1899,7 +1931,9 @@ function enableConfig() {
     // Datensicherung/Umzug: Export erzeugt JSON, Import verschmilzt Zeitreihen
     configHTML += "<br>Daten-Export/Import (JSON)<br><textarea id='eba_io' style='height:100px;width:90%'></textarea>";
     configHTML += "<div><button id='eba_io_export' type='button'>Exportieren</button> ";
-    configHTML += "<button id='eba_io_import' type='button'>Importieren</button> <span id='eba_io_info'></span></div>";
+    configHTML += "<button id='eba_io_import' type='button'>Importieren</button> ";
+    configHTML += "<label><input type='checkbox' id='eba_io_only_srv'>nur dieser Server</label> ";
+    configHTML += "<span id='eba_io_info'></span></div>";
     configHTML += "<div id='eba_io_usage' style='font-size:0.9em'></div>";
     configHTML += "<div style='text-align:right;'><button id='eba_config_reset_srv' type='button'>Nur die Daten dieses Servers l&ouml;schen</button> ";
     configHTML += "<button id='eba_config_reset' type='button'>Alle gespeicherten Daten l&ouml;schen</button></div>";
@@ -1930,8 +1964,13 @@ function enableConfig() {
     };
     showUsage();
     $("#eba_io_export").on("click", function(e) {
-      $("#eba_io").val(exportHistoryJSON()).select();
-      $("#eba_io_info").text("Exportiert - jetzt kopieren.");
+      // Standard ist das Voll-Backup über beide Server; der Haken schränkt auf
+      // den aktuellen Server ein (Optionen und Filter sind immer dabei).
+      var only = $("#eba_io_only_srv").prop("checked");
+      $("#eba_io").val(exportHistoryJSON(only)).select();
+      $("#eba_io_info").text(only
+        ? "Exportiert: nur " + srvName(srvKey()) + " - jetzt kopieren."
+        : "Exportiert: beide Server - jetzt kopieren.");
     });
     $("#eba_io_import").on("click", function(e) {
       if (!window.confirm("Import: Zeitreihen werden mit den vorhandenen Daten verschmolzen, Optionen und Filter werden ersetzt. Fortfahren?")) { return; }
