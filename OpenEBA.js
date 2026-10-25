@@ -71,7 +71,8 @@ const configItems = {
   "eba_enable_show_inventory"                : [showInventory, "Inventar in der Seitenleiste Anzeigen", "Bestimmte Items aus dem Lager in der linken Seitenleiste Anzeigen. Begriffe werden in der unteren Liste gepflegt"],
   "eba_enable_global_statistic"              : [updateGlobalStatistic, "Geld, Punkte und Tickl&auml;nge historisieren", "Je Tick wird einmal der Geldbestand, die Punktzahl und die Dauer des letzten Ticks mit Zeitstempel festgehalten. Die Erfassung l&auml;uft auf jeder Spielseite (die Werte stehen in der Statusbox oben), aber immer nur einmal pro Tick."],
   "eba_enable_search_statistic"              : [updateSearchStatistic, "Futter- und Ameisensuchen vollst&auml;ndig historisieren", "Das Spiel zeigt nur die letzten Ergebnisse einer Futtersuche bzw. K&ouml;niginnensuche. Beim Aufruf der jeweiligen Seite wird die angezeigte Tabelle mit der gespeicherten Historie verschmolzen, sodass auch &auml;ltere Treffer erhalten bleiben."],
-  "eba_enable_history_compaction"            : [function(){}, "Historien ausd&uuml;nnen, wenn sie zu gro&szlig; werden", "Ohne diese Option wachsen die Historien unbegrenzt (bisheriges Verhalten). Mit der Option wird in einer Reihe ab " + EBA_HIST_MAX_LINES + " Zeilen aus der <b>&auml;lteren H&auml;lfte</b> jede zweite Zeile entfernt. Die j&uuml;ngere H&auml;lfte und die Kopfzeile bleiben unangetastet. <b>Achtung:</b> Das entfernt alte Messpunkte unwiderruflich. Den aktuellen Speicherverbrauch zeigt die Zeile unten."]
+  "eba_enable_history_compaction"            : [function(){}, "Historien ausd&uuml;nnen, wenn sie zu gro&szlig; werden", "Ohne diese Option wachsen die Historien unbegrenzt (bisheriges Verhalten). Mit der Option wird in einer Reihe ab " + EBA_HIST_MAX_LINES + " Zeilen aus der <b>&auml;lteren H&auml;lfte</b> jede zweite Zeile entfernt. Die j&uuml;ngere H&auml;lfte und die Kopfzeile bleiben unangetastet. <b>Achtung:</b> Das entfernt alte Messpunkte unwiderruflich. Den aktuellen Speicherverbrauch zeigt die Zeile unten."],
+  "eba_enable_max_points"                    : [showMaxPoints, "Maximale Punktzahl in der Formicarien-&Uuml;bersicht anzeigen", "Hinter den Punkten jedes Formicariums erscheint die maximal erreichbare Punktzahl, z.B. <i>12.340 / 50.000</i>. Bei monogynen Arten ist das ein harter Wert, bei polygynen Arten wird der Zuwachs je weiterer K&ouml;nigin eingerechnet (auf dem Speedserver mit anderen Werten als auf dem Normalserver). Der Tooltip zeigt Arbeiterinnen-Maximum, Auslastung in Prozent und die gemessenen Punkte je Arbeiterin. Quelle der Werte ist die Spielhilfe; f&uuml;r zwei Arten ist der polygyne Zuwachs auf dem Speedserver dort unbekannt, dann erscheint ab zwei K&ouml;niginnen ein <i>?</i>."]
 }
 const shopPriceLimits = {
   "Camponotus ligniperda": 6.34,
@@ -123,6 +124,72 @@ const antcat = {
   "Pheidologeton diversus": 3,
   "Polyrhachis dives": 3,
   "Marsameise": 3
+}
+// Maximalwerte je Ameisenart, Quelle: Spielhilfe-Excel, Blatt "Ameisen".
+// Die Schlüssel sind identisch mit denen von antcat (Harness-Test sichert das ab).
+//   p    = Punkte bei einer Königin und voller Kolonie        (Spalte B = C * P)
+//   a    = Arbeiterinnen bei einer Königin                    (Spalte C)
+//   poly = true: polygyn, weitere Königinnen erhöhen das Maximum (Spalte F)
+//   pn   = polygyner Zuwachs an Arbeiterinnen je weiterer Königin, Normalserver (Spalte G)
+//   ps   = dito Speedserver (Spalte H); null = in der Spielhilfe als "???" unbekannt
+//   n    = Platzbedarf im Nest bei a Arbeiterinnen            (Spalte M = C * Q)
+//   f    = Platzbedarf im Formicarium bei a Arbeiterinnen     (Spalte N = C * R)
+//   b    = Platzbedarf der Brut je Arbeiterin im Nest         (Spalte O), derzeit nicht verwendet
+// Punkte werden immer als Math.round(arbeiterinnen * p / a) gerechnet. Dadurch
+// bleiben alle Werte Ganzzahlen aus dem Blatt; die krummen Float-Werte der
+// Spalten Q/R (z.B. 7.0000000000000007E-2) kommen hier bewusst nicht vor.
+const antmax = {
+  // --- Einheimische Arten (Blatt "Ameisen", Zeile 2) ---
+  "Camponotus herculeanus":    { p: 5000, a: 10000, poly: false, n: 4000, f: 4000 },
+  "Camponotus ligniperda":     { p: 4000, a: 10000, poly: false, n: 4000, f: 4000 },
+  "Formica fusca":             { p: 1250, a: 5000, poly: true, pn: 2000, ps: 3000, n: 1000, f: 1000 },
+  "Formica sanguinea":         { p: 10000, a: 10000, poly: true, pn: 2000, ps: 2000, n: 3000, f: 3000 },
+  "Lasius emarginatus":        { p: 15000, a: 50000, poly: false, n: 5000, f: 5500 },
+  "Lasius flavus":             { p: 12000, a: 100000, poly: false, n: 10000, f: 2000 },
+  "Lasius fuliginosus":        { p: 500000, a: 1000000, poly: true, pn: 50000, ps: null, n: 100000, f: 110000 },
+  "Lasius niger":              { p: 5000, a: 50000, poly: false, n: 5000, f: 7500 },
+  "Myrmica rubra":             { p: 4000, a: 20000, poly: true, pn: 5000, ps: 10000, n: 3000, f: 4000 },
+  "Myrmica ruginodis":         { p: 30000, a: 100000, poly: true, pn: 10000, ps: 80000, n: 20000, f: 20000 },
+  "Ponera coarctata":          { p: 2500, a: 125, poly: true, pn: 150, ps: 150, n: 6.25, f: 12.5 },
+  "Solenopsis fugax":          { p: 125000, a: 250000, poly: false, n: 17500, f: 25000 },
+  "Temnothorax nylanderi":     { p: 250, a: 250, poly: false, n: 12.5, f: 25 },
+  // --- Südeuropäische Arten (Blatt "Ameisen", Zeile 17) ---
+  "Aphaenogaster senilis":     { p: 5000, a: 10000, poly: false, n: 3000, f: 3000 },
+  "Anochetus ghilianii":       { p: 10000, a: 100, poly: false, n: 12, f: 12 },
+  "Camponotus cruentatus":     { p: 70000, a: 100000, poly: false, n: 45000, f: 45000 },
+  "Camponotus lateralis":      { p: 75000, a: 10000, poly: false, n: 3500, f: 3500 },
+  "Cataglyphis velox":         { p: 13000, a: 10000, poly: true, pn: 5000, ps: null, n: 4000, f: 6000 },
+  "Crematogaster scutellaris": { p: 35000, a: 100000, poly: false, n: 10000, f: 20000 },
+  "Lasius grandis":            { p: 80000, a: 100000, poly: false, n: 10000, f: 9000 },
+  "Messor barbarus":           { p: 35000, a: 100000, poly: false, n: 40000, f: 40000 },
+  "Messor structor":           { p: 45000, a: 100000, poly: true, pn: 10000, ps: 75000, n: 35000, f: 35000 },
+  "Pheidole pallidula":        { p: 50000, a: 250000, poly: false, n: 25000, f: 50000 },
+  "Plagiolepis pygmaea":       { p: 100000, a: 500000, poly: true, pn: 100000, ps: 300000, n: 12500, f: 12500, b: 0.02 },
+  // --- Exotische Arten (Blatt "Ameisen", Zeile 30) ---
+  "Acromyrmex spec.":          { p: 120000, a: 100000, poly: false, n: 55000, f: 45000, b: 0.4 },
+  "Acromyrmex versicolor":     { p: 150000, a: 100000, poly: true, pn: 20000, ps: 80000, n: 55000, f: 45000, b: 0.4 },
+  "Camponotus sericeus":       { p: 250000, a: 50000, poly: false, n: 30000, f: 30000 },
+  "Camponotus substitutus":    { p: 80000, a: 80000, poly: false, n: 36000, f: 36000 },
+  "Messor alexandri":          { p: 150000, a: 100000, poly: false, n: 40000, f: 40000 },
+  "Myrmecia chrysogaster":     { p: 70000, a: 1000, poly: false, n: 300, f: 400 },
+  "Myrmecia pavida":           { p: 50000, a: 1000, poly: false, n: 400, f: 500 },
+  "Myrmecocystus mexicanus":   { p: 168000, a: 120000, poly: false, n: 36000, f: 60000, b: 0.25 },
+  "Pheidologeton diversus":    { p: 130000, a: 100000, poly: true, pn: 25000, ps: 25000, n: 30000, f: 40000 },
+  "Polyrhachis dives":         { p: 90000, a: 100000, poly: true, pn: 10000, ps: 75000, n: 30000, f: 50000, b: 0.25 },
+  "Marsameise":                { p: 50000, a: 500, poly: false, n: 200, f: 200, b: 0.3 },
+}
+// Kapazität der Behausungen in Platzeinheiten, Quelle: Spielhilfe-Excel, Blatt
+// "Ameisen". Schlüssel sind die Namen, wie das Spiel sie in der Übersicht
+// ausgibt (vgl. sortStock()). Lookup klein geschrieben, weil der Bestand
+// "YTong" und "Ytong" gemischt verwendet.
+const nestCapacity = {
+  "reagenzglas": 10, "kleines nest": 100, "mittleres nest": 500, "großes nest": 2500,
+  "mittleres ytong nest": 15000, "großes ytong nest": 100000, "riesiges ytong nest": 200000
+}
+const formiCapacity = {
+  "mini arena": 30, "kleines formicarium": 100, "mittleres formicarium": 500,
+  "großes formicarium": 2500, "mittlere anlage": 15000, "große anlage": 100000,
+  "riesige anlage": 200000
 }
 
 // Zustand der Futter-Warteschlange. Muss VOR der Init-Schleife unten stehen,
@@ -2220,4 +2287,172 @@ function initSnow(){
       flake.style.top = ym+"px";
     });
   } }(), 50);
+}
+
+// ---------------------------------------------------------------------------
+// Maximal erreichbare Punktzahl je Formicarium
+//
+// Belegt ist: Punkte sind linear in der Arbeiterinnenzahl. In der
+// Spielhilfe-Excel steht in Spalte B die Formel PRODUCT(C,P), also
+// Punkte = Arbeiterinnen * Pt/Arbeiterin. Daraus folgt für eine Kolonie mit
+// mehr Arbeiterinnen als dem Einzelköniginnen-Maximum:
+//   Punkte = Math.round(Arbeiterinnen * p / a)
+// Beide Operanden sind Ganzzahlen aus dem Blatt, deshalb genau diese Form und
+// nicht arbeiterinnen * (p/a) -- sonst schlägt die Gleitkomma-Ungenauigkeit
+// der Division durch.
+//
+// ANNAHME (nicht belegt): bei polygynen Arten wächst das Maximum um
+// (Königinnen - 1) * Zuwachs. Die Spalten G/H der Spielhilfe sind Literale
+// ohne Formel, und der dort als Referenz verlinkte Polygynierechner ist
+// gelöscht. Für monogyne Arten und für genau eine Königin ist die Zahl
+// dagegen belegt. Darum legt der Tooltip die Rechnung offen und zeigt
+// zusätzlich die am laufenden Spiel gemessenen Punkte je Arbeiterin -- weil
+// die Punkte linear sind, muss gemessen ~ Tabelle gelten. Das ist der Ersatz
+// für den gelöschten Rechner. Ein geratener Zuwachs wird nie verwendet: ist
+// er in der Spielhilfe unbekannt ("???"), erscheint ab zwei Königinnen ein
+// Fragezeichen statt einer Zahl.
+// ---------------------------------------------------------------------------
+
+// Normalform eines Artnamens für den Fallback-Vergleich: klein geschrieben,
+// Rand-Leerraum weg, Mehrfach-Leerraum zu einem Leerzeichen.
+function ebaAntmaxNorm(s) {
+  return ("" + s).replace(/^\s+|\s+$/g, "").toLowerCase().replace(/\s+/g, " ");
+}
+
+// Einmalig gebauter Index über die Normalformen. null = noch nicht gebaut.
+var ebaAntmaxIndex = null;
+
+// Eintrag aus antmax zu einem Artnamen aus dem DOM. Zuerst exakt (nur
+// getrimmt), dann über die Normalform. Unbekannte Art -> null.
+function ebaAntmaxLookup(kind) {
+  if (typeof kind != "string") { return null; }
+  var name = kind.replace(/^\s+|\s+$/g, "");
+  if (Object.prototype.hasOwnProperty.call(antmax, name)) { return antmax[name]; }
+  if (ebaAntmaxIndex == null) {
+    ebaAntmaxIndex = {};
+    for (var k in antmax) {
+      if (Object.prototype.hasOwnProperty.call(antmax, k)) { ebaAntmaxIndex[ebaAntmaxNorm(k)] = antmax[k]; }
+    }
+  }
+  var norm = ebaAntmaxNorm(name);
+  if (Object.prototype.hasOwnProperty.call(ebaAntmaxIndex, norm)) { return ebaAntmaxIndex[norm]; }
+  return null;
+}
+
+// Maximum einer Kolonie. speed ist bewusst ein Parameter und nicht intern
+// isSpeedServer(), damit die Funktion ohne DOM und ohne location testbar ist.
+// Rückgabe:
+//   null                               Art nicht in antmax
+//   {points, ants, poly, queens, grow, ratio, base, unknown}
+//   points/ants == null bei unknown == true (unbekannter polygyner Zuwachs)
+function ebaMaxPoints(kind, queens, speed) {
+  var e = ebaAntmaxLookup(kind);
+  if (!e) { return null; }
+  var q = (isFinite(queens) && queens >= 1) ? Math.floor(queens) : 1;
+  var ratio = e.p / e.a;
+  // monogyn: harter Wert, weitere Königinnen ändern nichts
+  if (!e.poly) {
+    return { points: e.p, ants: e.a, poly: false, queens: q, grow: 0, ratio: ratio, base: e.a, unknown: false };
+  }
+  var z = speed ? e.ps : e.pn;
+  if (z == null) {
+    // Zuwachs in der Spielhilfe unbekannt ("???"). Bei genau einer Königin
+    // ist das Maximum davon unabhängig und bleibt belegt.
+    if (q > 1) {
+      return { points: null, ants: null, poly: true, queens: q, grow: null, ratio: ratio, base: e.a, unknown: true };
+    }
+    return { points: e.p, ants: e.a, poly: true, queens: 1, grow: null, ratio: ratio, base: e.a, unknown: false };
+  }
+  var ants = e.a + (q - 1) * z;
+  return { points: Math.round(ants * e.p / e.a), ants: ants, poly: true, queens: q,
+           grow: z, ratio: ratio, base: e.a, unknown: false };
+}
+
+// Tausenderpunkte, gleiches Idiom wie im Bestand (statBeautify/insertPointsDiff).
+function ebaFmtInt(n) {
+  return String(n).replace(/(\d)(?=(\d\d\d)+(?!\d))/g, "$1.");
+}
+
+// Dezimalzahl mit deutschem Komma, auf digits Stellen gerundet, ohne
+// überflüssige Nullen.
+function ebaFmtDec(x, digits) {
+  var f = Math.pow(10, digits);
+  return ("" + (Math.round(x * f) / f)).replace(".", ",");
+}
+
+// Hinter den Punkten jedes Formicariums das Maximum anzeigen: "12.340 / 50.000".
+// Die Prozentzahl steht absichtlich NICHT in der Spalte (zu schmal), sondern im
+// Tooltip des eigenen <span>. Das Tooltip hängt am <span> und nicht am <td>,
+// weil updateFormiStatistic() auf dem <td> schon die Punkte-Entwicklung pro
+// Stunde als title setzt -- beide müssen nutzbar bleiben. Die eigene Punktzahl
+// wird nicht umformatiert, damit parseInt(cells.eq(6).text()) dort unabhängig
+// von der Reihenfolge der Features weiter funktioniert.
+function showMaxPoints() {
+  if (!$("h3:contains('Deine Formicarien')").length) { return; }
+  try {
+    var speed = isSpeedServer();
+    var srv = speed ? "Speedserver" : "Normalserver";
+    $("div[id='shopitem']:contains('Larven')").each(function(i, el) {
+      try {
+        var div = $(this);
+        if (div.find("span.eba_maxpt").length) { return; } // schon angezeigt
+        // Zellen genau wie in updateFormiStatistic() lesen:
+        // 0 Königinnen, 1 Arbeiterinnen, 2 Eier, 3 Larven, 4 Puppen,
+        // 5 Art, 6 Punkte, 7 Nest, 8 Formicarium, 9/10 Hunger
+        var cells = div.find("table.liste td").add(div.find("div[id='group'] table.inner td")).filter(":odd");
+        var kind = ("" + cells.eq(5).text()).replace(/^\s+|\s+$/g, "");
+        var qRaw = parseInt(("" + cells.eq(0).text()).replace(/\./g, ""), 10);
+        var max = ebaMaxPoints(kind, qRaw, speed);
+        if (!max) { return; } // Art nicht in antmax -> gar nichts anzeigen
+        var ants = parseInt(("" + cells.eq(1).text()).replace(/\./g, ""), 10);
+        var points = parseInt(("" + cells.eq(6).text()).replace(/\./g, ""), 10);
+
+        var tip = [];
+        if (max.unknown) {
+          tip.push("Polygyner Zuwachs für " + kind + " auf dem " + srv
+                 + " ist in der Spielhilfe nicht bekannt (???).");
+        } else {
+          tip.push("max. " + ebaFmtInt(max.points) + " Punkte bei " + ebaFmtInt(max.ants) + " Arbeiterinnen");
+          if (!max.poly) {
+            tip.push("monogyn: " + ebaFmtInt(max.base) + " Arbeiterinnen, von der Königinnenzahl unabhängig");
+          } else if (max.grow == null) {
+            tip.push("1 Königin, polygyn. Der polygyne Zuwachs ist auf dem " + srv
+                   + " in der Spielhilfe nicht bekannt (???), ab 2 Königinnen ist daher keine Rechnung möglich.");
+          } else if (max.queens > 1) {
+            tip.push(max.queens + " Königinnen, polygyn, " + srv + ": " + ebaFmtInt(max.base)
+                   + " + " + (max.queens - 1) + " × " + ebaFmtInt(max.grow));
+          } else {
+            tip.push("1 Königin, polygyn, " + srv + ": je weitere Königin + "
+                   + ebaFmtInt(max.grow) + " Arbeiterinnen");
+          }
+        }
+        if (max.poly && !(isFinite(qRaw) && qRaw >= 1)) {
+          tip.push("Königinnenzahl unklar, gerechnet mit 1");
+        }
+        // Laufende Selbstprüfung des Modells am lebenden Spiel: weil die
+        // Punkte linear sind, muss punkte/arbeiterinnen ~ p/a gelten.
+        var probe = [];
+        if (!max.unknown && isFinite(points) && max.points > 0) {
+          probe.push("aktuell " + ebaFmtDec(points / max.points * 100, 1) + " %");
+        }
+        if (isFinite(points) && isFinite(ants) && ants > 0) {
+          probe.push("gemessen " + ebaFmtDec(points / ants, 3) + " Pt/Arbeiterin (Tabelle "
+                   + ebaFmtDec(max.ratio, 3) + ")");
+        }
+        if (probe.length) { tip.push(probe.join("  ·  ")); }
+
+        // In das letzte Element-Kind der Punkte-Zelle hängen (meist <center>),
+        // aber nur wenn es genau eines ist -- sonst in die Zelle selbst, damit
+        // das <span> nicht in einem <img>/<a> landet.
+        var td = cells.eq(6);
+        var kids = td.children();
+        var host = (kids.length == 1) ? kids.last() : td;
+        host.append(" <span class='eba_maxpt' style='color:#808080'>/ "
+                  + (max.unknown ? "?" : ebaFmtInt(max.points)) + "</span>");
+        // title per attr() statt inline, damit der Artname aus dem DOM nicht
+        // escaped werden muss.
+        div.find("span.eba_maxpt").last().attr("title", tip.join("\n"));
+      } catch (err) {}
+    });
+  } catch (err) {}
 }
