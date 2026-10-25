@@ -1049,7 +1049,8 @@ function mergeFormiHistory(a, b) {
 // Alle openEBA-Werte als JSON ausgeben. Ohne Argument ein Voll-Backup über
 // beide Server; mit onlyThisServer=true nur die Werte des aktuellen Servers
 // plus die für beide geltenden Optionen, Filter und Notizen.
-// Das Feld "onlyServer" merkt sich das, damit der Import es benennen kann.
+// Das Feld "onlyServer" hält fest, ob gefiltert wurde; der Import weist darauf
+// hin, wenn ein so gefilterter Export auf dem falschen Server landet.
 function exportHistoryJSON(onlyThisServer) {
   var out = {
     format: "openEBA-history",
@@ -1083,6 +1084,10 @@ function importHistoryJSON(text) {
       + ", du bist aber auf dem " + srvName(srvKey()) + " (" + location.hostname + ").\n\n"
       + "Die Zeitreihen werden schlüsseltreu verschmolzen, vermischen sich also nicht: "
       + "die Daten des " + srvName(data.server) + " landen in dessen Schlüsseln.\n\n"
+      + (data.onlyServer
+          ? "Der Export wurde auf den " + srvName(data.server) + " eingeschränkt, "
+            + "enthält also KEINE Daten für " + srvName(srvKey()) + ".\n\n"
+          : "")
       + "Achtung: Optionen, Filter, Bookmarks und Notizen gelten für beide Server "
       + "und werden ersetzt.\n\nTrotzdem importieren?")) {
       return "Import abgebrochen (Export vom " + srvName(data.server) + ")";
