@@ -215,21 +215,39 @@ function sumMultipleMessages() {
   });
 }
 function highlightShopPrices() {
-  var rows = $("#eba_shop_prices tr");
-  // Ankauf-Seite: Die Überschrift "Ameisen verkaufen" gibt es nur vor der Preisanfrage.
-  // "Königinnen werden momentan ..." steht dagegen vor und nach der Anfrage da.
-  if ($("center b:contains('Königinnen werden momentan')").length){
-    rows = rows.add("table.liste tr");
-  }
-  rows.each(function () {
-    var ant = $(this).find("td").eq(0).text();
-    var price = parseFloat($(this).find("td").eq(1).text().replace(/,/, "."));
-    if (shopPriceLimits[ant]*0.99<=price) {
-      $(this).css("color", "#FF5555");
-    } else if (shopPriceLimits[ant]*0.95<=price) {
-      $(this).css("color", "#FFFF00");
+  var colorize = function() {
+    var rows = $("#eba_shop_prices tr");
+    // Ankauf-Seite: Die Überschrift "Ameisen verkaufen" gibt es nur vor der Preisanfrage.
+    // "Königinnen werden momentan ..." steht dagegen vor und nach der Anfrage da.
+    if ($("center b:contains('Königinnen werden momentan')").length){
+      rows = rows.add("table.liste tr");
     }
-  });
+    rows.each(function () {
+      var row = $(this);
+      var ant = row.find("td").eq(0).text();
+      var price = parseFloat(row.find("td").eq(1).text().replace(/,/, "."));
+      var color = "";
+      if (shopPriceLimits[ant]*0.99<=price) {
+        color = "#FF5555";
+      } else if (shopPriceLimits[ant]*0.95<=price) {
+        color = "#FFFF00";
+      }
+      // nur färben, wenn sich die Farbe ändert (verhindert Endlosschleife mit dem Observer
+      // und entfernt die Farbe wieder, wenn der Preis gefallen ist)
+      if (row.data("eba_color") !== color) {
+        row.data("eba_color", color);
+        row.css("color", color);
+      }
+    });
+  };
+  colorize();
+  // Nach einer AJAX-Aktion (Füttern, Preisanfrage) baut das Spiel Teile der Seite neu auf
+  // und die Farben sind weg, daher nach jeder DOM-Änderung erneut einfärben.
+  // Nur ein Observer, weil alwaysShowShopPrices() diese Funktion ebenfalls aufruft.
+  if (!highlightShopPrices.observer) {
+    highlightShopPrices.observer = new MutationObserver(colorize);
+    highlightShopPrices.observer.observe(document.body, {childList: true, subtree: true});
+  }
 }
 function alwaysShowShopPrices() {
   var isMobile = function() { return window.matchMedia("(max-width: 959px)").matches; };
@@ -243,18 +261,36 @@ function alwaysShowShopPrices() {
   "}</style>");
 
   var priceDiv = "<div id='eba_shop_prices' style='border:1px solid #3CAC56;z-index:100;margin-top:1px;color:white;transform:scale(0.15);position:absolute;transform-origin: left top;'></div>";
-  var link = $("a:contains('Ameisenshop')").first().attr("id", "eba_shop_link");
-  if (isMobile()) {
-    link.prepend(priceDiv);   // Preise in den Button
-  } else {
-    link.css("text-align", "right").css("width", "122px").before(priceDiv);   // Desktop wie bisher
-  }
+  var priceRows = null;   // Preiszeilen, sobald sie aus Cache oder Abfrage vorliegen
+  var observer = null;
 
-  var doInsert = function(rowsHTML) {
+  // Preisblock an den Menüeintrag hängen. Beliebig oft aufrufbar: solange der Block
+  // noch im DOM steht, passiert nichts (verhindert Endlosschleife mit dem Observer).
+  var insertPrices = function() {
+    if (priceRows == null || $("#eba_shop_prices").length) {return}
+    // Den Link jedes Mal neu suchen, nach einem DOM-Neuaufbau ist das alte Element weg.
+    var link = $("a:contains('Ameisenshop')").first();
+    if (!link.length) {
+      // Kein Ameisenshop-Menüeintrag auf dieser Seite, dann gibt es auch nichts einzuhängen.
+      if (observer) {observer.disconnect();}
+      return;
+    }
+    link.attr("id", "eba_shop_link");
+    if (isMobile()) {
+      link.prepend(priceDiv);   // Preise in den Button
+    } else {
+      link.css("text-align", "right").css("width", "122px").before(priceDiv);   // Desktop wie bisher
+    }
     $("#eba_shop_prices").hover(
       function () { if (!isMobile()) { $(this).css('transform', 'none'); } },
       function () { if (!isMobile()) { $(this).css('transform', 'scale(0.15)'); } }
-    ).append("<table style='border-collapse:collapse'>"+rowsHTML+"</table>");
+    ).append("<table style='border-collapse:collapse'>"+priceRows+"</table>");
+    //highlight if enabled
+    GM_getValue("eba_enable_highlight_shop_prices", false) && highlightShopPrices();
+  };
+  var doInsert = function(rowsHTML) {
+    priceRows = rowsHTML;
+    insertPrices();
   };
   var storedData = GM_getValue("eba_shop_prices", "0\nx").split("\n", 2);
   var hours = Math.floor($.now()/3600000);
@@ -268,13 +304,15 @@ function alwaysShowShopPrices() {
         var rows = regexp.exec(response.responseText)[1];
         doInsert(rows);
         GM_setValue("eba_shop_prices", ""+hours+"\n"+rows);
-        //highlight if enabled
-        GM_getValue("eba_enable_highlight_shop_prices", false) && highlightShopPrices();
       }
     });
   } else {
     doInsert(storedData[1]);
   }
+  // Nach einer AJAX-Aktion (z.B. Füttern) baut das Spiel Teile der Seite neu auf und der
+  // Preisblock verschwindet mit dem Menüeintrag, daher nach jeder DOM-Änderung erneut einhängen.
+  observer = new MutationObserver(insertPrices);
+  observer.observe(document.body, {childList: true, subtree: true});
 }
 
 // ---------------------------------------------------------------------------
