@@ -842,12 +842,80 @@ function updateSearchStatistic() {
 // Migration auf die aktuelle Schema-Version
 // ---------------------------------------------------------------------------
 
+// Versionsschlüssel des Speicherschemas - pro Server, weil die Migration auf
+// jedem Server einmal laufen muss. Ein globaler Schlüssel hätte den jeweils
+// zweiten Server dauerhaft von allen Migrationen ausgeschlossen.
+function schemaKey() { return "eba_schemaversion_" + srvKey(); }
+
+// Die beiden Stützstellen des Punkte-Fensters von insertPointsDiff(), pro
+// Server. Früher global - dadurch hat der eine Server die Punkte des anderen
+// in seine Rate gerechnet. n ist 1 (ältere) oder 2 (jüngere Stützstelle).
+function pointsWindowKey(n) { return "eba_points_" + srvKey() + n; }
+function hoursWindowKey(n) { return "eba_hours_" + srvKey() + n; }
+
+// Umschlüsselung von Werten, die früher global lagen, aber serverabhängig sind.
+// Läuft vor jeder Schema-Migration und ist über die Existenz der Altschlüssel
+// abgesichert, also beliebig oft wiederholbar.
+function migrateServerKeys() {
+  // 1) Punkte-/Stundenfenster von insertPointsDiff() (B2). Die Altwerte sind
+  //    keinem Server zuzuordnen, deshalb gehen sie an den Normalserver; der
+  //    Speedserver startet mit leerem Fenster.
+  var pairs = [["eba_points1", "eba_points_1"], ["eba_points2", "eba_points_2"],
+               ["eba_hours1", "eba_hours_1"], ["eba_hours2", "eba_hours_2"]];
+  for (var i = 0; i < pairs.length; i++) {
+    var old = GM_getValue(pairs[i][0], null);
+    if (old === null) { continue; }
+    if (GM_getValue(pairs[i][1], null) === null) { GM_setValue(pairs[i][1], old); }
+    GM_deleteValue(pairs[i][0]);
+  }
+
+  // 2) Gemerkte Mengen/Preise aus den Kleinanzeigen (B7). Das alte Präfix
+  //    eba_enable_* war irreführend, der Wert ist kein Optionsschalter.
+  //    Der Unterstrich am Ende grenzt den Optionsschalter selbst aus.
+  var oldPre = "eba_enable_shop_remember_prices_";
+  $.each(GM_listValues(), function(j, k) {
+    if (k.indexOf(oldPre) !== 0) { return; }
+    var item = k.substr(oldPre.length);
+    var dst = "eba_shop_remember_price_" + item; // Altwerte an den Normalserver
+    if (GM_getValue(dst, null) === null) { GM_setValue(dst, GM_getValue(k, null)); }
+    GM_deleteValue(k);
+  });
+
+  // 3) Reine Stundencaches (B4/B6): nicht zuordenbar und ohnehin nach einer
+  //    Stunde wertlos, werden daher nur entfernt. Die neuen Schlüssel tragen
+  //    srvKey(). eba_inv wurde nie geschrieben (Tippfehler), eba_inventory nie
+  //    gelesen - beide sind damit kein Datenverlust.
+  var stale = ["eba_inv", "eba_inventory", "eba_shop_prices"];
+  for (var s = 0; s < stale.length; s++) {
+    if (GM_getValue(stale[s], null) !== null) { GM_deleteValue(stale[s]); }
+  }
+
+  // 4) Versionsschlüssel (B1): der alte globale Wert wird für BEIDE Server
+  //    übernommen. Weil nicht feststellbar ist, auf welchem Server die
+  //    v2-Migration tatsächlich gelaufen ist, wird höchstens Version 1
+  //    übernommen - die v2-Schritte prüfen selbst, ob ihre Zeitreihe schon
+  //    existiert, laufen also gefahrlos erneut und holen den bisher
+  //    übersprungenen Server nach.
+  var legacyVer = GM_getValue("eba_schema_version", null);
+  if (legacyVer !== null) {
+    var v = parseInt(legacyVer, 10);
+    if (isNaN(v) || v < 0) { v = 0; }
+    if (v > 1) { v = 1; }
+    var keys = ["eba_schemaversion_", "eba_schemaversion_speed_"];
+    for (var n = 0; n < keys.length; n++) {
+      if (GM_getValue(keys[n], null) === null) { GM_setValue(keys[n], v); }
+    }
+    GM_deleteValue("eba_schema_version");
+  }
+}
+
 // Die Formi- und Futter-Historien werden NICHT angefasst: Schema 2 erweitert
 // nur um neue Schlüssel. Zusätzlich werden die alten Einzelwerte aus
-// eba_points1/2 (Punkte je Epoch-Stunde) und eba_tickdur_* (eine Ticklänge)
+// eba_points_1/2 (Punkte je Epoch-Stunde) und eba_tickdur_* (eine Ticklänge)
 // verlustfrei als Startpunkte in die neuen Zeitreihen übernommen.
 function migrateHistorySchema() {
-  var from = parseInt(GM_getValue("eba_schema_version", 0), 10);
+  migrateServerKeys(); // erst umschlüsseln, dann die Version auswerten
+  var from = parseInt(GM_getValue(schemaKey(), 0), 10);
   if (isNaN(from)) { from = 0; }
   if (from >= EBA_SCHEMA_VERSION) { return; }
 
@@ -855,12 +923,19 @@ function migrateHistorySchema() {
     // Punkte: die beiden gespeicherten Stützstellen von insertPointsDiff()
     if (!GM_getValue(histKey("points"), "")) {
       var seeds = [];
+      // Der Seed stammt aus der PC-Uhr (Epoch-Stunden), die laufende Erfassung
+      // aus der Server-Uhr (Tick-Beginn). Liegt ein Seed im aktuellen Tick oder
+      // dahinter, würde histAppend() die erste echte Messung dieses Ticks
+      // verwerfen - solche Stützstellen werden deshalb übersprungen (B11).
+      var curTick = getTickInfo().nowTick / 60000;
       var add = function(h, p) {
         h = parseInt(h, 10); p = parseInt(p, 10);
-        if (!isNaN(h) && !isNaN(p) && h > 0 && p > 0) { seeds.push([h * 60, p]); }
+        if (isNaN(h) || isNaN(p) || h <= 0 || p <= 0) { return; }
+        if (h * 60 >= curTick) { return; }
+        seeds.push([h * 60, p]);
       };
-      add(GM_getValue("eba_hours1", 0), GM_getValue("eba_points1", 0));
-      add(GM_getValue("eba_hours2", 0), GM_getValue("eba_points2", 0));
+      add(GM_getValue(hoursWindowKey(1), 0), GM_getValue(pointsWindowKey(1), 0));
+      add(GM_getValue(hoursWindowKey(2), 0), GM_getValue(pointsWindowKey(2), 0));
       var out = [histHead("points", "punkte")];
       var prev = -1;
       for (var i = 0; i < seeds.length; i++) {
@@ -879,7 +954,7 @@ function migrateHistorySchema() {
       }
     }
   }
-  GM_setValue("eba_schema_version", EBA_SCHEMA_VERSION);
+  GM_setValue(schemaKey(), EBA_SCHEMA_VERSION);
 }
 
 // ---------------------------------------------------------------------------
@@ -989,6 +1064,10 @@ function importHistoryJSON(text) {
   var merged = 0, replaced = 0;
   $.each(data.values, function(k, v) {
     if (k.indexOf("eba_") !== 0) { return; }
+    // Versionsschlüssel beschreiben den Zustand des LOKALEN Speichers, nicht
+    // die Daten. Würden sie übernommen, gälte eine fremde Migration hier als
+    // erledigt. Sie werden unten von migrateHistorySchema() gesetzt.
+    if (k === "eba_schema_version" || k.indexOf("eba_schemaversion_") === 0) { return; }
     if (isHistoryKey(k) && typeof v === "string") {
       var mine = GM_getValue(k, "");
       var res;
@@ -1008,7 +1087,13 @@ function importHistoryJSON(text) {
       replaced++;
     }
   });
-  GM_setValue("eba_schema_version", EBA_SCHEMA_VERSION);
+  // Bisher wurde hier blind die aktuelle Version gestempelt - ein Export aus
+  // Schema 1 wäre danach nie migriert worden. Stattdessen wird die lokale
+  // Version auf den Stand der Importdaten zurückgesetzt (nur nach unten) und
+  // die Migration regulär angestoßen.
+  var incoming = parseInt(data.schema, 10);
+  if (!isNaN(incoming) && incoming < EBA_SCHEMA_VERSION) { GM_setValue(schemaKey(), incoming); }
+  migrateHistorySchema();
   return merged + " Zeitreihen verschmolzen, " + replaced + " Werte ersetzt";
 }
 
@@ -1744,21 +1829,26 @@ function insertPointsDiff() {
   var result = /Punkte:\s*([\.\d]*)/.exec(status.html());
   if (result==null) {return;} //reoccuring error for some users
   var currentPoints = parseInt(result[1].replace(/\./g, ""));
-  var oldPoints1 = GM_getValue("eba_points1", 0);
-  var oldPoints2 = GM_getValue("eba_points2", 0);
-  var oldHours1 = GM_getValue("eba_hours1", 0);
-  var oldHours2 = GM_getValue("eba_hours2", 0);
+  // Das Fenster liegt pro Server, sonst schiebt der Speedserver seine Punkte
+  // in die Reihe des Normalservers und die Rate wird absurd (B2).
+  var oldPoints1 = GM_getValue(pointsWindowKey(1), 0);
+  var oldPoints2 = GM_getValue(pointsWindowKey(2), 0);
+  var oldHours1 = GM_getValue(hoursWindowKey(1), 0);
+  var oldHours2 = GM_getValue(hoursWindowKey(2), 0);
 
   if (hours>oldHours2) {
     //save new values and shift
-    oldPoints1 = oldPoints2; GM_setValue("eba_points1", oldPoints1);
-    oldPoints2 = currentPoints; GM_setValue("eba_points2", oldPoints2);
-    oldHours1 = oldHours2; GM_setValue("eba_hours1", oldHours1);
-    oldHours2 = hours; GM_setValue("eba_hours2", oldHours2);
+    oldPoints1 = oldPoints2; GM_setValue(pointsWindowKey(1), oldPoints1);
+    oldPoints2 = currentPoints; GM_setValue(pointsWindowKey(2), oldPoints2);
+    oldHours1 = oldHours2; GM_setValue(hoursWindowKey(1), oldHours1);
+    oldHours2 = hours; GM_setValue(hoursWindowKey(2), oldHours2);
   }
   var hourDiff = oldHours2 - oldHours1;
   var pointsDiff = oldPoints2 - oldPoints1;
-  $("div#status img").attr("title", "+"+(pointsDiff/hourDiff).toFixed(1));
+  // Ohne zwei brauchbare Stützstellen gibt es keine Rate: hourDiff==0 ergäbe
+  // Infinity, ein noch leeres Fenster (oldHours1==0) eine absurd kleine Rate.
+  var title = (oldHours1 > 0 && hourDiff > 0) ? "+" + (pointsDiff / hourDiff).toFixed(1) : "+?";
+  $("div#status img").attr("title", title);
 }
 function enableBookmarks() {
   if (!$("#shopmenucats").length) {return}
@@ -1835,8 +1925,8 @@ function enableConfig() {
     var showUsage = function() {
       var u = historyStorageInfo();
       $("#eba_io_usage").text("Gespeichert: " + Math.round(u.chars / 1024) + " kB in "
-        + u.series + " Zeitreihen mit " + u.lines + " Messzeilen (Schema "
-        + GM_getValue("eba_schema_version", 0) + ", Grenze je Reihe " + EBA_HIST_MAX_LINES + " Zeilen).");
+        + u.series + " Zeitreihen mit " + u.lines + " Messzeilen (beide Server, Schema "
+        + GM_getValue(schemaKey(), 0) + ", Grenze je Reihe " + EBA_HIST_MAX_LINES + " Zeilen).");
     };
     showUsage();
     $("#eba_io_export").on("click", function(e) {
