@@ -435,12 +435,42 @@ function elapsedHours(baseHour, tickStartMs) {
   return Math.round((tickStartMs - baseHour * 3600000) / 36000) / 100;
 }
 
+// ---------------------------------------------------------------------------
+// Plausibilität von Zeitschlüsseln
+//
+// Alle drei Erfassungspfade prüfen nur die LETZTE Zeile einer Reihe, ob schon
+// etwas für den aktuellen Tick vorliegt: histAppend(), updateFormiStatistic()
+// und hasFoodSnapshot(). Eine einzige Zeile mit einem Zeitschlüssel aus der
+// Zukunft genügt deshalb, um die Erfassung von Geld, Punkten, Ticklänge, Formis
+// und Futter dauerhaft und ohne jede Fehlermeldung einzufrieren - und weil
+// aufsteigend sortiert wird, landet so ein Wert garantiert genau an dieser
+// Gift-Position. Die Grenzen hier fangen das an zwei Stellen ab: eingehende
+// Daten werden vor dem Verschmelzen gefiltert, und ein trotzdem vorhandener
+// Zukunftswert blockiert das Anhängen nicht mehr.
+// ---------------------------------------------------------------------------
+
+// Frühestes plausibles Datum: 01.01.2020 UTC. Davor gab es diese Reihen nicht.
+var EBA_TIME_MIN = 1577836800000;
+
+// Spätester plausibler Zeitpunkt: ein Tick in der Zukunft.
+function ebaTimeMax() { return getServerNow() + getTickMinutes() * 60000; }
+
+// Liegt ein absoluter Zeitpunkt (ms) im plausiblen Bereich?
+function ebaTimePlausible(ms) {
+  return !isNaN(ms) && ms >= EBA_TIME_MIN && ms <= ebaTimeMax();
+}
+
 // Futter-Snapshots im Hintergrund holen (sequentiell, um den Server zu schonen)
 function hasFoodSnapshot(id, tickMin) {
   var saved = GM_getValue("eba_food_" + srvKey() + id, "");
   if (!saved) { return false; }
   var last = saved.substr(saved.lastIndexOf("\n") + 1);
-  return parseInt(last.split("\t")[0]) >= tickMin;
+  var lastMin = parseInt(last.split("\t")[0]);
+  if (isNaN(lastMin)) { return false; }
+  // Zukunftswert in der letzten Zeile: nicht als "schon erfasst" deuten, sonst
+  // würde nie wieder ein Snapshot geholt (siehe ebaTimePlausible()).
+  if (!ebaTimePlausible(lastMin * 60000)) { return false; }
+  return lastMin >= tickMin;
 }
 function queueFoodSnapshot(id, url, tickMin) {
   var k = srvKey() + id + "_" + tickMin;
@@ -543,6 +573,10 @@ function updateFormiStatistic() {
     var nowElapsed = elapsedHours(baseHour, tk.nowTick);
     var lines = savedData.split("\n"); // lines[0] = Kopfzeile
     var lastElapsed = parseFloat(lines[lines.length - 1].split("\t")[0]);
+
+    // Steht in der letzten Zeile ein Zeitstempel aus der Zukunft, wird er nicht
+    // als Sperre gewertet - sonst erfasst dieses Formicarium nie wieder etwas.
+    if (!ebaTimePlausible(baseHour * 3600000 + lastElapsed * 3600000)) { lastElapsed = -Infinity; }
 
     // neuer Tick seit der letzten Zeile? Ausgefallene Ticks dazwischen werden nicht aufgefüllt.
     if (tk.done && nowElapsed > lastElapsed) {
@@ -657,6 +691,10 @@ function histAppend(name, timeKey, fields, unit) {
   } else {
     var last = saved.substr(saved.lastIndexOf("\n") + 1);
     var lastKey = parseFloat(last);
+    // Ein Zeitschlüssel aus der Zukunft wird nicht als Sperre gewertet, sonst
+    // würde diese Reihe nie wieder etwas erfassen (siehe ebaTimePlausible()).
+    // Der Zeitschlüssel ist hier immer in Minuten seit Epoch.
+    if (!ebaTimePlausible(lastKey * 60000)) { lastKey = NaN; }
     // lastIndexOf liefert -1, solange nur die Kopfzeile da ist; dann ist das
     // erste Feld die Schema-Version und kleiner als jeder Zeitschlüssel.
     if (saved.indexOf("\n") >= 0 && !isNaN(lastKey) && lastKey >= timeKey) { return false; }
@@ -974,40 +1012,136 @@ function isHistoryKey(k) {
   return k.indexOf("eba_hist_") === 0 || k.indexOf("eba_statistic_") === 0 || k.indexOf("eba_food_") === 0;
 }
 
+// ---------------------------------------------------------------------------
+// Verschmelzen von Zeitreihen
+//
+// Damit mehrere Geräte über eine gemeinsame Datei zusammenlaufen KÖNNEN, muss
+// das Verschmelzen vier Eigenschaften haben. Fehlt eine davon, schreiben sich
+// die Geräte bei jedem Abgleich gegenseitig im Kreis, ohne Ende:
+//   idempotent    m(x,x) = x
+//   kommutativ    m(a,b) = m(b,a)   - und zwar BYTEGLEICH, nicht nur inhaltlich
+//   assoziativ    m(m(a,b),c) = m(a,m(b,c))
+//   kanonisch     gleiche Zeilenmenge => gleiche Bytes
+// Nur dann gibt es einen Fixpunkt, nach dem kein Gerät mehr schreibt.
+// ---------------------------------------------------------------------------
+
+// Lexikografischer Vergleich zweier Zeilen. Dient als Tie-Break und stellt die
+// Ordnung von der (argumentabhängigen) Einfügereihenfolge auf den Inhalt um.
+function syncCmpLine(x, y) { return x < y ? -1 : (x > y ? 1 : 0); }
+
+// Kopfzeile deterministisch wählen: höhere Schema-Version gewinnt, bei
+// Gleichstand die lexikografisch kleinere Zeile. Vorher gewann immer die Seite,
+// die als erstes Argument übergeben wurde - bei abweichenden Kopfzeilen (anderes
+// Schema, geänderte Suchspalten) war das Ergebnis damit argumentabhängig.
+function mergeHeadLine(x, y) {
+  if (typeof x !== "string") { return typeof y === "string" ? y : ""; }
+  if (typeof y !== "string") { return x; }
+  var sx = parseInt(x, 10), sy = parseInt(y, 10);
+  if (isNaN(sx)) { sx = -1; }
+  if (isNaN(sy)) { sy = -1; }
+  if (sx !== sy) { return sx > sy ? x : y; }
+  return syncCmpLine(x, y) <= 0 ? x : y;
+}
+
+// Markerbestand einer Seite als vergleichbare Zeichenkette. "H"-Zeilen halten
+// einen Wechsel der Spaltenbelegung fest und werden positionsabhängig gedeutet.
+function syncMarkerList(lines, start) {
+  var m = [];
+  for (var i = start; i < lines.length; i++) {
+    if (lines[i] && lines[i].indexOf("H\t") === 0) { m.push(lines[i]); }
+  }
+  m.sort();
+  return m.join("\n");
+}
+
 // Zwei zeilenbasierte Reihen mit absolutem Zeitschlüssel verschmelzen.
 // hasHeader: Zeile 0 ist Kopfzeile (eba_hist_*) oder schon eine Datenzeile (eba_food_*).
 // byContent: nach Inhalt statt nach ganzer Zeile entdoppeln (Suchen, deren
 //            Erfassungszeitpunkt je Browser abweicht); dabei gewinnt der frühere Zeitpunkt.
+//
+// Das Ergebnis ist immer die kanonische Form der Vereinigung - auch wenn eine
+// Seite leer ist. Deshalb gibt es hier keine Abkürzung "ist a leer, gib b
+// zurück": sie würde eine unsortierte Seite unverändert durchlassen und damit
+// die Idempotenz brechen.
 function mergeSeries(a, b, hasHeader, byContent) {
-  if (!a) { return b; }
-  if (!b) { return a; }
-  var la = a.split("\n"), lb = b.split("\n");
+  if (typeof a !== "string") { a = ""; }
+  if (typeof b !== "string") { b = ""; }
+  if (!a && !b) { return ""; }
+  var la = a ? a.split("\n") : [], lb = b ? b.split("\n") : [];
   var start = hasHeader ? 1 : 0;
+  // Haben die beiden Seiten NICHT denselben Markerbestand, wird nicht nach
+  // Inhalt entdoppelt: eine Zeile könnte sonst über eine Spaltenwechsel-Grenze
+  // wandern und anschließend unter der falschen Kopfzeile gedeutet werden.
+  // Konservativ bleiben dann beide Seiten vollständig erhalten.
+  if (byContent && syncMarkerList(la, start) !== syncMarkerList(lb, start)) {
+    byContent = false;
+  }
   var seen = {}, data = [];
   var collect = function(lines) {
+    var pending = []; // "H"-Marker warten auf den Zeitschlüssel ihrer Folgezeile
     for (var i = start; i < lines.length; i++) {
       var line = lines[i];
       if (!line) { continue; }
+      if (line.indexOf("H\t") === 0) { pending.push(line); continue; }
       var t = parseFloat(line);
+      // Zeilen ohne deutbaren Zeitschlüssel verwerfen. Früher landeten sie im
+      // null-Pfad an beliebiger Position und verfälschten alle Folgezeilen.
+      if (isNaN(t)) { continue; }
       var content = line.substr(line.indexOf("\t") + 1);
-      var id = byContent ? content : line;
-      if (typeof seen[id] !== "undefined") {
-        if (byContent && !isNaN(t) && t < data[seen[id]][0]) { data[seen[id]][0] = t; }
+      // Jeder wartende Marker bekommt den Zeitschlüssel SEINER Folgezeile und
+      // wird regulär einsortiert. Rang 0 hält ihn vor der Datenzeile.
+      for (var p = 0; p < pending.length; p++) {
+        var mid = "H " + t + " " + pending[p];
+        if (seen[mid] === true) { continue; }
+        seen[mid] = true;
+        data.push([t, 0, pending[p]]);
+      }
+      pending = [];
+      // Präfix vor dem Schlüssel, damit kein Inhalt je einen Namen aus
+      // Object.prototype (z.B. "constructor") treffen kann.
+      var id = (byContent ? "C " : "L ") + (byContent ? content : line);
+      if (typeof seen[id] === "number") {
+        // Das Minimum ist von der Reihenfolge unabhängig und damit kommutativ.
+        if (byContent && t < data[seen[id]][0]) { data[seen[id]][0] = t; }
         continue;
       }
       seen[id] = data.length;
-      data.push([isNaN(t) ? null : t, content, line]);
+      data.push([t, 1, content]);
+    }
+    // Marker ohne Folgezeile gehören an das Ende der Reihe.
+    for (var q = 0; q < pending.length; q++) {
+      var eid = "E " + pending[q];
+      if (seen[eid] === true) { continue; }
+      seen[eid] = true;
+      data.push([Infinity, 0, pending[q]]);
     }
   };
   collect(la); collect(lb);
-  // Zeilen ohne Zeitschlüssel (z.B. "H"-Marker) bleiben an ihrer Stelle
-  data.sort(function(x, y) {
-    if (x[0] == null || y[0] == null) { return 0; }
-    return x[0] - y[0];
-  });
-  var res = hasHeader ? [la[0]] : [];
+  // Endgültige Textform VOR dem Sortieren bestimmen, damit der Tie-Break genau
+  // auf den Bytes arbeitet, die später in der Datei stehen.
   for (var i = 0; i < data.length; i++) {
-    res.push(data[i][0] == null ? data[i][2] : (data[i][0] + "\t" + data[i][1]));
+    data[i][3] = (data[i][1] === 0) ? data[i][2] : (data[i][0] + "\t" + data[i][2]);
+  }
+  // Vollständige Ordnung: Zeitschlüssel, dann Rang (Marker vor Datenzeile),
+  // dann die komplette Zeile. Ohne den letzten Teil entschied bei gleichem
+  // Zeitschlüssel die stabile Sortierung, also die Argumentreihenfolge - und
+  // gleiche Zeitschlüssel sind der Normalfall, weil money/points/tickdur
+  // tickbasierte, geräteunabhängige Schlüssel verwenden.
+  data.sort(function(x, y) {
+    if (x[0] !== y[0]) { return x[0] < y[0] ? -1 : 1; }
+    if (x[1] !== y[1]) { return x[1] - y[1]; }
+    return syncCmpLine(x[3], y[3]);
+  });
+  var res = [];
+  if (hasHeader) { res.push(mergeHeadLine(la[0], lb[0])); }
+  var prev = null;
+  for (var j = 0; j < data.length; j++) {
+    // Identische Zeilen zusammenfassen - das betrifft auch unmittelbar
+    // benachbarte gleiche "H"-Marker. Gleiche Marker an verschiedenen
+    // Zeitschlüsseln bleiben erhalten, sie trennen verschiedene Abschnitte.
+    if (data[j][3] === prev) { continue; }
+    prev = data[j][3];
+    res.push(data[j][3]);
   }
   return res.join("\n");
 }
@@ -1016,11 +1150,17 @@ function mergeSeries(a, b, hasHeader, byContent) {
 // Beim Verschmelzen werden daher beide Seiten auf die kleinere Basis-Stunde
 // umgerechnet, damit die Zeitstempel zueinander passen und positiv bleiben.
 function mergeFormiHistory(a, b) {
-  if (!a) { return b; }
-  if (!b) { return a; }
-  var la = a.split("\n"), lb = b.split("\n");
-  var ba = parseInt(la[0], 10), bb = parseInt(lb[0], 10);
-  if (isNaN(ba) || isNaN(bb)) { return a; } // unerwartetes Format: lokale Daten behalten
+  if (typeof a !== "string") { a = ""; }
+  if (typeof b !== "string") { b = ""; }
+  if (!a && !b) { return ""; }
+  var la = a ? a.split("\n") : [], lb = b ? b.split("\n") : [];
+  var ba = a ? parseInt(la[0], 10) : NaN, bb = b ? parseInt(lb[0], 10) : NaN;
+  // Unerwartetes Format: deterministisch entscheiden, damit m(a,b) === m(b,a)
+  // auch hier gilt. Der Abgleich verschmilzt eine solche Reihe gar nicht erst
+  // (siehe syncMergeOne()), damit nie lokale Daten verloren gehen.
+  if (isNaN(ba) && isNaN(bb)) { return syncCmpLine(a, b) <= 0 ? a : b; }
+  if (isNaN(ba)) { return b; }
+  if (isNaN(bb)) { return a; }
   var base = Math.min(ba, bb);
   var shift = function(lines, oldBase) {
     var out = [], d = oldBase - base;
@@ -1033,15 +1173,48 @@ function mergeFormiHistory(a, b) {
     return out;
   };
   var all = shift(la, ba).concat(shift(lb, bb));
-  all.sort(function(x, y) { return x[0] - y[0]; });
-  var res = [base === ba ? la[0] : lb[0]];
-  var lastTime = null, seen = {};
+  // Vollständige Ordnung statt stabiler Sortierung. Vorher entschied bei
+  // gleichem Zeitstempel die Argumentreihenfolge: weil die lokale Seite immer
+  // als a übergeben wird, behielt JEDES Gerät seinen eigenen Wert und verwarf
+  // den des anderen - sie konvergierten nie.
+  //
+  // Entdoppelt wird über Zeit + alle Felder OHNE das letzte. Das letzte Feld
+  // ist timeStr aus formatStatTime(), das über getDate()/getHours() von
+  // Zeitzone und Sommerzeit des jeweiligen Geräts abhängt: zwei Geräte in
+  // verschiedenen Zeitzonen erzeugen für denselben Tick unterschiedliche
+  // timeStr bei völlig identischen Messwerten. Das ist keine Information,
+  // sondern ein Artefakt - deshalb entscheidet es nicht über die Identität.
+  // Bei Gleichstand bleibt die lexikografisch kleinere Gesamtzeile.
+  //
+  // Unterscheiden sich dagegen die DATENfelder (der Spieler hat mitten im Tick
+  // gefüttert oder gekauft), bleiben BEIDE Zeilen erhalten. Keiner der beiden
+  // Werte ist falsch, einer ist nur später, und es gibt kein Feld, das das
+  // entscheiden könnte. ebaFormiRows() verträgt zwei Einträge mit gleichem t.
   for (var i = 0; i < all.length; i++) {
     var line = all[i][0] + "\t" + all[i][1];
-    if (seen[line] || all[i][0] === lastTime) { continue; } // Duplikat bzw. gleicher Tick
-    seen[line] = true;
-    lastTime = all[i][0];
-    res.push(line);
+    var cut = line.lastIndexOf("\t");
+    all[i][2] = line;
+    all[i][3] = (cut > 0) ? line.substr(0, cut) : line; // Dedup-Schlüssel ohne timeStr
+  }
+  all.sort(function(x, y) {
+    if (x[0] !== y[0]) { return x[0] - y[0]; }
+    var d = syncCmpLine(x[3], y[3]);
+    if (d !== 0) { return d; }
+    return syncCmpLine(x[2], y[2]);
+  });
+  // Zeile 0 trägt die Basis-Stunde: die Seite mit der kleineren Basis-Stunde
+  // gewinnt, bei Gleichstand die lexikografisch kleinere Zeile.
+  var head;
+  if (ba !== bb) { head = (base === ba) ? la[0] : lb[0]; }
+  else { head = syncCmpLine(la[0], lb[0]) <= 0 ? la[0] : lb[0]; }
+  var res = [head];
+  var prevId = null;
+  for (var j = 0; j < all.length; j++) {
+    // Gleicher Dedup-Schlüssel: nur die erste (= lexikografisch kleinste)
+    // Gesamtzeile behalten. Die Sortierung stellt sie direkt nebeneinander.
+    if (all[j][3] === prevId) { continue; }
+    prevId = all[j][3];
+    res.push(all[j][2]);
   }
   return res.join("\n");
 }
