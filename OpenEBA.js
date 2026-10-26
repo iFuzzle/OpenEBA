@@ -78,10 +78,10 @@ const configItems = {
   "eba_enable_global_statistic"              : [updateGlobalStatistic, "Geld, Punkte und Tickl&auml;nge historisieren", "Je Tick wird einmal der Geldbestand, die Punktzahl und die Dauer des letzten Ticks mit Zeitstempel festgehalten. Die Erfassung l&auml;uft auf jeder Spielseite (die Werte stehen in der Statusbox oben), aber immer nur einmal pro Tick."],
   "eba_enable_search_statistic"              : [updateSearchStatistic, "Futter- und Ameisensuchen vollst&auml;ndig historisieren", "Das Spiel zeigt nur die letzten Ergebnisse einer Futtersuche bzw. K&ouml;niginnensuche. Beim Aufruf der jeweiligen Seite wird die angezeigte Tabelle mit der gespeicherten Historie verschmolzen, sodass auch &auml;ltere Treffer erhalten bleiben."],
   "eba_enable_history_compaction"            : [function(){}, "Historien ausd&uuml;nnen, wenn sie zu gro&szlig; werden", "Ohne diese Option wachsen die Historien unbegrenzt (bisheriges Verhalten). Mit der Option wird in einer Reihe ab " + EBA_HIST_MAX_LINES + " Zeilen aus der <b>&auml;lteren H&auml;lfte</b> jede zweite Zeile entfernt. Die j&uuml;ngere H&auml;lfte und die Kopfzeile bleiben unangetastet. <b>Achtung:</b> Das entfernt alte Messpunkte unwiderruflich. Den aktuellen Speicherverbrauch zeigt die Zeile unten. Vertr&auml;gt sich nicht mit dem WebDAV-Abgleich, der ist bei eingeschalteter Kompaktierung gesperrt."],
-  "eba_enable_max_points"                    : [showMaxPoints, "Maximale Punktzahl in der Formicarien-&Uuml;bersicht anzeigen", "Hinter den Punkten jedes Formicariums erscheint die maximal erreichbare Punktzahl, z.B. <i>12.340 / 50.000</i>. Bei monogynen Arten ist das ein harter Wert, bei polygynen Arten wird der Zuwachs je weiterer K&ouml;nigin eingerechnet (auf dem Speedserver mit anderen Werten als auf dem Normalserver). Der Tooltip zeigt Arbeiterinnen-Maximum, Auslastung in Prozent und die gemessenen Punkte je Arbeiterin. Quelle der Werte ist die Spielhilfe; f&uuml;r zwei Arten ist der polygyne Zuwachs auf dem Speedserver dort unbekannt, dann erscheint ab zwei K&ouml;niginnen ein <i>?</i>."],
+  "eba_enable_max_points"                    : [showMaxPoints, "Maximale Punktzahl in der Formicarien-&Uuml;bersicht anzeigen", "Hinter den Punkten jedes Formicariums erscheint die maximal erreichbare Punktzahl, z.B. <i>12.340 / 50.000</i>. Bei monogynen Arten ist das ein harter Wert, bei polygynen Arten wird der Zuwachs je weiterer K&ouml;nigin eingerechnet (auf dem Speedserver mit anderen Werten als auf dem Normalserver). Der Tooltip zeigt Arbeiterinnen-Maximum, Auslastung in Prozent und die Punkte je Arbeiterin laut Tabelle. Quelle der Werte ist die Spielhilfe; f&uuml;r zwei Arten ist der polygyne Zuwachs auf dem Speedserver dort unbekannt, dann erscheint ab zwei K&ouml;niginnen ein <i>?</i>."],
   "eba_enable_webdav_sync"                   : [enableWebdavSync, "Historien per WebDAV/Nextcloud zwischen Ger&auml;ten abgleichen", "Jede Zeitreihe (Formicarien, Futter, Geld, Punkte, Tickl&auml;nge, Suchen) liegt als eigene Datei in einem WebDAV-Ordner und wird mit den lokalen Daten verschmolzen, h&ouml;chstens einmal pro Tick und nur f&uuml;r den aktuellen Server. Lokal geht dabei nie etwas verloren. Einrichtung unten unter <i>Abgleich der Historien per WebDAV</i>; der automatische Abgleich startet erst nach einem erfolgreichen <i>Verbindung testen</i> auf diesem Ger&auml;t. Tampermonkey fragt dabei einmal, ob das Skript den Host erreichen darf. Ein Skriptmanager, der stattdessen hart blockt, braucht im Skriptkopf eine Zeile <i>// @connect &lt;host&gt;</i>. Optionen, Filter und Notizen werden nie abgeglichen. Vertr&auml;gt sich nicht mit der Kompaktierung."],
   "eba_enable_search_history_view"          : [showSearchHistory, "Alle gespeicherten Ergebnisse unter draussen.php?cat=3 anzeigen", "Zeigt unter der Ergebnistabelle des Spiels (nur die letzten 10) eine einklappbare Tabelle mit allen gespeicherten Ergebnissen, neueste oben, samt Zusammenfassung. Die Erfassung wird auf dieser Seite selbst angesto&szlig;en (Option <i>Futter- und Ameisensuchen vollst&auml;ndig historisieren</i> ist nicht n&ouml;tig, aber die Historie w&auml;chst nur, wenn die Seite aufgerufen wird). Wird keine Tabelle erkannt, erscheint ein kleiner Hinweis."],
-  "eba_enable_growth_percent"                : [showGrowthPercent, "Auswachszustand der Kolonien in Prozent anzeigen", "Hinter der Arbeiterinnen-Zahl (Formicarien-&Uuml;bersicht und Einzelansicht) steht <i>ausgewachsen zu 87,3 %</i> mit schmalem Balken: Arbeiterinnen geteilt durch die maximalen Arbeiterinnen der Art (bei polygynen Arten mit der gleichen Annahme zum Zuwachs je K&ouml;nigin wie die maximale Punktzahl, bei unbekanntem Zuwachs ein <i>?</i>). Der Tooltip zeigt, ob Nest oder Formicarium zuerst voll ist (z.B. <i>Nest voll bei ca. 5.000 Arbeiterinnen</i>). Der Platzbedarf der Brut ist nicht eingerechnet."],
+  "eba_enable_growth_percent"                : [showGrowthPercent, "Auswachszustand der Kolonien in Prozent anzeigen", "Hinter der Arbeiterinnen-Zahl (Formicarien-&Uuml;bersicht und Einzelansicht) steht <i>ausgewachsen zu 87,3 %</i> mit schmalem Balken: Arbeiterinnen geteilt durch die maximalen Arbeiterinnen der Art (bei polygynen Arten mit dem Zuwachs je K&ouml;nigin laut Polygynierechner wie bei der maximalen Punktzahl, bei unbekanntem Zuwachs ein <i>?</i>). Die Farbe zeigt die Wachstumsphase: unter 24 % Anlaufphase (blau), 24&ndash;94 % Hauptwachstumsphase (gr&uuml;n), ab 94 % Endphase (gelb), 100 % ausgewachsen (hell, fett). Ist das Nest zu mehr als 75 % belegt, erscheint eine orange Warnung, denn das bremst das Wachstum (in der Einzelansicht mit der Belegung des Spiels, in der &Uuml;bersicht nur, wenn schon die Arbeiterinnen allein dar&uuml;ber liegen). Der Tooltip zeigt, ob Nest oder Formicarium zuerst voll ist (z.B. <i>Nest voll bei ca. 5.000 Arbeiterinnen</i>). Der Platzbedarf der Brut ist nicht eingerechnet."],
   "eba_enable_history_charts"                : [enableHistoryCharts, "Verlaufsgrafiken f&uuml;r Geld, Punkte und Formicarien", "Beim &Uuml;berfahren von <i>Geld</i> und <i>Punkte</i> in der Kopfzeile erscheint eine kleine Kurve aus den gespeicherten Werten. Ein Klick darauf &ouml;ffnet unter <i>Statistik</i> die Seite <i>openEBA-Verlauf</i> mit gro&szlig;en Diagrammen (Geld, Punkte, Tickl&auml;nge, je Formicarium Arbeiterinnen, Punkte, Brut und Hunger). Die Kurven brauchen die Optionen <i>Geld, Punkte und Tickl&auml;nge historisieren</i> bzw. <i>Formicarien-Statistik</i>."]
 }
 const shopPriceLimits = {
@@ -2563,16 +2563,21 @@ function initSnow(){
 // nicht arbeiterinnen * (p/a) -- sonst schlägt die Gleitkomma-Ungenauigkeit
 // der Division durch.
 //
-// ANNAHME (nicht belegt): bei polygynen Arten wächst das Maximum um
-// (Königinnen - 1) * Zuwachs. Die Spalten G/H der Spielhilfe sind Literale
-// ohne Formel, und der dort als Referenz verlinkte Polygynierechner ist
-// gelöscht. Für monogyne Arten und für genau eine Königin ist die Zahl
-// dagegen belegt. Darum legt der Tooltip die Rechnung offen und zeigt
-// zusätzlich die am laufenden Spiel gemessenen Punkte je Arbeiterin -- weil
-// die Punkte linear sind, muss gemessen ~ Tabelle gelten. Das ist der Ersatz
-// für den gelöschten Rechner. Ein geratener Zuwachs wird nie verwendet: ist
-// er in der Spielhilfe unbekannt ("???"), erscheint ab zwei Königinnen ein
-// Fragezeichen statt einer Zahl.
+// Polygynie (belegt durch den Polygynierechner, Blatt "Polygynie"; die Datei
+// selbst ist nicht im Repo): Arbeiterinnen = H + (Gynen - 1) * Zuwachs, in der
+// Excel-Formel if(len(Gynen), H + (Gynen-1) * I bzw. J, H). Also streng
+// linear in der Königinnenzahl, ohne Deckel und ohne Höchstzahl an Königinnen.
+// H = Arbeiterinnen bei einer Königin (= antmax.a), I = Zuwachs je weiterer
+// Königin Normalserver (= pn), J = Speedserver (= ps). Je Art gibt es nur diese
+// drei Werte; die Formel ist für alle Arten dieselbe. Bei Lasius fuliginosus und
+// Cataglyphis velox steht der Speed-Zuwachs im Rechner als "---" (unbekannt,
+// der Rechner selbst liefert dort #WERT!). Der Rechner kennt keine Punkte; die
+// Punkte folgen aus der Spielhilfe (Spalte B = C * P, siehe oben). Das
+// Nest-/Formicarium-Minimum des Rechners ist Arbeiterinnen * P/Nest bzw. * Pt/Formi
+// und stimmt mit n/a bzw. f/a aus antmax überein; der Rechner markiert ab 75 %
+// Belegung rot (Wachstum bremst). Monogyne Arten kommen im Rechner nicht vor.
+// Ist der Zuwachs unbekannt (ps: null), erscheint ab zwei Königinnen ein
+// Fragezeichen statt einer Zahl; geraten wird nie.
 // ---------------------------------------------------------------------------
 
 // Normalform eines Artnamens für den Fallback-Vergleich: klein geschrieben,
@@ -2702,16 +2707,11 @@ function showMaxPoints() {
         if (max.poly && !(isFinite(qRaw) && qRaw >= 1)) {
           tip.push("Königinnenzahl unklar, gerechnet mit 1");
         }
-        // Laufende Selbstprüfung des Modells am lebenden Spiel: weil die
-        // Punkte linear sind, muss punkte/arbeiterinnen ~ p/a gelten.
         var probe = [];
         if (!max.unknown && isFinite(points) && max.points > 0) {
           probe.push("aktuell " + ebaFmtPct(points / max.points * 100) + " %");
         }
-        if (isFinite(points) && isFinite(ants) && ants > 0) {
-          probe.push("gemessen " + ebaFmtDec(points / ants, 3) + " Pt/Arbeiterin (Tabelle "
-                   + ebaFmtDec(max.ratio, 3) + ")");
-        }
+        probe.push(ebaFmtDec(max.ratio, 3) + " Pt/Arbeiterin");
         if (probe.length) { tip.push(probe.join("  ·  ")); }
 
         // In das letzte Element-Kind der Punkte-Zelle hängen (meist <center>),
@@ -2738,9 +2738,10 @@ function showMaxPoints() {
 // Auswachszustand der Kolonien in Prozent
 //
 // Arbeiterinnen / maximale Arbeiterinnen der Art. Das Maximum kommt aus
-// ebaMaxPoints() und damit mit derselben (unbelegten) Polygynie-Annahme wie bei
-// showMaxPoints(): bei polygynen Arten wächst es um (Königinnen - 1) * Zuwachs,
-// bei unbekanntem Zuwachs und mehr als einer Königin gibt es kein Ergebnis.
+// ebaMaxPoints() und damit mit derselben Polygynie-Rechnung wie bei
+// showMaxPoints() (Polygynierechner): bei polygynen Arten wächst es um
+// (Königinnen - 1) * Zuwachs, bei unbekanntem Zuwachs und mehr als einer
+// Königin gibt es kein Ergebnis.
 //
 // Platzbedarf: n bzw. f aus antmax gelten für a Arbeiterinnen, je Arbeiterin
 // also n/a bzw. f/a. In ein Nest der Kapazität C passen damit C * a / n
@@ -2795,13 +2796,16 @@ function ebaGrowth(kind, queens, workers, nestName, formiName, speed) {
   var fc = formiName ? ebaHousingCap(formiName, true) : null;
   var nestFit = (nc != null && e.n > 0) ? Math.floor(nc * e.a / e.n) : null;
   var formiFit = (fc != null && e.f > 0) ? Math.floor(fc * e.a / e.f) : null;
+  // Untere Schranke der Nestbelegung in %: nur Arbeiterinnen, Brut zählt im
+  // Spiel zusätzlich mit (Formel unbekannt). null = Nest oder Arbeiterinnen unbekannt.
+  var nestMin = (nc != null && e.n > 0 && isFinite(workers)) ? workers * e.n / (e.a * nc) * 100 : null;
   var limiting = null;
   if (!max.unknown) {
     var lim = max.ants;
     if (nestFit != null && nestFit < lim) { lim = nestFit; limiting = "Nest"; }
     if (formiFit != null && formiFit < lim) { lim = formiFit; limiting = "Formicarium"; }
   }
-  return { max: max, percent: percent, nestFit: nestFit, formiFit: formiFit, limiting: limiting };
+  return { max: max, percent: percent, nestFit: nestFit, formiFit: formiFit, limiting: limiting, nestMin: nestMin };
 }
 
 // Art aus dem Bildnamen, z.B. "img/ants/Lasius_niger9.jpg" -> "Lasius niger",
@@ -2842,13 +2846,28 @@ function ebaGameSpace() {
   return r;
 }
 
+// Wachstumsphasen laut Spielhilfe: Hauptwachstumsphase ~24-94 % der
+// Koloniegröße. percent = unabgeschnittener Wert; 100 % gilt erst bei erreichtem
+// Maximum (passend zu ebaFmtPct, das ebenfalls abschneidet). null = unbekannt.
+function ebaGrowthPhase(percent) {
+  if (percent == null || !isFinite(percent)) { return {name: "unbekannt", color: "#808080", bold: false}; }
+  if (percent >= 100 - 1e-9) { return {name: "ausgewachsen", color: "#f2f7f2", bold: true}; }
+  if (percent >= 94) { return {name: "Endphase, fast ausgewachsen (ab 94 %)", color: "#e6c35c", bold: false}; }
+  if (percent >= 24) { return {name: "Hauptwachstumsphase (ca. 24-94 %)", color: "#9bd66b", bold: false}; }
+  return {name: "Anlaufphase (unter 24 %)", color: "#8fb8d0", bold: false};
+}
+
+// Nest über 75 % Belegung bremst das Wachstum (Spielhilfe, Polygynierechner).
+// Das Formicarium bremst nicht (dort zählt die Brut nicht mit).
+var EBA_NEST_BRAKE = 75;
+
 function ebaGrowthTip(g, kind, workers, nestLabel, nestName, formiName, srv, space) {
   var tip = [], max = g.max;
   if (max.unknown) {
     tip.push("Polygyner Zuwachs für " + kind + " auf dem " + srv + " ist in der Spielhilfe nicht bekannt (???).");
   } else {
     tip.push(ebaFmtInt(workers) + " von max. " + ebaFmtInt(max.ants) + " Arbeiterinnen"
-           + (max.poly && max.queens > 1 ? " (" + max.queens + " Königinnen, polygyn, Annahme)" : ""));
+           + (max.poly && max.queens > 1 ? " (" + max.queens + " Königinnen, polygyn)" : ""));
   }
   var part = function(label, name, fit) {
     if (fit == null) { return; }
@@ -2859,6 +2878,8 @@ function ebaGrowthTip(g, kind, workers, nestLabel, nestName, formiName, srv, spa
   };
   part(nestLabel, nestName, g.nestFit);
   part("Formicarium", formiName, g.formiFit);
+  var ph = ebaGrowthPhase(g.percent);
+  if (g.percent != null) { tip.push("Phase: " + ph.name); }
   if (g.limiting) {
     var fit = g.limiting == "Nest" ? g.nestFit : g.formiFit;
     tip.push("Begrenzend: " + g.limiting + ". Ausgewachsen relativ zur Behausung: "
@@ -2900,17 +2921,36 @@ function showGrowthPercent() {
           var g = ebaGrowth(kind, qRaw, workers, nestName, formiName, speed);
           if (!g || !isFinite(workers)) { return; } // Art nicht in antmax -> nichts anzeigen
           var txt = "ausgewachsen zu " + (g.percent == null ? "?" : ebaFmtPct(g.percent) + " %");
-          var html = "<span class='eba_growth' style='color:#808080;font-size:smaller;white-space:nowrap'> &middot; " + txt;
+          var ph = ebaGrowthPhase(g.percent);
+          var html = "<span class='eba_growth' style='color:" + ph.color + (ph.bold ? ";font-weight:bold" : "")
+                   + ";font-size:smaller;white-space:nowrap'> &middot; " + txt;
           if (g.limiting) { html += " (" + g.limiting + " begrenzt)"; }
           if (g.percent != null) {
             html += " <span style='display:inline-block;width:40px;height:4px;background:#ddd;vertical-align:middle'>"
                   + "<span style='display:block;height:100%;width:" + Math.max(0, Math.min(100, g.percent)).toFixed(1)
                   + "%;background:#7a7'></span></span>";
           }
+          // Nestwarnung: Einzelansicht mit der Spiel-Belegung, Übersicht nur wenn
+          // schon die Arbeiterinnen allein über der Grenze liegen (untere Schranke).
+          var space = overview ? null : ebaGameSpace();
+          var warnTip = "";
+          if (space && space.nest != null) {
+            if (space.nest > EBA_NEST_BRAKE) {
+              html += " <span class='eba_nestwarn' style='color:#ff9a5c;font-weight:bold'>&middot; " + nestLabel + " " + ebaFmtPct(space.nest)
+                    + " % &ndash; Wachstum gebremst</span>";
+              warnTip = nestLabel + " ist laut Spiel zu " + ebaFmtPct(space.nest) + " % belegt (über 75 %): das bremst das Wachstum. Ein größeres Nest nutzen.";
+            }
+          } else if (!space && g.nestMin != null && g.nestMin > EBA_NEST_BRAKE) {
+            html += " <span class='eba_nestwarn' style='color:#ff9a5c;font-weight:bold'>&middot; " + nestLabel + " mind. " + ebaFmtPct(g.nestMin)
+                  + " % &ndash; Wachstum gebremst</span>";
+            warnTip = nestLabel + ": schon die Arbeiterinnen allein belegen mind. " + ebaFmtPct(g.nestMin)
+                    + " % (die Brut zählt im Spiel zusätzlich mit). Über 75 % Belegung bremst das Wachstum. Ein größeres Nest nutzen.";
+          }
           html += "</span>";
           c["Arbeiterinnen"].append(html);
-          c["Arbeiterinnen"].find("span.eba_growth").attr("title",
-            ebaGrowthTip(g, kind, workers, nestLabel, nestName, formiName, srv, overview ? null : ebaGameSpace()));
+          var gs = c["Arbeiterinnen"].find("span.eba_growth");
+          gs.attr("title", ebaGrowthTip(g, kind, workers, nestLabel, nestName, formiName, srv, space));
+          if (warnTip) { gs.find("span.eba_nestwarn").attr("title", warnTip); }
         } catch (err) {}
       });
     } catch (err) {}
