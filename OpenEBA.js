@@ -848,11 +848,12 @@ function searchPageKind() {
   if (/(Königinnensuche|Ameisensuche)/i.test(t)) { return "antsearch"; }
   return null;
 }
-// Seite draussen.php?cat=3. Annahme: Formulare der Seite führen auf dieselbe
-// URL zurück; wird sie nach einem POST ohne Query geladen, greift die
-// Erkennung nicht (dann kommt der Hinweis nicht, die Erfassung bleibt wie bisher).
+// Seite draussen.php?cat=3 bzw. draussen.php ohne cat (Spiel zeigt dann cat=3).
 function isDraussenCat3() {
-  return location.pathname === "/draussen.php" && /[?&]cat=3(&|#|$)/.test(location.search);
+  if (location.pathname !== "/draussen.php") { return false; }
+  // Ohne cat-Parameter zeigt das Spiel automatisch cat=3 (Ergebnisse).
+  if (!/[?&]cat=/.test(location.search)) { return true; }
+  return /[?&]cat=3(&|#|$)/.test(location.search);
 }
 function searchPageKindBase() {
   var h = $("h3").text();
