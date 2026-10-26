@@ -21,7 +21,9 @@
 // 2   = zusätzliche Zeitreihen für Geld, Punkte, Ticklänge sowie Futter-/Ameisensuchen
 // 3   = Formi-Historie höchstens eine Zeile je Tick; Futter-Historie eine Zeile je
 //       Tick mit leerem Feld 1 (früher Abrufzeit) und Feld 3 = Ausbruchschutz
-const EBA_SCHEMA_VERSION = 3;
+// 4   = Futtertiersuchen, die fälschlich in der Ameisensuche-Reihe lagen, wandern
+//       in die Reihe foodsearch
+const EBA_SCHEMA_VERSION = 4;
 // Format der Kopfzeile der eba_hist_*-Reihen. Bewusst getrennt von der Schema-
 // Version: Schema 3 ändert nur Formi-/Futter-Historie, die Kopfzeilen der übrigen
 // Reihen bleiben "2", damit Geräte mit älterem Skript sie weiter lesen.
@@ -80,7 +82,7 @@ const configItems = {
   "eba_enable_history_compaction"            : [function(){}, "Historien ausd&uuml;nnen, wenn sie zu gro&szlig; werden", "Ohne diese Option wachsen die Historien unbegrenzt (bisheriges Verhalten). Mit der Option wird in einer Reihe ab " + EBA_HIST_MAX_LINES + " Zeilen aus der <b>&auml;lteren H&auml;lfte</b> jede zweite Zeile entfernt. Die j&uuml;ngere H&auml;lfte und die Kopfzeile bleiben unangetastet. <b>Achtung:</b> Das entfernt alte Messpunkte unwiderruflich. Den aktuellen Speicherverbrauch zeigt die Zeile unten. Vertr&auml;gt sich nicht mit dem WebDAV-Abgleich, der ist bei eingeschalteter Kompaktierung gesperrt."],
   "eba_enable_max_points"                    : [showMaxPoints, "Maximale Punktzahl in der Formicarien-&Uuml;bersicht anzeigen", "Hinter den Punkten jedes Formicariums erscheint die maximal erreichbare Punktzahl, z.B. <i>12.340 / 50.000</i>. Bei monogynen Arten ist das ein harter Wert, bei polygynen Arten wird der Zuwachs je weiterer K&ouml;nigin eingerechnet (auf dem Speedserver mit anderen Werten als auf dem Normalserver). Der Tooltip zeigt Arbeiterinnen-Maximum, Auslastung in Prozent und die Punkte je Arbeiterin laut Tabelle. Quelle der Werte ist die Spielhilfe; f&uuml;r zwei Arten ist der polygyne Zuwachs auf dem Speedserver dort unbekannt, dann erscheint ab zwei K&ouml;niginnen ein <i>?</i>."],
   "eba_enable_webdav_sync"                   : [enableWebdavSync, "Historien per WebDAV/Nextcloud zwischen Ger&auml;ten abgleichen", "Jede Zeitreihe (Formicarien, Futter, Geld, Punkte, Tickl&auml;nge, Suchen) liegt als eigene Datei in einem WebDAV-Ordner und wird mit den lokalen Daten verschmolzen, h&ouml;chstens einmal pro Tick und nur f&uuml;r den aktuellen Server. Lokal geht dabei nie etwas verloren. Einrichtung unten unter <i>Abgleich der Historien per WebDAV</i>; der automatische Abgleich startet erst nach einem erfolgreichen <i>Verbindung testen</i> auf diesem Ger&auml;t. Tampermonkey fragt dabei einmal, ob das Skript den Host erreichen darf. Ein Skriptmanager, der stattdessen hart blockt, braucht im Skriptkopf eine Zeile <i>// @connect &lt;host&gt;</i>. Optionen, Filter und Notizen werden nie abgeglichen. Vertr&auml;gt sich nicht mit der Kompaktierung."],
-  "eba_enable_search_history_view"          : [showSearchHistory, "Alle gespeicherten Ergebnisse unter draussen.php?cat=3 anzeigen", "Zeigt unter der Ergebnistabelle des Spiels (nur die letzten 10) eine einklappbare Tabelle mit allen gespeicherten Ergebnissen, neueste oben, samt Zusammenfassung. Die Erfassung wird auf dieser Seite selbst angesto&szlig;en (Option <i>Futter- und Ameisensuchen vollst&auml;ndig historisieren</i> ist nicht n&ouml;tig, aber die Historie w&auml;chst nur, wenn die Seite aufgerufen wird). Wird keine Tabelle erkannt, erscheint ein kleiner Hinweis."],
+  "eba_enable_search_history_view"          : [showSearchHistory, "Alle gespeicherten Ergebnisse unter draussen.php?cat=3 anzeigen", "Zeigt unter jeder der beiden Ergebnistabellen des Spiels (Ameisensuche, Futtertiersuche; nur die letzten 10) eine einklappbare Tabelle mit den &auml;lteren gespeicherten Ergebnissen, neueste oben, samt kurzen Summen. Die Erfassung wird auf dieser Seite selbst angesto&szlig;en (Option <i>Futter- und Ameisensuchen vollst&auml;ndig historisieren</i> ist nicht n&ouml;tig, aber die Historie w&auml;chst nur, wenn die Seite aufgerufen wird). Wird keine Tabelle erkannt, erscheint ein kleiner Hinweis."],
   "eba_enable_growth_percent"                : [showGrowthPercent, "Auswachszustand der Kolonien in Prozent anzeigen", "Hinter der Arbeiterinnen-Zahl (Formicarien-&Uuml;bersicht und Einzelansicht) steht <i>ausgewachsen zu 87,3 %</i> mit schmalem Balken: Arbeiterinnen geteilt durch die maximalen Arbeiterinnen der Art (bei polygynen Arten mit dem Zuwachs je K&ouml;nigin laut Polygynierechner wie bei der maximalen Punktzahl, bei unbekanntem Zuwachs ein <i>?</i>). Die Farbe zeigt die Wachstumsphase: unter 24 % Anlaufphase (blau), 24&ndash;94 % Hauptwachstumsphase (gr&uuml;n), ab 94 % Endphase (gelb), 100 % ausgewachsen (hell, fett). Ist das Nest zu mehr als 75 % belegt, erscheint eine orange Warnung, denn das bremst das Wachstum (in der Einzelansicht mit der Belegung des Spiels, in der &Uuml;bersicht nur, wenn schon die Arbeiterinnen allein dar&uuml;ber liegen). Der Tooltip zeigt, ob Nest oder Formicarium zuerst voll ist (z.B. <i>Nest voll bei ca. 5.000 Arbeiterinnen</i>). Der Platzbedarf der Brut ist nicht eingerechnet."],
   "eba_enable_history_charts"                : [enableHistoryCharts, "Verlaufsgrafiken f&uuml;r Geld, Punkte und Formicarien", "Beim &Uuml;berfahren von <i>Geld</i> und <i>Punkte</i> in der Kopfzeile erscheint eine kleine Kurve aus den gespeicherten Werten. Ein Klick darauf &ouml;ffnet unter <i>Statistik</i> die Seite <i>openEBA-Verlauf</i> mit gro&szlig;en Diagrammen (Geld, Punkte, Tickl&auml;nge, je Formicarium Arbeiterinnen, Punkte, Brut und Hunger). Die Kurven brauchen die Optionen <i>Geld, Punkte und Tickl&auml;nge historisieren</i> bzw. <i>Formicarien-Statistik</i>."]
 }
@@ -953,11 +955,36 @@ function searchPageKindBase() {
 function findSearchTable() {
   var best = null, bestRows = 0;
   $("table.liste").each(function() {
-    if ($(this).closest("#eba_search_hist").length) { return; } // eigene Anzeige
+    if ($(this).closest(".eba_search_hist").length) { return; } // eigene Anzeige
     var rows = $(this).find("tr").length;
     if (rows > bestRows) { bestRows = rows; best = $(this); }
   });
   return (bestRows >= 2) ? best : null;
+}
+
+// draussen.php?cat=3 zeigt ZWEI Ergebnistabellen (Ameisensuche, Futtertiersuche),
+// jeweils mit einer h3-Überschrift davor. Zuordnung über die letzte h3 vor der
+// Tabelle. Rückgabe: [{kind, tbl}]
+function draussenSearchTables() {
+  var out = [];
+  $("table.liste").each(function() {
+    var tbl = $(this), el = this;
+    if (tbl.closest(".eba_search_hist").length) { return; } // eigene Anzeige
+    if (tbl.find("tr").length < 2) { return; }
+    var h = $("h3").filter(function() { return !!(el.compareDocumentPosition(this) & 2); }).last().text();
+    var kind = null;
+    if (/Futter(tier)?suche/i.test(h)) { kind = "foodsearch"; }
+    else if (/(Königinnen|Ameisen)suche/i.test(h)) { kind = "antsearch"; }
+    if (kind) { out.push({kind: kind, tbl: tbl}); }
+  });
+  return out;
+}
+// Gehört eine gespeicherte Zeile zu dieser Reihe? Ameisensuchen nennen immer
+// "Königin(nen) gefunden", Futtersuchen nie. Schützt vor falsch einsortierten
+// Altzeilen (z.B. von einem Gerät mit älterem Skript über den Abgleich).
+function searchRowBelongs(kind, text) {
+  var q = /Königin/i.test(text);
+  return kind === "antsearch" ? q : !q;
 }
 
 // Zellen einer Zeile als Tab-getrennte Zeichenkette (Tabs/Umbrüche entschärft)
@@ -1009,10 +1036,21 @@ function mergeRollingRows(oldRows, newRows) {
 }
 
 function updateSearchStatistic() {
+  if (isDraussenCat3()) {
+    $.each(draussenSearchTables(), function(i, t) { captureSearchRows(t.kind, t.tbl, true); });
+    return;
+  }
   var kind = searchPageKind();
   if (!kind) { return; }
   var tbl = findSearchTable();
   if (!tbl) { return; }
+  captureSearchRows(kind, tbl, false);
+}
+
+// bySet: neue Zeilen = alle, die inhaltlich noch nicht gespeichert sind (robust
+// gegen eine nach Abgleich/Migration andere Reihenfolge der Historie). Sonst
+// die Überlappungssuche von mergeRollingRows().
+function captureSearchRows(kind, tbl, bySet) {
   var trs = tbl.find("tr");
   if (trs.length < 2) { return; }
 
@@ -1033,7 +1071,18 @@ function updateSearchStatistic() {
     if (!/^\d/.test(lines[i])) { continue; }
     oldContent.push(lines[i].substr(lines[i].indexOf("\t") + 1));
   }
-  var fresh = mergeRollingRows(oldContent, rows);
+  var fresh;
+  if (bySet) {
+    var known = {};
+    for (var o = 0; o < oldContent.length; o++) { known["C " + oldContent[o]] = true; }
+    fresh = $.grep(rows, function(r) {
+      if (known["C " + r]) { return false; }
+      known["C " + r] = true; // auch innerhalb der Seite nicht doppelt
+      return true;
+    });
+  } else {
+    fresh = mergeRollingRows(oldContent, rows);
+  }
 
   // Spaltenbelegung geändert? Kopfzeile aktualisieren und den Wechsel als
   // Marker festhalten, damit ältere Zeilen weiterhin deutbar bleiben.
@@ -1062,98 +1111,127 @@ function parseDeNumber(v) {
   return parseFloat(v.replace(/\./g, "").replace(",", "."));
 }
 
-// Zusammenfassung: Anzahl, je Spalte Summe (Zahlen) bzw. Häufigkeiten (wenige
-// verschiedene Werte). Zeitspalten werden übersprungen. Generisch, weil der
-// Aufbau der Tabelle nicht bekannt ist; nur Zeilen mit der Spaltenbelegung der
-// neuesten Zeile.
-function searchSummaryHTML(rows) {
-  var head = rows[0].header;
-  var same = $.grep(rows, function(r) { return r.header === head; });
-  var out = $("<div>").append($("<b>").text(rows.length + " Ergebnisse gespeichert"));
-  if (same.length !== rows.length) { out.append(document.createTextNode(" (Auswertung der Spalten nur für " + same.length + " mit aktueller Spaltenbelegung)")); }
-  var list = $("<ul style='margin:4px 0 0 18px;padding:0'>");
-  for (var c = 0; c < head.length; c++) {
-    var vals = $.map(same, function(r) { return $.trim(r.cells[c] || ""); });
-    vals = $.grep(vals, function(v) { return v !== ""; });
-    if (!vals.length) { continue; }
-    var timeLike = $.grep(vals, function(v) { return rowTimeValue(v) != null; }).length;
-    if (timeLike * 2 > vals.length) { continue; }
-    var nums = $.map(vals, parseDeNumber);
-    var item = null;
-    if (nums.length === vals.length) {
-      var sum = 0; $.each(nums, function(i, n) { sum += n; });
-      var f = function(n) { return (Math.round(n * 100) / 100).toString().replace(".", ","); };
-      item = "Summe " + f(sum) + ", Ø " + f(sum / nums.length);
-    } else {
-      var cnt = {}, distinct = 0;
-      $.each(vals, function(i, v) { if (!cnt[v]) { cnt[v] = 0; distinct++; } cnt[v]++; });
-      if (distinct <= 12 && distinct < vals.length) {
-        var keys = [];
-        for (var k in cnt) { if (Object.prototype.hasOwnProperty.call(cnt, k)) { keys.push(k); } }
-        keys.sort(function(a, b) { return cnt[b] - cnt[a]; });
-        item = $.map(keys, function(k) { return k + " ×" + cnt[k] + " (" + Math.round(cnt[k] * 100 / vals.length) + "%)"; }).join(", ");
+// Kurze Summen aus dem Ergebnistext, nur wo robust lesbar.
+// Ameisensuche: "... 3 Königinnen gefunden: ..." / "... 1 Königin gefunden".
+// Futtertiersuche: "... 25 Blätter gefunden: 25 Brombeerblätter" bzw. mehrere
+// Sorten, durch Komma getrennt. Zeilen, die nicht passen, zählen nur als Suche.
+function searchSummaryHTML(kind, rows) {
+  var out = $("<div>");
+  var parts = [rows.length + " Suchen gespeichert"];
+  var text = function(r) { return r.cells.slice(1).join(" "); };
+  if (kind === "antsearch") {
+    var qs = 0, ok = 0;
+    $.each(rows, function(i, r) {
+      var m = /(\d+)\s+Königin(?:nen)?\s+gefunden/i.exec(text(r));
+      if (m) { qs += parseInt(m[1], 10); ok++; }
+    });
+    if (ok === rows.length) { parts.push(qs + " Königinnen gefunden"); }
+  } else {
+    var sums = {}, names = [];
+    $.each(rows, function(i, r) {
+      var m = /gefunden:\s*(.+)$/i.exec(text(r));
+      if (!m) { return; }
+      var items = $.map(m[1].split(","), function(x) { return $.trim(x); });
+      var parsed = [];
+      for (var k = 0; k < items.length; k++) {
+        var im = /^(\d+)\s+(\S.*)$/.exec(items[k]);
+        if (!im) { return; } // Zeile nicht robust lesbar: auslassen
+        parsed.push([im[2], parseInt(im[1], 10)]);
       }
+      $.each(parsed, function(j, p) {
+        if (!Object.prototype.hasOwnProperty.call(sums, p[0])) { sums[p[0]] = 0; names.push(p[0]); }
+        sums[p[0]] += p[1];
+      });
+    });
+    names.sort(function(a, b) { return sums[b] - sums[a] || (a < b ? -1 : 1); });
+    if (names.length) {
+      parts.push($.map(names, function(n) { return n + ": " + sums[n]; }).join(", "));
     }
-    if (item) { list.append($("<li>").text((head[c] || "Spalte " + (c + 1)) + ": " + item)); }
   }
-  if (list.children().length) { out.append(list); }
+  out.text(parts.join(" · "));
   return out;
+}
+
+// Ältere gespeicherte Ergebnisse einer Reihe: alle, die nicht (mehr) in der
+// sichtbaren Spieltabelle stehen, neueste oben (nach Spieldatum).
+function olderSearchRows(kind, tbl) {
+  var visible = {};
+  tbl.find("tr").slice(1).each(function() { visible[rowCells($(this))] = true; });
+  var all = $.grep(ebaSearchSeries(kind).rows, function(r) {
+    return searchRowBelongs(kind, r.cells.join(" "));
+  });
+  var seen = {};
+  all = $.grep(all, function(r) {
+    var c = "C " + r.cells.join("\t");
+    if (seen[c]) { return false; }
+    seen[c] = true;
+    return true;
+  });
+  var older = $.grep(all, function(r) { return !visible[r.cells.join("\t")]; });
+  var tv = function(r) { var v = rowTimeValue(r.cells[0] || ""); return v == null ? r.t : v; };
+  older.sort(function(a, b) { return tv(b) - tv(a); });
+  return {older: older, all: all};
 }
 
 // Zustand/Konstanten lazy anlegen: die Optionen laufen oben im Skript, bevor
 // Zuweisungen weiter unten ausgeführt wurden.
 function renderSearchHistory() {
   if (!isDraussenCat3()) { return; }
-  var SEARCH_VIEW_PAGE_SIZE = 50;
-  var searchViewState = window.ebaSearchViewState || (window.ebaSearchViewState = {open: false, page: 0});
-  var tbl = findSearchTable();
-  var kind = tbl ? searchPageKind() : null;
-  if (!tbl || !kind) {
-    if (!$("#eba_search_hist").length) {
-      var hint = $("<div id='eba_search_hist' style='font-size:0.8em;color:#888;margin:6px 0'>").text("openEBA: Ergebnistabelle nicht erkannt");
+  var tables = draussenSearchTables();
+  if (!tables.length) {
+    if (!$(".eba_search_hist").length) {
+      var hint = $("<div class='eba_search_hist' style='font-size:0.8em;color:#888;margin:6px 0'>").text("openEBA: Ergebnistabelle nicht erkannt");
       var main = $("td[width='700px']").first();
       (main.length ? main : $("body")).append(hint);
     }
     return;
   }
-  updateSearchStatistic(); // idempotent: ohne neue Zeilen wird nichts geschrieben
-  var data = ebaSearchSeries(kind);
-  var rows = data.rows.slice().reverse(); // neueste oben
-  var cont = $("#eba_search_hist");
-  var sig = kind + "|" + rows.length + "|" + (rows.length ? rows[0].t : "") + "|" + searchViewState.open + "|" + searchViewState.page;
+  $(".eba_search_hist").not("[data-kind]").remove(); // Hinweis, falls vorhanden
+  $.each(tables, function(i, t) { renderSearchHistoryFor(t.kind, t.tbl); });
+}
+
+function renderSearchHistoryFor(kind, tbl) {
+  var SEARCH_VIEW_PAGE_SIZE = 50;
+  var states = window.ebaSearchViewState || (window.ebaSearchViewState = {});
+  var st = states[kind] || (states[kind] = {open: false, page: 0});
+  captureSearchRows(kind, tbl, true); // idempotent: ohne neue Zeilen wird nichts geschrieben
+  var res = olderSearchRows(kind, tbl);
+  var rows = res.older;
+  var cont = tbl.nextAll(".eba_search_hist[data-kind='" + kind + "']").first();
+  var sig = kind + "|" + rows.length + "|" + (rows.length ? rows[0].cells.join("\t") : "") + "|" + res.all.length + "|" + st.open + "|" + st.page;
   if (cont.length && cont.data("sig") === sig && cont.prev().is(tbl)) { return; }
-  cont.remove();
+  $(".eba_search_hist[data-kind='" + kind + "']").remove();
   if (!rows.length) { return; }
   var pages = Math.ceil(rows.length / SEARCH_VIEW_PAGE_SIZE);
-  if (searchViewState.page >= pages) { searchViewState.page = pages - 1; }
-  cont = $("<div id='eba_search_hist' style='margin:8px 0'>").data("sig", sig);
+  if (st.page >= pages) { st.page = pages - 1; }
+  cont = $("<div class='eba_search_hist' style='margin:8px 0'>").attr("data-kind", kind).data("sig", sig);
   var rerender = function() { cont.remove(); renderSearchHistory(); };
-  var toggle = $("<a href='#'>").text((searchViewState.open ? "Gespeicherte Ergebnisse ausblenden" : "Alle " + rows.length + " gespeicherten Ergebnisse anzeigen"))
-    .click(function(e) { e.preventDefault(); searchViewState.open = !searchViewState.open; rerender(); });
+  var label = rows.length === 1 ? "Weiteres älteres Ergebnis anzeigen" : "Weitere " + rows.length + " ältere Ergebnisse anzeigen";
+  var toggle = $("<a href='#'>").text(st.open ? "Ältere Ergebnisse ausblenden" : label)
+    .click(function(e) { e.preventDefault(); st.open = !st.open; rerender(); });
   cont.append($("<div>").append(toggle));
-  if (searchViewState.open) {
-    cont.append(searchSummaryHTML(rows).css("margin", "6px 0"));
+  if (st.open) {
+    cont.append(searchSummaryHTML(kind, res.all).css("margin", "6px 0"));
     var t = $("<table class='liste'>");
-    var lastHead = null, n = 0;
-    var start = searchViewState.page * SEARCH_VIEW_PAGE_SIZE;
+    var head = tbl.find("tr").first().children("td,th").map(function() { return $.trim($(this).text()); }).get();
+    var htr = $("<tr class='liste'>");
+    $.each(head, function(j, h) { htr.append($("<td class='liste'>").text(h)); });
+    t.append(htr);
+    var start = st.page * SEARCH_VIEW_PAGE_SIZE, n = 0;
     $.each(rows.slice(start, start + SEARCH_VIEW_PAGE_SIZE), function(i, r) {
-      if (r.header !== lastHead) {
-        var tr = $("<tr>").append($("<th>").text("Erfasst"));
-        $.each(r.header, function(j, h) { tr.append($("<th>").text(h)); });
-        t.append(tr);
-        lastHead = r.header;
-      }
-      var row = $("<tr>").addClass(n++ % 2 ? "color2" : "color1").append($("<td>").text(formatStatTime(r.t)));
-      $.each(r.cells, function(j, v) { row.append($("<td>").text(v)); });
+      var row = $("<tr>").addClass(n++ % 2 ? "color2" : "color1");
+      $.each(r.cells, function(j, v) {
+        row.append($("<td class='liste'>").text(v).css(j === 0 ? {textAlign: "left"} : {}));
+      });
       t.append(row);
     });
-    cont.append(t);
+    cont.append($("<center>").append(t));
     if (pages > 1) {
-      var nav = $("<div style='margin-top:4px'>");
-      var go = function(p) { return function(e) { e.preventDefault(); searchViewState.page = p; rerender(); }; };
-      if (searchViewState.page > 0) { nav.append($("<a href='#'>").text("« neuere").click(go(searchViewState.page - 1))).append(" "); }
-      nav.append(document.createTextNode("Seite " + (searchViewState.page + 1) + " von " + pages));
-      if (searchViewState.page < pages - 1) { nav.append(" ").append($("<a href='#'>").text("ältere »").click(go(searchViewState.page + 1))); }
+      var nav = $("<div style='margin-top:4px;text-align:center'>");
+      var go = function(p) { return function(e) { e.preventDefault(); st.page = p; rerender(); }; };
+      if (st.page > 0) { nav.append($("<a href='#'>").text("« neuere").click(go(st.page - 1))).append(" "); }
+      nav.append(document.createTextNode("Seite " + (st.page + 1) + " von " + pages));
+      if (st.page < pages - 1) { nav.append(" ").append($("<a href='#'>").text("ältere »").click(go(st.page + 1))); }
       cont.append(nav);
     }
   }
@@ -1312,7 +1390,41 @@ function migrateHistorySchema() {
       if (res && res !== v) { GM_setValue(k, res); }
     });
   }
+  if (from < 4) { migrateMisfiledSearches(); }
   GM_setValue(schemaKey(), EBA_SCHEMA_VERSION);
+}
+
+// Schema 4: Bis 31.8 landete auf draussen.php die Futtertiersuche in der Reihe
+// antsearch. Zeilen ohne "Königin" wandern nach foodsearch; beide Reihen werden
+// danach über (Datum, Ergebnis) entdoppelt. Das Verschieben geschieht über
+// mergeSeries(), die Ergebnisse sind also kanonisch und konvergieren beim Abgleich.
+function migrateMisfiledSearches() {
+  var aKey = histKey("antsearch"), fKey = histKey("foodsearch");
+  var a = GM_getValue(aKey, "");
+  if (typeof a !== "string" || !a) { return; }
+  var lines = a.split("\n");
+  if (isNaN(parseInt(lines[0], 10))) { return; } // unlesbare Kopfzeile nicht anfassen
+  var fh = lines[0].split("\t");
+  fh[1] = "foodsearch";
+  var keep = [lines[0]], moved = [fh.join("\t")];
+  var marker = null, markerIn = {keep: false, moved: false};
+  for (var i = 1; i < lines.length; i++) {
+    var line = lines[i];
+    if (!line) { continue; }
+    if (line.indexOf("H\t") === 0) { marker = line; markerIn = {keep: false, moved: false}; continue; }
+    if (isNaN(parseFloat(line))) { continue; }
+    var to = /Königin/i.test(line.substr(line.indexOf("\t") + 1)) ? "keep" : "moved";
+    var target = to === "keep" ? keep : moved;
+    if (marker && !markerIn[to]) { target.push(marker); markerIn[to] = true; }
+    target.push(line);
+  }
+  var keepTxt = keep.join("\n");
+  if (moved.length > 1) {
+    var f = GM_getValue(fKey, "");
+    var merged = mergeSeries(typeof f === "string" ? f : "", moved.join("\n"), true, true);
+    GM_setValue(fKey, mergeSeries(merged, merged, true, true)); // Inhalt entdoppeln
+  }
+  GM_setValue(aKey, mergeSeries(keepTxt, keepTxt, true, true));
 }
 
 // ---------------------------------------------------------------------------
