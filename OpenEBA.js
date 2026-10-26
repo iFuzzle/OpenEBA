@@ -2529,6 +2529,13 @@ function ebaFmtDec(x, digits) {
   return ("" + (Math.round(x * f) / f)).replace(".", ",");
 }
 
+// Prozent auf eine Nachkommastelle ABGESCHNITTEN, nicht gerundet: 99,96 % bleibt
+// 99,9 %, 100 % erscheint erst bei erreichtem Maximum. ‹ber dem Maximum ehrlich
+// (z.B. 105,0 %). Der Epsilon f‰ngt Gleitkomma-Fehler wie 29,999999 ab.
+function ebaFmtPct(x) {
+  return ("" + (Math.floor(x * 10 + 1e-6) / 10)).replace(".", ",");
+}
+
 // Hinter den Punkten jedes Formicariums das Maximum anzeigen: "12.340 / 50.000".
 // Die Prozentzahl steht absichtlich NICHT in der Spalte (zu schmal), sondern im
 // Tooltip des eigenen <span>. Das Tooltip h√§ngt am <span> und nicht am <td>,
@@ -2586,7 +2593,7 @@ function showMaxPoints() {
         // Punkte linear sind, muss punkte/arbeiterinnen ~ p/a gelten.
         var probe = [];
         if (!max.unknown && isFinite(points) && max.points > 0) {
-          probe.push("aktuell " + ebaFmtDec(points / max.points * 100, 1) + " %");
+          probe.push("aktuell " + ebaFmtPct(points / max.points * 100) + " %");
         }
         if (isFinite(points) && isFinite(ants) && ants > 0) {
           probe.push("gemessen " + ebaFmtDec(points / ants, 3) + " Pt/Arbeiterin (Tabelle "
@@ -2733,7 +2740,7 @@ function ebaGrowthTip(g, kind, workers, nestLabel, nestName, formiName, srv, spa
   var part = function(label, name, fit) {
     if (fit == null) { return; }
     var line = label + " (" + name + "): voll bei ca. " + ebaFmtInt(fit) + " Arbeiterinnen";
-    if (!space && isFinite(workers) && fit > 0) { line += ", nur Arbeiterinnen aktuell " + ebaFmtDec(workers / fit * 100, 1) + " %"; }
+    if (!space && isFinite(workers) && fit > 0) { line += ", nur Arbeiterinnen aktuell " + ebaFmtPct(workers / fit * 100) + " %"; }
     if (!max.unknown && fit >= max.ants) { line += " (reicht f√ºr das Maximum)"; }
     tip.push(line);
   };
@@ -2742,12 +2749,12 @@ function ebaGrowthTip(g, kind, workers, nestLabel, nestName, formiName, srv, spa
   if (g.limiting) {
     var fit = g.limiting == "Nest" ? g.nestFit : g.formiFit;
     tip.push("Begrenzend: " + g.limiting + ". Ausgewachsen relativ zur Behausung: "
-           + ebaFmtDec(workers / fit * 100, 1) + " %");
+           + ebaFmtPct(workers / fit * 100) + " %");
   }
   if (space && (space.nest != null || space.formi != null)) {
-    tip.push("Belegung laut Spiel: " + (space.nest != null ? nestLabel + " " + ebaFmtDec(space.nest, 1) + " %" : "")
+    tip.push("Belegung laut Spiel: " + (space.nest != null ? nestLabel + " " + ebaFmtPct(space.nest) + " %" : "")
            + (space.nest != null && space.formi != null ? ", " : "")
-           + (space.formi != null ? "Formicarium " + ebaFmtDec(space.formi, 1) + " %" : ""));
+           + (space.formi != null ? "Formicarium " + ebaFmtPct(space.formi) + " %" : ""));
   } else {
     tip.push("Hinweis: Das Spiel z√§hlt im Nest die Brut mit (Formicarium nur Arbeiterinnen); die Brutformel ist nicht eindeutig bekannt, daher hier nur Arbeiterinnen gerechnet. Exakte Belegung in der Einzelansicht.");
   }
@@ -2779,7 +2786,7 @@ function showGrowthPercent() {
           var formiName = c["Formicarium"] ? $.trim(c["Formicarium"].text()) : "";
           var g = ebaGrowth(kind, qRaw, workers, nestName, formiName, speed);
           if (!g || !isFinite(workers)) { return; } // Art nicht in antmax -> nichts anzeigen
-          var txt = "ausgewachsen zu " + (g.percent == null ? "?" : ebaFmtDec(g.percent, 1) + " %");
+          var txt = "ausgewachsen zu " + (g.percent == null ? "?" : ebaFmtPct(g.percent) + " %");
           var html = "<span class='eba_growth' style='color:#808080;font-size:smaller;white-space:nowrap'> &middot; " + txt;
           if (g.limiting) { html += " (" + g.limiting + " begrenzt)"; }
           if (g.percent != null) {
