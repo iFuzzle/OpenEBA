@@ -61,7 +61,7 @@ const configItems = {
   "eba_enable_formi_move_form"               : [processSingleFormicariumView, "F&uuml;tterformular &uuml;ber die Futtertabelle schieben"],
   "eba_enable_key_navi"                      : [enableKeyNavi, "Mit v und n (bzw. q und e) zwischen Formicarien navigieren, mit z bzw. p f&uuml;ttern"],
   "eba_enable_always_show_shop_prices"       : [alwaysShowShopPrices, "Ameisenshop-Preise immer zeigen", "Links neben dem Ameisenshop-Men&uuml;eintrag. Kann sein, dass nicht jeder Browser das richtig (verkleinert) darstellt."],
-  "eba_enable_highlight_shop_prices"         : [highlightShopPrices, "Ameisenshop-Preise f&auml;rben", "Hohe Preise gelb, auf (fast) Maximum rot."],
+  "eba_enable_highlight_shop_prices"         : [highlightShopPrices, "Ameisenshop-Preise f&auml;rben", "Preise ab 95 % des H&ouml;chstpreises gelb, ab 98 % sanft rot, bei 100 % dunkelrot mit wei&szlig;er Schrift."],
   "eba_enable_stat_beautify"                 : [statBeautify, "Statistik verbessern", "Einf&uuml;gen von 1.000er-Trennzeichen und Tooltips, die die Differenz zu den eigenen Punkten anzeigen. Das Avatar-Bild oben rechts bekommt als Tooltip die eigene Punkte-Entwicklung pro Stunde."],
   "eba_enable_process_jobs"                  : [processJobOffers, "Jobs/Forschungen mit Informationen anreichern", "Stundenlohn und Dauer (nach Abschluss der aktuellen Aktion) anzeigen."],
   "eba_enable_formi_statistic"               : [updateFormiStatistic, "Formicarien-Statistik", "Wird aktualisiert bei jedem Aufruf der Formicarien-&Uuml;bersicht. Aufzurufen dort mit dem Link <i>Statistik</i> bei jedem Formicarium. Optimiert zum Kopieren und Einf&uuml;gen in Excel und Co. Die Werte werden auch genutzt, um die Entwicklung von Eiern, Larven, Puppen, Ameisen und Punkten pro Stunde als jeweiligen Tooltip anzuzeigen."],
@@ -324,17 +324,28 @@ function highlightShopPrices() {
       var row = $(this);
       var ant = row.find("td").eq(0).text();
       var price = parseFloat(row.find("td").eq(1).text().replace(/,/, "."));
-      var color = "";
-      if (shopPriceLimits[ant]*0.99<=price) {
-        color = "#FF5555";
-      } else if (shopPriceLimits[ant]*0.95<=price) {
+      var limit = shopPriceLimits[ant];
+      var ratio = limit ? price/limit : NaN;
+      var color = "", bg = "", weight = "", title = "";
+      // kleines Epsilon gegen Gleitkomma-Ungenauigkeiten (z.B. 6,34 bei Grenze 6.34)
+      if (ratio >= 1-1e-9) {
+        color = "#FFFFFF"; bg = "#8B0000"; weight = "bold";   // Höchstpreis erreicht
+      } else if (ratio >= 0.98-1e-9) {
+        color = "#FF8A8A";                                    // sanftes Rot
+      } else if (ratio >= 0.95-1e-9) {
         color = "#FFFF00";
+      }
+      if (color) {
+        title = (Math.round(ratio*1000)/10).toString().replace(".", ",") + " % des H\u00F6chstpreises";
       }
       // nur färben, wenn sich die Farbe ändert (verhindert Endlosschleife mit dem Observer
       // und entfernt die Farbe wieder, wenn der Preis gefallen ist)
-      if (row.data("eba_color") !== color) {
-        row.data("eba_color", color);
-        row.css("color", color);
+      var key = color + "|" + bg + "|" + title;
+      if (row.data("eba_color") !== key) {
+        row.data("eba_color", key);
+        row.css({"color": color, "font-weight": weight, "background-color": bg});
+        row.children("td").css("background-color", bg);
+        if (title) { row.attr("title", title); } else { row.removeAttr("title"); }
       }
     });
   };
