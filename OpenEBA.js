@@ -19,7 +19,13 @@
 // Version des Speicherschemas der Historien.
 // 0/1 = Altbestand (nur Formi- und Futter-Historie, ohne Versionsschlüssel)
 // 2   = zusätzliche Zeitreihen für Geld, Punkte, Ticklänge sowie Futter-/Ameisensuchen
-const EBA_SCHEMA_VERSION = 2;
+// 3   = Formi-Historie höchstens eine Zeile je Tick; Futter-Historie eine Zeile je
+//       Tick mit leerem Feld 1 (früher Abrufzeit) und Feld 3 = Ausbruchschutz
+const EBA_SCHEMA_VERSION = 3;
+// Format der Kopfzeile der eba_hist_*-Reihen. Bewusst getrennt von der Schema-
+// Version: Schema 3 ändert nur Formi-/Futter-Historie, die Kopfzeilen der übrigen
+// Reihen bleiben "2", damit Geräte mit älterem Skript sie weiter lesen.
+const EBA_HIST_FORMAT = 2;
 // Obergrenze an Zeilen pro Zeitreihe, ab der ausgedünnt wird (nur mit aktivierter Kompaktierung)
 const EBA_HIST_MAX_LINES = 2000;
 
@@ -57,7 +63,7 @@ const configItems = {
   "eba_enable_stat_beautify"                 : [statBeautify, "Statistik verbessern", "Einf&uuml;gen von 1.000er-Trennzeichen und Tooltips, die die Differenz zu den eigenen Punkten anzeigen. Das Avatar-Bild oben rechts bekommt als Tooltip die eigene Punkte-Entwicklung pro Stunde."],
   "eba_enable_process_jobs"                  : [processJobOffers, "Jobs/Forschungen mit Informationen anreichern", "Stundenlohn und Dauer (nach Abschluss der aktuellen Aktion) anzeigen."],
   "eba_enable_formi_statistic"               : [updateFormiStatistic, "Formicarien-Statistik", "Wird aktualisiert bei jedem Aufruf der Formicarien-&Uuml;bersicht. Aufzurufen dort mit dem Link <i>Statistik</i> bei jedem Formicarium. Optimiert zum Kopieren und Einf&uuml;gen in Excel und Co. Die Werte werden auch genutzt, um die Entwicklung von Eiern, Larven, Puppen, Ameisen und Punkten pro Stunde als jeweiligen Tooltip anzuzeigen."],
-  "eba_enable_food_snapshot"                 : [function(){}, "Futterbestand pro Tick festhalten", "Beim ersten Aufruf der Formicarien-&Uuml;bersicht nach einem Tick wird die Futtertabelle jedes Formicariums im Hintergrund aus der Detailansicht geholt und in der Formicarien-Statistik erg&auml;nzt. Funktioniert nur zusammen mit der Formicarien-Statistik."],
+  "eba_enable_food_snapshot"                 : [function(){}, "Futterbestand und Ausbruchschutz pro Tick festhalten", "Beim ersten Aufruf der Formicarien-&Uuml;bersicht nach einem Tick wird die Futtertabelle jedes Formicariums samt Ausbruchschutz (Typ und Prozent, z.B. <i>PTFE 97,4</i>) im Hintergrund aus der Detailansicht geholt und in der Formicarien-Statistik erg&auml;nzt. Funktioniert nur zusammen mit der Formicarien-Statistik."],
   "eba_enable_mark_shop_messages"            : [enableMarkShopMessages, "Option zum Markieren von Kleinanzeigen-Nachrichten einblenden"],
   "eba_enable_sum_multiple_messages"         : [sumMultipleMessages, "Gleichartige Nachrichten zusammenfassen", "Nachrichten desselben Benutzers mit demselben Betreff werden zusamengefasst. Der Haken zum L&ouml;schen bezieht sich auf alle zusammengefassten Nachrichten!"],
   "eba_enable_message_filter"                : [enableMessageFilter, "Nachrichten nach Absendern filtern", "Pflege der Suchbegriffe in der Liste unten. In den Nachrichten wird der Absender gepr&uuml;ft, ob er einen der Suchbegriffe enth&auml;llt. Falls ja, wird die Zeile ausgeblendet.<br>Z.B. blendet der Eintrag <i>Pepper</i> alle Nachrichten von Pepper aus, aber auch die Nachrichten eines Spielers namens \"Pepperoni\"."],
@@ -196,21 +202,12 @@ const formiCapacity = {
   "riesige anlage": 200000
 }
 
-// Zustand der Futter-Warteschlange. Muss VOR der Init-Schleife unten stehen,
-// weil updateFormiStatistic() schon beim Start darauf zugreift.
+// Zustand der Futter-Warteschlange. Der Start der Features (Init-Schleife) steht
+// ganz am Ende der Datei, siehe dort.
 var foodQueue = [];
 var foodQueueRunning = false;
 var foodQueued = {};
 
-// Einmalige Schema-Migration vor allen Features, damit der Versionsschlüssel
-// auch gesetzt wird, wenn keine der neuen Optionen aktiv ist.
-migrateHistorySchema();
-enableConfig();
-$.each(configItems, function(k, v) {
-  var timer = new Date().getTime();
-  GM_getValue(k, false) && v[0]();
-  var time = new Date().getTime()-timer;
-});
 function showInventory(){
   var doInsert = function(rowsHTML) {
     $("body").append(rowsHTML);
@@ -509,15 +506,15 @@ function elapsedHours(baseHour, tickStartMs) {
 // ---------------------------------------------------------------------------
 // Plausibilität von Zeitschlüsseln
 //
-// Alle drei Erfassungspfade prüfen nur die LETZTE Zeile einer Reihe, ob schon
-// etwas für den aktuellen Tick vorliegt: histAppend(), updateFormiStatistic()
-// und hasFoodSnapshot(). Eine einzige Zeile mit einem Zeitschlüssel aus der
-// Zukunft genügt deshalb, um die Erfassung von Geld, Punkten, Ticklänge, Formis
-// und Futter dauerhaft und ohne jede Fehlermeldung einzufrieren - und weil
-// aufsteigend sortiert wird, landet so ein Wert garantiert genau an dieser
-// Gift-Position. Die Grenzen hier fangen das an zwei Stellen ab: eingehende
-// Daten werden vor dem Verschmelzen gefiltert, und ein trotzdem vorhandener
-// Zukunftswert blockiert das Anhängen nicht mehr.
+// histAppend() prüft nur die LETZTE Zeile einer Reihe, ob schon etwas für den
+// aktuellen Tick vorliegt (updateFormiStatistic() und hasFoodSnapshot() suchen
+// dagegen in der ganzen Reihe). Eine einzige Zeile mit einem Zeitschlüssel aus der
+// Zukunft genügt deshalb, um die Erfassung von Geld, Punkten und Ticklänge
+// dauerhaft und ohne jede Fehlermeldung einzufrieren - und weil aufsteigend
+// sortiert wird, landet so ein Wert garantiert genau an dieser Gift-Position.
+// Die Grenzen hier fangen das an zwei Stellen ab: eingehende Daten werden vor dem
+// Verschmelzen gefiltert, und ein trotzdem vorhandener Zukunftswert blockiert das
+// Anhängen nicht mehr.
 // ---------------------------------------------------------------------------
 
 // Frühestes plausibles Datum: 01.01.2020 UTC. Davor gab es diese Reihen nicht.
@@ -531,18 +528,75 @@ function ebaTimePlausible(ms) {
   return !isNaN(ms) && ms >= EBA_TIME_MIN && ms <= ebaTimeMax();
 }
 
-// Futter-Snapshots im Hintergrund holen (sequentiell, um den Server zu schonen)
+// ---------------------------------------------------------------------------
+// Futter-Historie (eba_food_<id>): genau eine Zeile je Tick
+//   Feld 0 = Tick in Minuten seit Epoch
+//   Feld 1 = leer (früher die krumme Uhrzeit des Abrufs, wird nicht mehr geführt)
+//   Feld 2 = Futter "Name 1,00g 97% | ..." oder "leer"
+//   Feld 3 = Ausbruchschutz "PTFE 97,4" (Typ, Wert in %), leer = keiner
+// Ältere Zeilen haben nur drei Felder; mergeFoodHistory() bringt sie in die
+// Form oben.
+// ---------------------------------------------------------------------------
+
+// Zwei Futter-Historien verschmelzen: höchstens eine Zeile je Tick.
+// Bei mehreren Zeilen zum selben Tick gewinnt die mit Ausbruchschutz-Angabe (sie
+// ist vollständiger), danach die lexikografisch kleinere. Das ist eine totale
+// Ordnung auf dem Inhalt, also kommutativ, assoziativ und idempotent.
+function mergeFoodHistory(a, b) {
+  var best = {};
+  var add = function(text) {
+    if (typeof text !== "string") { return; }
+    var ls = text.split("\n");
+    for (var i = 0; i < ls.length; i++) {
+      if (!ls[i]) { continue; }
+      var f = ls[i].split("\t");
+      var t = parseFloat(f[0]);
+      if (isNaN(t)) { continue; }
+      var esc = f[3] || "";
+      var line = t + "\t\t" + (f[2] == null ? "" : f[2]) + "\t" + esc;
+      var cur = best["k" + t];
+      if (!cur || (esc !== "" && cur.esc === "") ||
+          ((esc !== "") === (cur.esc !== "") && syncCmpLine(line, cur.line) < 0)) {
+        best["k" + t] = { t: t, line: line, esc: esc };
+      }
+    }
+  };
+  add(a); add(b);
+  var all = [];
+  for (var k in best) { if (Object.prototype.hasOwnProperty.call(best, k)) { all.push(best[k]); } }
+  all.sort(function(x, y) { return x.t - y.t; });
+  var out = [];
+  for (var j = 0; j < all.length; j++) { out.push(all[j].line); }
+  return out.join("\n");
+}
+
+// Gibt es für diesen Tick schon einen Futter-Snapshot?
+// Es wird die ganze Reihe nach dem Zeitschlüssel durchsucht, nicht nur die letzte
+// Zeile: nach dem Verschmelzen mit einem anderen Gerät muss die letzte Zeile
+// nicht die aktuellste sein.
 function hasFoodSnapshot(id, tickMin) {
   var saved = GM_getValue("eba_food_" + srvKey() + id, "");
   if (!saved) { return false; }
-  var last = saved.substr(saved.lastIndexOf("\n") + 1);
-  var lastMin = parseInt(last.split("\t")[0]);
-  if (isNaN(lastMin)) { return false; }
-  // Zukunftswert in der letzten Zeile: nicht als "schon erfasst" deuten, sonst
-  // würde nie wieder ein Snapshot geholt (siehe ebaTimePlausible()).
-  if (!ebaTimePlausible(lastMin * 60000)) { return false; }
-  return lastMin >= tickMin;
+  var ls = saved.split("\n");
+  for (var i = ls.length - 1; i >= 0; i--) {
+    if (parseFloat(ls[i]) === tickMin) { return true; }
+  }
+  return false;
 }
+
+// Ausbruchschutz aus dem Quelltext der Detailseite:
+//   <b>Ausbruchschutz: PTFE</b> ... jsProgressBar($('escape'), 97.4, {...
+// Rückgabe "PTFE 97,4" bzw. "Talkum 75"; leer, wenn kein Balken da ist.
+function ebaParseEscape(html) {
+  var v = /jsProgressBar\s*\(\s*\$\(\s*['"]escape['"]\s*\)\s*,\s*(-?[\d.]+)/.exec(html);
+  if (!v) { return ""; }
+  var t = /<b>\s*Ausbruchschutz:\s*([^<]*?)\s*<\/b>/.exec(html);
+  var val = parseFloat(v[1]);
+  if (isNaN(val)) { return ""; }
+  return $.trim((t ? t[1] + " " : "") + val.toString().replace(".", ","));
+}
+
+// Futter-Snapshots im Hintergrund holen (sequentiell, um den Server zu schonen)
 function queueFoodSnapshot(id, url, tickMin) {
   var k = srvKey() + id + "_" + tickMin;
   if (foodQueued[k] || hasFoodSnapshot(id, tickMin)) { return; }
@@ -575,11 +629,9 @@ function runFoodQueue() {
             var cond = $.trim(td.eq(3).text());
             entries.push(name + " " + gram + "g " + cond);
           });
-          var srv = /(\d+:\d+:\d+)/.exec($("#servertime").text());
           var key = "eba_food_" + srvKey() + job.id;
-          var saved = GM_getValue(key, "");
-          var line = job.tickMin + "\t" + (srv ? srv[1] : "") + "\t" + (entries.length ? entries.join(" | ") : "leer");
-          GM_setValue(key, saved ? saved + "\n" + line : line);
+          var line = job.tickMin + "\t\t" + (entries.length ? entries.join(" | ") : "leer") + "\t" + ebaParseEscape(response.responseText);
+          GM_setValue(key, mergeFoodHistory(GM_getValue(key, ""), line));
         }
         next();
       } catch (err) { fail(); }
@@ -587,6 +639,28 @@ function runFoodQueue() {
     onerror: fail,
     ontimeout: fail
   });
+}
+
+// Hunger-Prozentwert einer Zelle (Zahl als Text mit Komma, "" wenn unlesbar).
+// Der genaue Wert steht im Skriptaufruf hinter dem Span:
+//   jsProgressBar($('sugarhunger123'), 0.3, {...
+// Der sichtbare Text ist vom Spiel auf ganze Prozent gerundet und wird von
+// copyHungerPercentages() verändert; er dient nur als Notnagel. Früher wurde
+// childNodes[2] der Zelle gelesen - das hängt an der Knotenreihenfolge und
+// liefert bei jeder Abweichung NaN bzw. einen gerundeten Wert.
+function ebaHungerFromCell(td) {
+  var val = NaN;
+  td.find("script").each(function() {
+    var m = /jsProgressBar\s*\(\s*\$\(\s*['"][^'"]*['"]\s*\)\s*,\s*(-?[\d.]+)/.exec($(this).text());
+    if (m) { val = parseFloat(m[1]); return false; }
+  });
+  if (isNaN(val)) {
+    var clone = td.clone();
+    clone.find("script,span").remove();
+    var tm = /(-?\d+(?:[.,]\d+)?)\s*%/.exec(clone.text());
+    if (tm) { val = parseFloat(tm[1].replace(",", ".")); }
+  }
+  return isNaN(val) ? "" : val.toString().replace(".", ",");
 }
 
 function updateFormiStatistic() {
@@ -611,21 +685,15 @@ function updateFormiStatistic() {
     var points = parseInt(cells.eq(6).text());
     var nest = cells.eq(7).text();
     var formicarium = cells.eq(8).text();
-    var id = cells.eq(9).find("span").attr("id").substr(11);
-    var sugarHunger = parseFloat(cells.eq(9).get(0).childNodes[2].nodeValue).toString().replace(/\./, ",");
-    var proteinHunger = parseFloat(cells.eq(10).get(0).childNodes[2].nodeValue).toString().replace(/\./, ",");
+    var idSpan = cells.eq(9).find("span").first();
+    if (!idSpan.length) { return; } // keine Formicarium-Kachel
+    var id = idSpan.attr("id").substr(11);
+    var sugarHunger = ebaHungerFromCell(cells.eq(9));
+    var proteinHunger = ebaHungerFromCell(cells.eq(10));
     for(var n = 0; n < long_str.length; n++){
       if(long_str[n] == nest){ nest = short_str[n]; }
       if(long_str[n] == formicarium){ formicarium = short_str[n]; }
     }
-    // Bezeichnung der "Pr(%)"-Spalte aus der Seite lesen: "Hunger (Proteine)" (0% gut)
-    // oder z.B. "Pilzstatus" (100% gut). Wird nur bei der Anzeige genutzt, nicht gespeichert.
-    var protLabel = "";
-    try {
-      var lblA = cells.eq(10).closest("tr").children("td").first().find("a").get(0);
-      if (lblA) { protLabel = $.trim(lblA.childNodes[0].nodeValue).replace(/:$/, ""); }
-    } catch (err) {}
-    var protMeaning = protLabel ? protLabel + (/Hunger/i.test(protLabel) ? " (gut: 0%)" : " (gut: 100%)") : "";
 
     var dataLine = queens+"\t"+ants+"\t"+eggs+"\t"+larvae+"\t"+cocoons+"\t"+points+"\t"+nest+"\t"+formicarium+"\t"+sugarHunger+"\t"+proteinHunger;
     var key = "eba_statistic_" + srvKey() + id;
@@ -640,23 +708,33 @@ function updateFormiStatistic() {
     }
     if (savedData == null) { return; } // Tick läuft noch, noch keine Daten
 
+    // Mehrfachzeilen zum selben Tick (aus älteren Versionen oder von einem noch
+    // nicht aktualisierten Gerät) beseitigen: höchstens eine Zeile je Tick.
+    var healed = mergeFormiHistory(savedData, "");
+    if (healed && healed !== savedData) { savedData = healed; GM_setValue(key, savedData); }
+
     var baseHour = parseInt(savedData.substring(0, savedData.indexOf("\t")));
     var nowElapsed = elapsedHours(baseHour, tk.nowTick);
     var lines = savedData.split("\n"); // lines[0] = Kopfzeile
-    var lastElapsed = parseFloat(lines[lines.length - 1].split("\t")[0]);
 
-    // Steht in der letzten Zeile ein Zeitstempel aus der Zukunft, wird er nicht
-    // als Sperre gewertet - sonst erfasst dieses Formicarium nie wieder etwas.
-    if (!ebaTimePlausible(baseHour * 3600000 + lastElapsed * 3600000)) { lastElapsed = -Infinity; }
-
-    // neuer Tick seit der letzten Zeile? Ausgefallene Ticks dazwischen werden nicht aufgefüllt.
-    if (tk.done && nowElapsed > lastElapsed) {
-      lines.push(nowElapsed+"\t"+dataLine+"\t"+timeStr);
+    // Gibt es für diesen Tick schon eine Zeile? Es wird die ganze Reihe geprüft,
+    // nicht nur die letzte Zeile: nach dem Verschmelzen (WebDAV, Import) muss die
+    // letzte Zeile nicht die des aktuellen Ticks sein. Ein Zeitstempel aus der
+    // Zukunft blockiert so auch nichts. Ausgefallene Ticks werden nicht aufgefüllt.
+    var haveTick = false;
+    for (var q = lines.length - 1; q >= 1; q--) {
+      if (Math.abs(parseFloat(lines[q].split("\t")[0]) - nowElapsed) < 0.005) { haveTick = true; break; }
+    }
+    if (tk.done && !haveTick) {
+      // chronologisch einsortieren (normal: ans Ende)
+      var at = lines.length;
+      while (at > 1 && parseFloat(lines[at - 1].split("\t")[0]) > nowElapsed) { at--; }
+      lines.splice(at, 0, nowElapsed+"\t"+dataLine+"\t"+timeStr);
       savedData = lines.join("\n");
       GM_setValue(key, savedData);
     }
 
-    // Futter-Snapshot im Hintergrund holen (einmal pro Tick und Formicarium)
+    // Futter-Snapshot samt Ausbruchschutz im Hintergrund holen (einmal pro Tick und Formicarium)
     if (tk.done && GM_getValue("eba_enable_food_snapshot", false)) {
       var href = div.find("a:contains('Formicarium anschauen')").attr("href");
       var detailUrl = href ? new URL(href, location.href).href
@@ -696,15 +774,15 @@ function updateFormiStatistic() {
       statisticHTML += "<button id='eba_statistic_ok' type='button'>OK</button></div>";
       mainArea.append(statisticHTML);
 
-      // Futter-Snapshots nach Tick (Minuten seit Epoch) indexieren
+      // Futter und Ausbruchschutz nach Tick (Minuten seit Epoch) indexieren
       var foodMap = {};
-      $.each(GM_getValue("eba_food_" + srvKey() + id, "").split("\n"), function(k, line) {
+      $.each(mergeFoodHistory(GM_getValue("eba_food_" + srvKey() + id, ""), "").split("\n"), function(k, line) {
         if (!line) { return; }
         var ff = line.split("\t");
-        foodMap[ff[0]] = [ff[1], ff[2]];
+        foodMap[ff[0]] = [ff[2] || "", ff[3] || ""];
       });
 
-      var headLines = savedData.substring(0, savedData.indexOf("\n"))+"\nZeit(h)\tKön.\tArb.\tEier\tLarven\tPuppen\tPunkte\tNest       \tFormicarium\tZu(%)\tPr(%)\tUhrzeit\tFutter erfasst\tFutter\tPr-Bedeutung\n";
+      var headLines = savedData.substring(0, savedData.indexOf("\n"))+"\nZeit(h)\tKön.\tArb.\tEier\tLarven\tPuppen\tPunkte\tNest       \tFormicarium\tZu(%)\tPr(%)\tUhrzeit\tFutter\tAusbruchschutz\n";
       var rows = savedData.substr(savedData.indexOf("\n")+1).split("\n");
       var body = $.map(rows, function(line) {
         var r = line.split("\t");
@@ -714,7 +792,7 @@ function updateFormiStatistic() {
         }
         var tickKey = Math.round((baseHour * 60 + elapsed * 60) / tickMin) * tickMin;
         var fd = foodMap[tickKey];
-        r.push(fd ? fd[0] : "", fd ? fd[1] : "", protMeaning);
+        r.push(fd ? fd[0] : "", fd ? fd[1] : "");
         r[0] = r[0].replace(".", ",");
         return r.join("\t");
       }).join("\n");
@@ -748,7 +826,7 @@ function histKey(name) { return "eba_hist_" + srvKey() + name; }
 
 // Kopfzeile einer Zeitreihe: Schema, Name, Einheit, Ticklänge in Minuten
 function histHead(name, unit) {
-  return EBA_SCHEMA_VERSION + "\t" + name + "\t" + unit + "\t" + getTickMinutes();
+  return EBA_HIST_FORMAT + "\t" + name + "\t" + unit + "\t" + getTickMinutes();
 }
 
 // Messwert anhängen. Pro Zeitschlüssel landet nur ein Wert, geprüft an der
@@ -1164,8 +1242,8 @@ function migrateServerKeys() {
   }
 }
 
-// Die Formi- und Futter-Historien werden NICHT angefasst: Schema 2 erweitert
-// nur um neue Schlüssel. Zusätzlich werden die alten Einzelwerte aus
+// Schema 2 erweitert nur um neue Schlüssel (Schema 3 bereinigt dann die Formi- und
+// Futter-Historien, siehe unten). Zusätzlich werden die alten Einzelwerte aus
 // eba_points_1/2 (Punkte je Epoch-Stunde) und eba_tickdur_* (eine Ticklänge)
 // verlustfrei als Startpunkte in die neuen Zeitreihen übernommen.
 function migrateHistorySchema() {
@@ -1208,6 +1286,30 @@ function migrateHistorySchema() {
         GM_setValue(histKey("tickdur"), histHead("tickdur", "ms") + "\n" + (tk * getTickMinutes()) + "\t" + ms);
       }
     }
+  }
+  if (from < 3) {
+    // Schema 3: Mehrfachzeilen je Tick beseitigen. Bis Version 31.3 hängte jeder
+    // Aufruf der Übersicht eine neue Zeile an (siehe Start am Dateiende).
+    // Formi-Historie: eine Zeile je Tick (mergeFormiHistory()). Futter-Historie:
+    // eine Zeile je Tick, Feld 1 (Abrufzeit) geleert, Feld 3 (Ausbruchschutz)
+    // ergänzt (mergeFoodHistory()). Geld/Punkte/Ticklänge: nur ganz gleiche Zeilen
+    // zusammenfassen, denn zwei verschiedene Werte desselben Ticks können echt sein.
+    $.each(GM_listValues(), function(i, k) {
+      if (!isHistoryKey(k) || keyServer(k) !== srvKey()) { return; }
+      var v = GM_getValue(k, "");
+      if (typeof v !== "string" || !v) { return; }
+      var res = v;
+      if (k.indexOf("eba_statistic_") === 0) {
+        if (isNaN(parseInt(v, 10))) { return; } // unlesbare Kopfzeile nicht anfassen
+        res = mergeFormiHistory(v, "");
+      } else if (k.indexOf("eba_food_") === 0) {
+        res = mergeFoodHistory(v, "");
+      } else if (new RegExp("^eba_hist_" + srvKey() + "(money|points|tickdur)$").test(k)) {
+        if (isNaN(parseInt(v, 10))) { return; }
+        res = mergeSeries(v, "", true, false);
+      }
+      if (res && res !== v) { GM_setValue(k, res); }
+    });
   }
   GM_setValue(schemaKey(), EBA_SCHEMA_VERSION);
 }
@@ -1358,6 +1460,15 @@ function mergeSeries(a, b, hasHeader, byContent) {
 // Formi-Historien speichern die Zeit relativ zur Basis-Stunde aus Zeile 0.
 // Beim Verschmelzen werden daher beide Seiten auf die kleinere Basis-Stunde
 // umgerechnet, damit die Zeitstempel zueinander passen und positiv bleiben.
+//
+// Pro Tick bleibt höchstens EINE Zeile. Früher blieben bei gleichem Zeitstempel
+// alle Zeilen mit abweichenden Datenfeldern erhalten ("der Spieler hat mitten im
+// Tick gefüttert, beide Werte sind richtig"). Zusammen mit dem Append-Fehler
+// (siehe Start am Dateiende) wuchs die Reihe dadurch bei jedem Abgleich. Die
+// Auswahl je Tick (bestRow unten) ist eine totale Ordnung auf dem Inhalt und
+// damit kommutativ, assoziativ und idempotent; die Geräte konvergieren.
+// Ist nur eine Seite lesbar, wird trotzdem kanonisiert (sortiert, entdoppelt):
+// mergeFormiHistory(x, "") ist die Bereinigung einer einzelnen Reihe.
 function mergeFormiHistory(a, b) {
   if (typeof a !== "string") { a = ""; }
   if (typeof b !== "string") { b = ""; }
@@ -1368,9 +1479,7 @@ function mergeFormiHistory(a, b) {
   // auch hier gilt. Der Abgleich verschmilzt eine solche Reihe gar nicht erst
   // (siehe syncMergeOne()), damit nie lokale Daten verloren gehen.
   if (isNaN(ba) && isNaN(bb)) { return syncCmpLine(a, b) <= 0 ? a : b; }
-  if (isNaN(ba)) { return b; }
-  if (isNaN(bb)) { return a; }
-  var base = Math.min(ba, bb);
+  var base = isNaN(ba) ? bb : (isNaN(bb) ? ba : Math.min(ba, bb));
   var shift = function(lines, oldBase) {
     var out = [], d = oldBase - base;
     for (var i = 1; i < lines.length; i++) {
@@ -1381,32 +1490,29 @@ function mergeFormiHistory(a, b) {
     }
     return out;
   };
-  var all = shift(la, ba).concat(shift(lb, bb));
-  // Vollständige Ordnung statt stabiler Sortierung. Vorher entschied bei
-  // gleichem Zeitstempel die Argumentreihenfolge: weil die lokale Seite immer
-  // als a übergeben wird, behielt JEDES Gerät seinen eigenen Wert und verwarf
-  // den des anderen - sie konvergierten nie.
-  //
-  // Entdoppelt wird über Zeit + alle Felder OHNE das letzte. Das letzte Feld
-  // ist timeStr aus formatStatTime(), das über getDate()/getHours() von
-  // Zeitzone und Sommerzeit des jeweiligen Geräts abhängt: zwei Geräte in
-  // verschiedenen Zeitzonen erzeugen für denselben Tick unterschiedliche
-  // timeStr bei völlig identischen Messwerten. Das ist keine Information,
-  // sondern ein Artefakt - deshalb entscheidet es nicht über die Identität.
-  // Bei Gleichstand bleibt die lexikografisch kleinere Gesamtzeile.
-  //
-  // Unterscheiden sich dagegen die DATENfelder (der Spieler hat mitten im Tick
-  // gefüttert oder gekauft), bleiben BEIDE Zeilen erhalten. Keiner der beiden
-  // Werte ist falsch, einer ist nur später, und es gibt kein Feld, das das
-  // entscheiden könnte. ebaFormiRows() verträgt zwei Einträge mit gleichem t.
+  var all = (isNaN(ba) ? [] : shift(la, ba)).concat(isNaN(bb) ? [] : shift(lb, bb));
+  // Rangfolge innerhalb eines Ticks (kleiner = gewinnt):
+  //  1. größere Hunger-Summe (Zucker + Protein). Hunger sinkt innerhalb eines
+  //     Ticks nur durch Füttern; die Zeile mit dem höchsten Wert ist daher die,
+  //     die dem Tickbeginn am nächsten liegt (= die zuerst erfasste). Die Zeilen
+  //     mit 0/0 sind Aufrufe NACH dem Füttern. Unlesbarer Hunger zählt als -1.
+  //  2. kleinerer Dedup-Schlüssel: Zeit + alle Felder OHNE das letzte. Das letzte
+  //     Feld ist timeStr aus formatStatTime(), das über getDate()/getHours() von
+  //     Zeitzone und Sommerzeit des Geräts abhängt - bei identischen Messwerten
+  //     ist es ein Artefakt und entscheidet nicht über die Identität.
+  //  3. kleinere Gesamtzeile.
   for (var i = 0; i < all.length; i++) {
     var line = all[i][0] + "\t" + all[i][1];
     var cut = line.lastIndexOf("\t");
+    var f = all[i][1].split("\t"); // queens ... points, nest, formicarium, sugar, protein, time
+    var hs = function(x) { var v = parseFloat(("" + (x == null ? "" : x)).replace(",", ".")); return isNaN(v) ? -1 : v; };
     all[i][2] = line;
     all[i][3] = (cut > 0) ? line.substr(0, cut) : line; // Dedup-Schlüssel ohne timeStr
+    all[i][4] = hs(f[8]) + hs(f[9]);
   }
   all.sort(function(x, y) {
     if (x[0] !== y[0]) { return x[0] - y[0]; }
+    if (x[4] !== y[4]) { return y[4] - x[4]; }
     var d = syncCmpLine(x[3], y[3]);
     if (d !== 0) { return d; }
     return syncCmpLine(x[2], y[2]);
@@ -1414,15 +1520,16 @@ function mergeFormiHistory(a, b) {
   // Zeile 0 trägt die Basis-Stunde: die Seite mit der kleineren Basis-Stunde
   // gewinnt, bei Gleichstand die lexikografisch kleinere Zeile.
   var head;
-  if (ba !== bb) { head = (base === ba) ? la[0] : lb[0]; }
+  if (isNaN(ba)) { head = lb[0]; }
+  else if (isNaN(bb)) { head = la[0]; }
+  else if (ba !== bb) { head = (base === ba) ? la[0] : lb[0]; }
   else { head = syncCmpLine(la[0], lb[0]) <= 0 ? la[0] : lb[0]; }
   var res = [head];
-  var prevId = null;
+  var prevT = null;
   for (var j = 0; j < all.length; j++) {
-    // Gleicher Dedup-Schlüssel: nur die erste (= lexikografisch kleinste)
-    // Gesamtzeile behalten. Die Sortierung stellt sie direkt nebeneinander.
-    if (all[j][3] === prevId) { continue; }
-    prevId = all[j][3];
+    // Je Zeitstempel nur die erste Zeile der Sortierung behalten (= die beste).
+    if (all[j][0] === prevT) { continue; }
+    prevT = all[j][0];
     res.push(all[j][2]);
   }
   return res.join("\n");
@@ -1492,7 +1599,7 @@ function importHistoryJSON(text) {
       if (k.indexOf("eba_statistic_") === 0) {
         res = mergeFormiHistory(mine, v);
       } else if (k.indexOf("eba_food_") === 0) {
-        res = mergeSeries(mine, v, false, false);
+        res = mergeFoodHistory(mine, v);
       } else if (/_(foodsearch|antsearch)$/.test(k)) {
         res = mergeSeries(mine, v, true, true);
       } else {
@@ -1616,7 +1723,8 @@ function ebaFormiSeries(id, field) {
 }
 
 // Futter-Snapshots eines Formicariums:
-// [{t, servertime, raw, entries:[{name, gram, cond}]}]
+// [{t, servertime, raw, entries:[{name, gram, cond}], escape, escapeType, escapePct}]
+// servertime ist seit Schema 3 immer leer; escape z.B. "PTFE 97,4" (leer = keiner).
 function ebaFoodSeries(id) {
   var out = [];
   var saved = GM_getValue("eba_food_" + srvKey() + id, "");
@@ -1637,7 +1745,12 @@ function ebaFoodSeries(id) {
         }
       });
     }
-    out.push({t: t * 60000, servertime: f[1] || "", raw: f[2] || "", entries: entries});
+    // Feld 3 (ab Schema 3): Ausbruchschutz "PTFE 97,4", leer = keiner
+    var escRaw = f[3] || "";
+    var em = /^(.*?)\s*(-?[\d.,]+)$/.exec(escRaw);
+    out.push({t: t * 60000, servertime: f[1] || "", raw: f[2] || "", entries: entries,
+              escape: escRaw, escapeType: em ? $.trim(em[1]) : escRaw,
+              escapePct: em ? parseFloat(em[2].replace(",", ".")) : null});
   });
   return out;
 }
@@ -2876,7 +2989,7 @@ function davKind(key) {
 function davMerge(key, a, b) {
   switch (davKind(key)) {
     case "formi": return mergeFormiHistory(a, b);
-    case "food": return mergeSeries(a, b, false, false);
+    case "food": return mergeFoodHistory(a, b);
     case "search": return mergeSeries(a, b, true, true);
     default: return mergeSeries(a, b, true, false);
   }
@@ -2905,9 +3018,9 @@ function davValidate(key, text) {
     var name = key.substr(("eba_hist_" + (keyServer(key) || "")).length);
     var schema = parseInt(head[0], 10);
     if (isNaN(schema) || head[1] !== name) { res.reason = "Kopfzeile gehört nicht zu " + key; return res; }
-    if (schema > EBA_SCHEMA_VERSION) {
+    if (schema > EBA_HIST_FORMAT) {
       res.newer = true;
-      res.reason = "Datei hat Schema " + schema + ", dieses Skript kennt nur " + EBA_SCHEMA_VERSION + " - bitte openEBA aktualisieren";
+      res.reason = "Datei hat Schema " + schema + ", dieses Skript kennt nur " + EBA_HIST_FORMAT + " - bitte openEBA aktualisieren";
       return res;
     }
     out.push(lines[0]); start = 1;
@@ -3647,4 +3760,24 @@ $(window).on("hashchange", function() {
   if (location.hash === "#eba-verlauf" && ebaIsStatsPage() && GM_getValue("eba_enable_history_charts", false)) {
     renderHistoryPage();
   }
+});
+
+// ---------------------------------------------------------------------------
+// Start. MUSS die letzte Anweisung der Datei sein: "var"-Konstanten wie
+// EBA_TIME_MIN oder EBA_DAV_* werden erst beim Erreichen ihrer Zeile gesetzt.
+// Stand der Init-Schleife früher davor, sah updateFormiStatistic() beim Laden
+// EBA_TIME_MIN === undefined; ebaTimePlausible() lieferte dann für jeden Wert
+// false, der Append-Guard wertete die letzte Zeile als "Zukunftswert" und
+// hängte bei JEDEM Aufruf der Übersicht eine neue Zeile an (ebenso histAppend()
+// und hasFoodSnapshot()).
+// ---------------------------------------------------------------------------
+
+// Einmalige Schema-Migration vor allen Features, damit der Versionsschlüssel
+// auch gesetzt wird, wenn keine der neuen Optionen aktiv ist.
+migrateHistorySchema();
+enableConfig();
+$.each(configItems, function(k, v) {
+  var timer = new Date().getTime();
+  GM_getValue(k, false) && v[0]();
+  var time = new Date().getTime()-timer;
 });
