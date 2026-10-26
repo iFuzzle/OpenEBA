@@ -81,7 +81,7 @@ const configItems = {
   "eba_enable_max_points"                    : [showMaxPoints, "Maximale Punktzahl in der Formicarien-&Uuml;bersicht anzeigen", "Hinter den Punkten jedes Formicariums erscheint die maximal erreichbare Punktzahl, z.B. <i>12.340 / 50.000</i>. Bei monogynen Arten ist das ein harter Wert, bei polygynen Arten wird der Zuwachs je weiterer K&ouml;nigin eingerechnet (auf dem Speedserver mit anderen Werten als auf dem Normalserver). Der Tooltip zeigt Arbeiterinnen-Maximum, Auslastung in Prozent und die Punkte je Arbeiterin laut Tabelle. Quelle der Werte ist die Spielhilfe; f&uuml;r zwei Arten ist der polygyne Zuwachs auf dem Speedserver dort unbekannt, dann erscheint ab zwei K&ouml;niginnen ein <i>?</i>."],
   "eba_enable_webdav_sync"                   : [enableWebdavSync, "Historien per WebDAV/Nextcloud zwischen Ger&auml;ten abgleichen", "Jede Zeitreihe (Formicarien, Futter, Geld, Punkte, Tickl&auml;nge, Suchen) liegt als eigene Datei in einem WebDAV-Ordner und wird mit den lokalen Daten verschmolzen, h&ouml;chstens einmal pro Tick und nur f&uuml;r den aktuellen Server. Lokal geht dabei nie etwas verloren. Einrichtung unten unter <i>Abgleich der Historien per WebDAV</i>; der automatische Abgleich startet erst nach einem erfolgreichen <i>Verbindung testen</i> auf diesem Ger&auml;t. Tampermonkey fragt dabei einmal, ob das Skript den Host erreichen darf. Ein Skriptmanager, der stattdessen hart blockt, braucht im Skriptkopf eine Zeile <i>// @connect &lt;host&gt;</i>. Optionen, Filter und Notizen werden nie abgeglichen. Vertr&auml;gt sich nicht mit der Kompaktierung."],
   "eba_enable_search_history_view"          : [showSearchHistory, "Alle gespeicherten Ergebnisse unter draussen.php?cat=3 anzeigen", "Zeigt unter der Ergebnistabelle des Spiels (nur die letzten 10) eine einklappbare Tabelle mit allen gespeicherten Ergebnissen, neueste oben, samt Zusammenfassung. Die Erfassung wird auf dieser Seite selbst angesto&szlig;en (Option <i>Futter- und Ameisensuchen vollst&auml;ndig historisieren</i> ist nicht n&ouml;tig, aber die Historie w&auml;chst nur, wenn die Seite aufgerufen wird). Wird keine Tabelle erkannt, erscheint ein kleiner Hinweis."],
-  "eba_enable_growth_percent"                : [showGrowthPercent, "Auswachszustand der Kolonien in Prozent anzeigen", "Hinter der Arbeiterinnen-Zahl (Formicarien-&Uuml;bersicht und Einzelansicht) steht <i>ausgewachsen zu 87,3 %</i> mit schmalem Balken: Arbeiterinnen geteilt durch die maximalen Arbeiterinnen der Art (bei polygynen Arten mit dem Zuwachs je K&ouml;nigin laut Polygynierechner wie bei der maximalen Punktzahl, bei unbekanntem Zuwachs ein <i>?</i>). Die Farbe zeigt die Wachstumsphase: unter 24 % Anlaufphase (blau), 24&ndash;94 % Hauptwachstumsphase (gr&uuml;n), ab 94 % Endphase (gelb), 100 % ausgewachsen (hell, fett). Ist das Nest zu mehr als 75 % belegt, erscheint eine orange Warnung, denn das bremst das Wachstum (in der Einzelansicht mit der Belegung des Spiels, in der &Uuml;bersicht nur, wenn schon die Arbeiterinnen allein dar&uuml;ber liegen). Der Tooltip zeigt, ob Nest oder Formicarium zuerst voll ist (z.B. <i>Nest voll bei ca. 5.000 Arbeiterinnen</i>). Der Platzbedarf der Brut ist nicht eingerechnet."],
+  "eba_enable_growth_percent"                : [showGrowthPercent, "Auswachszustand der Kolonien in Prozent anzeigen", "Hinter den Punkten (bei aktivierter maximaler Punktzahl dahinter) steht in Klammern der Auswachszustand, z.B. <i>4998 / 5.000 (99,9 %)</i> in Formicarien-&Uuml;bersicht und Einzelansicht: Arbeiterinnen geteilt durch die maximalen Arbeiterinnen der Art (bei polygynen Arten mit dem Zuwachs je K&ouml;nigin laut Polygynierechner wie bei der maximalen Punktzahl, bei unbekanntem Zuwachs ein <i>?</i>). Die Prozentzahl wird abgeschnitten, nicht gerundet. Die Farbe zeigt die Wachstumsphase: unter 24 % Anlaufphase (blau), 24&ndash;94 % Hauptwachstumsphase (gr&uuml;n), ab 94 % Endphase (gelb), 100 % ausgewachsen (hell, fett). Ist das Nest zu mehr als 75 % belegt, erscheint ein oranges <i>&#9888;</i>, denn das bremst das Wachstum (in der Einzelansicht mit der Belegung des Spiels, in der &Uuml;bersicht nur, wenn schon die Arbeiterinnen allein dar&uuml;ber liegen). Der Tooltip zeigt Phase, ob Nest oder Formicarium zuerst voll ist (z.B. <i>Nest voll bei ca. 5.000 Arbeiterinnen</i>) und die Belegung. Der Platzbedarf der Brut ist nicht eingerechnet."],
   "eba_enable_history_charts"                : [enableHistoryCharts, "Verlaufsgrafiken f&uuml;r Geld, Punkte und Formicarien", "Beim &Uuml;berfahren von <i>Geld</i> und <i>Punkte</i> in der Kopfzeile erscheint eine kleine Kurve aus den gespeicherten Werten. Ein Klick darauf &ouml;ffnet unter <i>Statistik</i> die Seite <i>openEBA-Verlauf</i> mit gro&szlig;en Diagrammen (Geld, Punkte, Tickl&auml;nge, je Formicarium Arbeiterinnen, Punkte, Brut und Hunger). Die Kurven brauchen die Optionen <i>Geld, Punkte und Tickl&auml;nge historisieren</i> bzw. <i>Formicarien-Statistik</i>."]
 }
 const shopPriceLimits = {
@@ -2654,6 +2654,15 @@ function ebaFmtPct(x) {
   return ("" + (Math.floor(x * 10 + 1e-6) / 10)).replace(".", ",");
 }
 
+// Element in der Punkte-Zelle, an das showMaxPoints() und showGrowthPercent()
+// anhängen: das einzige Element-Kind (meist <center>), sonst die Zelle selbst,
+// damit nichts in einem <img>/<a> landet. Nur vor dem ersten Anhängen aufrufen
+// (danach wäre das eigene <span> das einzige Kind).
+function ebaPointsHost(td) {
+  var kids = td.children();
+  return (kids.length == 1) ? kids.last() : td;
+}
+
 // Hinter den Punkten jedes Formicariums das Maximum anzeigen: "12.340 / 50.000".
 // Die Prozentzahl steht absichtlich NICHT in der Spalte (zu schmal), sondern im
 // Tooltip des eigenen <span>. Das Tooltip hängt am <span> und nicht am <td>,
@@ -2717,11 +2726,12 @@ function showMaxPoints() {
         // In das letzte Element-Kind der Punkte-Zelle hängen (meist <center>),
         // aber nur wenn es genau eines ist -- sonst in die Zelle selbst, damit
         // das <span> nicht in einem <img>/<a> landet.
+        // Steht die Prozentklammer (showGrowthPercent) schon da, davor einsetzen.
         var td = c["Punkte"];
-        var kids = td.children();
-        var host = (kids.length == 1) ? kids.last() : td;
-        host.append(" <span class='eba_maxpt' style='color:#808080'>/ "
-                  + (max.unknown ? "?" : ebaFmtInt(max.points)) + "</span>");
+        var maxHtml = " <span class='eba_maxpt' style='color:#808080'>/ "
+                    + (max.unknown ? "?" : ebaFmtInt(max.points)) + "</span>";
+        var gSpan = td.find("span.eba_growth").first();
+        if (gSpan.length) { gSpan.before(maxHtml); } else { ebaPointsHost(td).append(maxHtml); }
         // title per attr() statt inline, damit der Artname aus dem DOM nicht
         // escaped werden muss.
         div.find("span.eba_maxpt").last().attr("title", tip.join("\n"));
@@ -2920,35 +2930,31 @@ function showGrowthPercent() {
           var formiName = c["Formicarium"] ? $.trim(c["Formicarium"].text()) : "";
           var g = ebaGrowth(kind, qRaw, workers, nestName, formiName, speed);
           if (!g || !isFinite(workers)) { return; } // Art nicht in antmax -> nichts anzeigen
-          var txt = "ausgewachsen zu " + (g.percent == null ? "?" : ebaFmtPct(g.percent) + " %");
+          var txt = "(" + (g.percent == null ? "?" : ebaFmtPct(g.percent) + " %") + ")";
           var ph = ebaGrowthPhase(g.percent);
           var html = "<span class='eba_growth' style='color:" + ph.color + (ph.bold ? ";font-weight:bold" : "")
-                   + ";font-size:smaller;white-space:nowrap'> &middot; " + txt;
-          if (g.limiting) { html += " (" + g.limiting + " begrenzt)"; }
-          if (g.percent != null) {
-            html += " <span style='display:inline-block;width:40px;height:4px;background:#ddd;vertical-align:middle'>"
-                  + "<span style='display:block;height:100%;width:" + Math.max(0, Math.min(100, g.percent)).toFixed(1)
-                  + "%;background:#7a7'></span></span>";
-          }
-          // Nestwarnung: Einzelansicht mit der Spiel-Belegung, Übersicht nur wenn
-          // schon die Arbeiterinnen allein über der Grenze liegen (untere Schranke).
+                   + ";white-space:nowrap'> " + txt;
+          // Nestwarnung kompakt: nur ein Zeichen, Text im Tooltip. Einzelansicht mit
+          // der Spiel-Belegung, Übersicht nur wenn schon die Arbeiterinnen allein
+          // über der Grenze liegen (untere Schranke).
           var space = overview ? null : ebaGameSpace();
           var warnTip = "";
           if (space && space.nest != null) {
             if (space.nest > EBA_NEST_BRAKE) {
-              html += " <span class='eba_nestwarn' style='color:#ff9a5c;font-weight:bold'>&middot; " + nestLabel + " " + ebaFmtPct(space.nest)
-                    + " % &ndash; Wachstum gebremst</span>";
               warnTip = nestLabel + " ist laut Spiel zu " + ebaFmtPct(space.nest) + " % belegt (über 75 %): das bremst das Wachstum. Ein größeres Nest nutzen.";
             }
           } else if (!space && g.nestMin != null && g.nestMin > EBA_NEST_BRAKE) {
-            html += " <span class='eba_nestwarn' style='color:#ff9a5c;font-weight:bold'>&middot; " + nestLabel + " mind. " + ebaFmtPct(g.nestMin)
-                  + " % &ndash; Wachstum gebremst</span>";
             warnTip = nestLabel + ": schon die Arbeiterinnen allein belegen mind. " + ebaFmtPct(g.nestMin)
                     + " % (die Brut zählt im Spiel zusätzlich mit). Über 75 % Belegung bremst das Wachstum. Ein größeres Nest nutzen.";
           }
+          if (warnTip) { html += "<span class='eba_nestwarn' style='color:#ff9a5c;font-weight:normal'> &#9888;</span>"; }
           html += "</span>";
-          c["Arbeiterinnen"].append(html);
-          var gs = c["Arbeiterinnen"].find("span.eba_growth");
+          // In die Punkte-Zelle, hinter die Max-Punkte (falls schon da).
+          var td = c["Punkte"];
+          if (!td) { return; }
+          var mSpan = td.find("span.eba_maxpt").first();
+          if (mSpan.length) { mSpan.after(html); } else { ebaPointsHost(td).append(html); }
+          var gs = td.find("span.eba_growth").first();
           gs.attr("title", ebaGrowthTip(g, kind, workers, nestLabel, nestName, formiName, srv, space));
           if (warnTip) { gs.find("span.eba_nestwarn").attr("title", warnTip); }
         } catch (err) {}
