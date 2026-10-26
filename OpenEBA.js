@@ -73,7 +73,8 @@ const configItems = {
   "eba_enable_search_statistic"              : [updateSearchStatistic, "Futter- und Ameisensuchen vollst&auml;ndig historisieren", "Das Spiel zeigt nur die letzten Ergebnisse einer Futtersuche bzw. K&ouml;niginnensuche. Beim Aufruf der jeweiligen Seite wird die angezeigte Tabelle mit der gespeicherten Historie verschmolzen, sodass auch &auml;ltere Treffer erhalten bleiben."],
   "eba_enable_history_compaction"            : [function(){}, "Historien ausd&uuml;nnen, wenn sie zu gro&szlig; werden", "Ohne diese Option wachsen die Historien unbegrenzt (bisheriges Verhalten). Mit der Option wird in einer Reihe ab " + EBA_HIST_MAX_LINES + " Zeilen aus der <b>&auml;lteren H&auml;lfte</b> jede zweite Zeile entfernt. Die j&uuml;ngere H&auml;lfte und die Kopfzeile bleiben unangetastet. <b>Achtung:</b> Das entfernt alte Messpunkte unwiderruflich. Den aktuellen Speicherverbrauch zeigt die Zeile unten. Vertr&auml;gt sich nicht mit dem WebDAV-Abgleich, der ist bei eingeschalteter Kompaktierung gesperrt."],
   "eba_enable_max_points"                    : [showMaxPoints, "Maximale Punktzahl in der Formicarien-&Uuml;bersicht anzeigen", "Hinter den Punkten jedes Formicariums erscheint die maximal erreichbare Punktzahl, z.B. <i>12.340 / 50.000</i>. Bei monogynen Arten ist das ein harter Wert, bei polygynen Arten wird der Zuwachs je weiterer K&ouml;nigin eingerechnet (auf dem Speedserver mit anderen Werten als auf dem Normalserver). Der Tooltip zeigt Arbeiterinnen-Maximum, Auslastung in Prozent und die gemessenen Punkte je Arbeiterin. Quelle der Werte ist die Spielhilfe; f&uuml;r zwei Arten ist der polygyne Zuwachs auf dem Speedserver dort unbekannt, dann erscheint ab zwei K&ouml;niginnen ein <i>?</i>."],
-  "eba_enable_webdav_sync"                   : [enableWebdavSync, "Historien per WebDAV/Nextcloud zwischen Ger&auml;ten abgleichen", "Jede Zeitreihe (Formicarien, Futter, Geld, Punkte, Tickl&auml;nge, Suchen) liegt als eigene Datei in einem WebDAV-Ordner und wird mit den lokalen Daten verschmolzen, h&ouml;chstens einmal pro Tick und nur f&uuml;r den aktuellen Server. Lokal geht dabei nie etwas verloren. Einrichtung unten unter <i>Abgleich der Historien per WebDAV</i>; der automatische Abgleich startet erst nach einem erfolgreichen <i>Verbindung testen</i> auf diesem Ger&auml;t. Tampermonkey fragt dabei einmal, ob das Skript den Host erreichen darf. Ein Skriptmanager, der stattdessen hart blockt, braucht im Skriptkopf eine Zeile <i>// @connect &lt;host&gt;</i>. Optionen, Filter und Notizen werden nie abgeglichen. Vertr&auml;gt sich nicht mit der Kompaktierung."]
+  "eba_enable_webdav_sync"                   : [enableWebdavSync, "Historien per WebDAV/Nextcloud zwischen Ger&auml;ten abgleichen", "Jede Zeitreihe (Formicarien, Futter, Geld, Punkte, Tickl&auml;nge, Suchen) liegt als eigene Datei in einem WebDAV-Ordner und wird mit den lokalen Daten verschmolzen, h&ouml;chstens einmal pro Tick und nur f&uuml;r den aktuellen Server. Lokal geht dabei nie etwas verloren. Einrichtung unten unter <i>Abgleich der Historien per WebDAV</i>; der automatische Abgleich startet erst nach einem erfolgreichen <i>Verbindung testen</i> auf diesem Ger&auml;t. Tampermonkey fragt dabei einmal, ob das Skript den Host erreichen darf. Ein Skriptmanager, der stattdessen hart blockt, braucht im Skriptkopf eine Zeile <i>// @connect &lt;host&gt;</i>. Optionen, Filter und Notizen werden nie abgeglichen. Vertr&auml;gt sich nicht mit der Kompaktierung."],
+  "eba_enable_search_history_view"          : [showSearchHistory, "Alle gespeicherten Ergebnisse unter draussen.php?cat=3 anzeigen", "Zeigt unter der Ergebnistabelle des Spiels (nur die letzten 10) eine einklappbare Tabelle mit allen gespeicherten Ergebnissen, neueste oben, samt Zusammenfassung. Die Erfassung wird auf dieser Seite selbst angesto&szlig;en (Option <i>Futter- und Ameisensuchen vollst&auml;ndig historisieren</i> ist nicht n&ouml;tig, aber die Historie w&auml;chst nur, wenn die Seite aufgerufen wird). Wird keine Tabelle erkannt, erscheint ein kleiner Hinweis."]
 }
 const shopPriceLimits = {
   "Camponotus ligniperda": 6.34,
@@ -836,6 +837,22 @@ function updateGlobalStatistic() {
 // die Suche in der Kopfzeile nennt. Die Forschung nennt die Königinnensuche
 // ebenfalls, hat aber eine andere Überschrift und keine passende Tabelle.
 function searchPageKind() {
+  var k = searchPageKindBase();
+  if (k || !isDraussenCat3()) { return k; }
+  // draussen.php?cat=3: Überschrift/Kopfzeile ungetestet, daher großzügiger
+  // über alle Überschriften und Tabellenköpfe suchen.
+  var t = $("h1,h2,h3,h4,b,strong,th").text();
+  if (/Futtersuche/i.test(t)) { return "foodsearch"; }
+  if (/(Königinnensuche|Ameisensuche)/i.test(t)) { return "antsearch"; }
+  return null;
+}
+// Seite draussen.php?cat=3. Annahme: Formulare der Seite führen auf dieselbe
+// URL zurück; wird sie nach einem POST ohne Query geladen, greift die
+// Erkennung nicht (dann kommt der Hinweis nicht, die Erfassung bleibt wie bisher).
+function isDraussenCat3() {
+  return location.pathname === "/draussen.php" && /[?&]cat=3(&|#|$)/.test(location.search);
+}
+function searchPageKindBase() {
   var h = $("h3").text();
   if (/Futtersuche/i.test(h)) { return "foodsearch"; }
   if (/(Königinnensuche|Ameisensuche)/i.test(h)) { return "antsearch"; }
@@ -855,6 +872,7 @@ function searchPageKind() {
 function findSearchTable() {
   var best = null, bestRows = 0;
   $("table.liste").each(function() {
+    if ($(this).closest("#eba_search_hist").length) { return; } // eigene Anzeige
     var rows = $(this).find("tr").length;
     if (rows > bestRows) { bestRows = rows; best = $(this); }
   });
@@ -950,6 +968,127 @@ function updateSearchStatistic() {
   var now = getServerNow(); // Erfassungszeitpunkt, für alle neuen Zeilen derselbe
   for (var j = 0; j < fresh.length; j++) { lines.push(now + "\t" + fresh[j]); }
   GM_setValue(key, compactHistory(lines.join("\n")));
+}
+
+// ---------------------------------------------------------------------------
+// draussen.php?cat=3: alle gespeicherten Ergebnisse anzeigen
+// ---------------------------------------------------------------------------
+
+// Zahl in deutscher Schreibweise lesen, sonst null
+function parseDeNumber(v) {
+  v = $.trim(v);
+  if (!/^[-+]?(\d{1,3}(\.\d{3})+|\d+)(,\d+)?$/.test(v)) { return null; }
+  return parseFloat(v.replace(/\./g, "").replace(",", "."));
+}
+
+// Zusammenfassung: Anzahl, je Spalte Summe (Zahlen) bzw. Häufigkeiten (wenige
+// verschiedene Werte). Zeitspalten werden übersprungen. Generisch, weil der
+// Aufbau der Tabelle nicht bekannt ist; nur Zeilen mit der Spaltenbelegung der
+// neuesten Zeile.
+function searchSummaryHTML(rows) {
+  var head = rows[0].header;
+  var same = $.grep(rows, function(r) { return r.header === head; });
+  var out = $("<div>").append($("<b>").text(rows.length + " Ergebnisse gespeichert"));
+  if (same.length !== rows.length) { out.append(document.createTextNode(" (Auswertung der Spalten nur für " + same.length + " mit aktueller Spaltenbelegung)")); }
+  var list = $("<ul style='margin:4px 0 0 18px;padding:0'>");
+  for (var c = 0; c < head.length; c++) {
+    var vals = $.map(same, function(r) { return $.trim(r.cells[c] || ""); });
+    vals = $.grep(vals, function(v) { return v !== ""; });
+    if (!vals.length) { continue; }
+    var timeLike = $.grep(vals, function(v) { return rowTimeValue(v) != null; }).length;
+    if (timeLike * 2 > vals.length) { continue; }
+    var nums = $.map(vals, parseDeNumber);
+    var item = null;
+    if (nums.length === vals.length) {
+      var sum = 0; $.each(nums, function(i, n) { sum += n; });
+      var f = function(n) { return (Math.round(n * 100) / 100).toString().replace(".", ","); };
+      item = "Summe " + f(sum) + ", Ø " + f(sum / nums.length);
+    } else {
+      var cnt = {}, distinct = 0;
+      $.each(vals, function(i, v) { if (!cnt[v]) { cnt[v] = 0; distinct++; } cnt[v]++; });
+      if (distinct <= 12 && distinct < vals.length) {
+        var keys = [];
+        for (var k in cnt) { if (Object.prototype.hasOwnProperty.call(cnt, k)) { keys.push(k); } }
+        keys.sort(function(a, b) { return cnt[b] - cnt[a]; });
+        item = $.map(keys, function(k) { return k + " ×" + cnt[k] + " (" + Math.round(cnt[k] * 100 / vals.length) + "%)"; }).join(", ");
+      }
+    }
+    if (item) { list.append($("<li>").text((head[c] || "Spalte " + (c + 1)) + ": " + item)); }
+  }
+  if (list.children().length) { out.append(list); }
+  return out;
+}
+
+// Zustand/Konstanten lazy anlegen: die Optionen laufen oben im Skript, bevor
+// Zuweisungen weiter unten ausgeführt wurden.
+function renderSearchHistory() {
+  if (!isDraussenCat3()) { return; }
+  var SEARCH_VIEW_PAGE_SIZE = 50;
+  var searchViewState = window.ebaSearchViewState || (window.ebaSearchViewState = {open: false, page: 0});
+  var tbl = findSearchTable();
+  var kind = tbl ? searchPageKind() : null;
+  if (!tbl || !kind) {
+    if (!$("#eba_search_hist").length) {
+      var hint = $("<div id='eba_search_hist' style='font-size:0.8em;color:#888;margin:6px 0'>").text("openEBA: Ergebnistabelle nicht erkannt");
+      var main = $("td[width='700px']").first();
+      (main.length ? main : $("body")).append(hint);
+    }
+    return;
+  }
+  updateSearchStatistic(); // idempotent: ohne neue Zeilen wird nichts geschrieben
+  var data = ebaSearchSeries(kind);
+  var rows = data.rows.slice().reverse(); // neueste oben
+  var cont = $("#eba_search_hist");
+  var sig = kind + "|" + rows.length + "|" + (rows.length ? rows[0].t : "") + "|" + searchViewState.open + "|" + searchViewState.page;
+  if (cont.length && cont.data("sig") === sig && cont.prev().is(tbl)) { return; }
+  cont.remove();
+  if (!rows.length) { return; }
+  var pages = Math.ceil(rows.length / SEARCH_VIEW_PAGE_SIZE);
+  if (searchViewState.page >= pages) { searchViewState.page = pages - 1; }
+  cont = $("<div id='eba_search_hist' style='margin:8px 0'>").data("sig", sig);
+  var rerender = function() { cont.remove(); renderSearchHistory(); };
+  var toggle = $("<a href='#'>").text((searchViewState.open ? "Gespeicherte Ergebnisse ausblenden" : "Alle " + rows.length + " gespeicherten Ergebnisse anzeigen"))
+    .click(function(e) { e.preventDefault(); searchViewState.open = !searchViewState.open; rerender(); });
+  cont.append($("<div>").append(toggle));
+  if (searchViewState.open) {
+    cont.append(searchSummaryHTML(rows).css("margin", "6px 0"));
+    var t = $("<table class='liste'>");
+    var lastHead = null, n = 0;
+    var start = searchViewState.page * SEARCH_VIEW_PAGE_SIZE;
+    $.each(rows.slice(start, start + SEARCH_VIEW_PAGE_SIZE), function(i, r) {
+      if (r.header !== lastHead) {
+        var tr = $("<tr>").append($("<th>").text("Erfasst"));
+        $.each(r.header, function(j, h) { tr.append($("<th>").text(h)); });
+        t.append(tr);
+        lastHead = r.header;
+      }
+      var row = $("<tr>").addClass(n++ % 2 ? "color2" : "color1").append($("<td>").text(formatStatTime(r.t)));
+      $.each(r.cells, function(j, v) { row.append($("<td>").text(v)); });
+      t.append(row);
+    });
+    cont.append(t);
+    if (pages > 1) {
+      var nav = $("<div style='margin-top:4px'>");
+      var go = function(p) { return function(e) { e.preventDefault(); searchViewState.page = p; rerender(); }; };
+      if (searchViewState.page > 0) { nav.append($("<a href='#'>").text("« neuere").click(go(searchViewState.page - 1))).append(" "); }
+      nav.append(document.createTextNode("Seite " + (searchViewState.page + 1) + " von " + pages));
+      if (searchViewState.page < pages - 1) { nav.append(" ").append($("<a href='#'>").text("ältere »").click(go(searchViewState.page + 1))); }
+      cont.append(nav);
+    }
+  }
+  tbl.after(cont);
+}
+
+function showSearchHistory() {
+  if (!isDraussenCat3()) { return; }
+  renderSearchHistory();
+  // Das Spiel kann die Seite per AJAX neu aufbauen; renderSearchHistory() ist
+  // idempotent (Signatur), daher löst die eigene Einfügung keine Endlosschleife aus.
+  var timer = null;
+  new MutationObserver(function() {
+    if (timer) { return; }
+    timer = setTimeout(function() { timer = null; renderSearchHistory(); }, 100);
+  }).observe(document.body, {childList: true, subtree: true});
 }
 
 // ---------------------------------------------------------------------------
@@ -1520,7 +1659,7 @@ function ebaSearchSeries(kind) {
     }
     var t = parseFloat(line);
     if (isNaN(t)) { continue; }
-    res.rows.push({t: t, cells: line.split("\t").slice(1)});
+    res.rows.push({t: t, cells: line.split("\t").slice(1), header: res.header});
   }
   return res;
 }
