@@ -3721,7 +3721,7 @@ function ebaNiceScale(min, max, n) {
 //   opts:      width, height, color, fmt(wert)->Text, compact (ohne Achsen),
 //              tooltip (bool), unit, extra: [{points, color, name}] weitere Linien,
 //              yMin/yMax (feste Achsengrenzen), multiTip (Tooltip zeigt alle Linien
-//              zum Zeitpunkt), tipText(punkt)->Text (Zusatz im Tooltip)
+//              zum Zeitpunkt; exactTip: nur exakt gleicher Zeitpunkt, sonst Strich), tipText(punkt)->Text (Zusatz im Tooltip)
 // Rückgabe: {min, max, last, first, count, from, to} oder null bei <2 Punkten.
 function ebaDrawLineChart(container, points, opts) {
   opts = opts || {};
@@ -3801,7 +3801,11 @@ function ebaDrawLineChart(container, points, opts) {
             var d2 = Math.abs(p[0] - best[0]);
             if (d2 < qd) { qd = d2; q = p; }
           });
-          if (q) {
+          if (opts.exactTip && q && q[0] !== best[0]) { q = null; }
+          if (!q && opts.exactTip) {
+            h += '<br><span style="color:' + l.color + '">&#9632;</span> '
+              + $("<div></div>").text((l.name ? l.name + ": " : "") + "\u2013").html();
+          } else if (q) {
             h += '<br><span style="color:' + l.color + '">&#9632;</span> '
               + $("<div></div>").text((l.name ? l.name + ": " : "") + fmt(q[1]) + u).html();
           }
@@ -4048,7 +4052,8 @@ function renderHistoryPage(rangeKey) {
       emptyHint: "Noch keine Werte – werden ab dem nächsten Tick beim Abruf der Detailseite erfasst; "
         + "benötigt die Option „Futterbestand und Ausbruchschutz pro Tick festhalten“." });
     add(body, "Hunger in % (Zucker gr&uuml;n, Protein orange)", ebaFormiSeries(id, "sugar"), "pct",
-      [{ points: ebaFormiSeries(id, "protein"), color: "#E8963C", name: "Protein" }]);
+      [{ points: ebaFormiSeries(id, "protein"), color: "#E8963C", name: "Protein" }],
+      { chart: { multiTip: true, exactTip: true, name: "Zucker" } });
   };
   var setGroup = function(g, isOpen) {
     var id = g.attr("data-id");
@@ -4064,10 +4069,6 @@ function renderHistoryPage(rangeKey) {
     var cur = [];
     if (ants.length) { cur.push(ebaFmtNum(ants[ants.length - 1][1], 0) + " Arbeiterinnen"); }
     if (pts.length) { cur.push(ebaFmtNum(pts[pts.length - 1][1], 0) + " Punkte"); }
-    var escLast = ebaFormiEscapeSeries(id).last;
-    if (escLast) {
-      cur.push($("<div>").text((escLast.escapeType ? escLast.escapeType + " " : "") + ebaFmtNum(escLast.escapePct, 1) + " %").html());
-    }
     var g = $("<div class='eba_formi_group' data-id='" + id + "' data-open='0'></div>");
     g.append("<div class='eba_formi_head' " + hs + "><span class='eba_formi_arrow'>\u25B8</span> <b>Formicarium " + id
       + (kind ? " (" + $("<div>").text(kind).html() + ")" : "") + "</b>"
