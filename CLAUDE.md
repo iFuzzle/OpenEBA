@@ -13,3 +13,4 @@
   ```
 - Wird der Push nach `beta` abgelehnt (parallele Sitzung war schneller): `git fetch origin beta`, `origin/beta` einmergen, Konflikte auflösen, erneut pushen. Kein Force-Push auf `beta`.
 - Der Nutzer prüft `beta` und gibt selbst nach `main` frei.
+- Bei jedem Push nach `beta` die `// @version` im Kopf von `OpenEBA.js` erhöhen (letzte Stelle +1, z. B. `31.1` → `31.2`), sonst erkennt Tampermonkey kein Update. Maßgeblich ist die höchste Version auf `origin/beta`; bei einem Merge-Konflikt in dieser Zeile die höhere Version nehmen und nochmals +1.
