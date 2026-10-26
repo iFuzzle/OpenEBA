@@ -4053,7 +4053,7 @@ function renderHistoryPage(rangeKey) {
         + "benötigt die Option „Futterbestand und Ausbruchschutz pro Tick festhalten“." });
     add(body, "Hunger in % (Zucker gr&uuml;n, Protein orange)", ebaFormiSeries(id, "sugar"), "pct",
       [{ points: ebaFormiSeries(id, "protein"), color: "#E8963C", name: "Protein" }],
-      { chart: { multiTip: true, exactTip: true, name: "Zucker" } });
+      { fmt: function(v) { return ebaFmtNum(v, 1); }, chart: { multiTip: true, exactTip: true, name: "Zucker" } });
   };
   var setGroup = function(g, isOpen) {
     var id = g.attr("data-id");
