@@ -2536,24 +2536,28 @@ function ebaFmtDec(x, digits) {
 // wird nicht umformatiert, damit parseInt(cells.eq(6).text()) dort unabhängig
 // von der Reihenfolge der Features weiter funktioniert.
 function showMaxPoints() {
-  if (!$("h3:contains('Deine Formicarien')").length) { return; }
+  var overview = $("h3:contains('Deine Formicarien')").length > 0;
+  if (!overview && (!$("h3:contains('Formicarium')").length || $("h3:contains('einrichten')").length)) { return; }
+  var apply = function() {
   try {
     var speed = isSpeedServer();
     var srv = speed ? "Speedserver" : "Normalserver";
-    $("div[id='shopitem']:contains('Larven')").each(function(i, el) {
+    var boxes = overview ? $("div[id='shopitem']:contains('Larven')") : $("div[data-formi='stats']");
+    boxes.each(function(i, el) {
       try {
         var div = $(this);
         if (div.find("span.eba_maxpt").length) { return; } // schon angezeigt
-        // Zellen genau wie in updateFormiStatistic() lesen:
-        // 0 Königinnen, 1 Arbeiterinnen, 2 Eier, 3 Larven, 4 Puppen,
-        // 5 Art, 6 Punkte, 7 Nest, 8 Formicarium, 9/10 Hunger
-        var cells = div.find("table.liste td").add(div.find("div[id='group'] table.inner td")).filter(":odd");
-        var kind = ("" + cells.eq(5).text()).replace(/^\s+|\s+$/g, "");
-        var qRaw = parseInt(("" + cells.eq(0).text()).replace(/\./g, ""), 10);
+        // Zellen über ihre Beschriftung lesen (Übersicht und Einzelansicht
+        // haben unterschiedliche Reihenfolgen; die Einzelansicht hat keine Art-Zeile).
+        var c = ebaColonyCells(div);
+        if (!c["Punkte"] || !c["Arbeiterinnen"]) { return; }
+        var kind = c["Art"] ? ("" + c["Art"].text()).replace(/^\s+|\s+$/g, "") : ebaDetailKind(div);
+        if (!kind) { return; }
+        var qRaw = c["Königinnen"] ? parseInt(("" + c["Königinnen"].text()).replace(/\./g, ""), 10) : NaN;
         var max = ebaMaxPoints(kind, qRaw, speed);
         if (!max) { return; } // Art nicht in antmax -> gar nichts anzeigen
-        var ants = parseInt(("" + cells.eq(1).text()).replace(/\./g, ""), 10);
-        var points = parseInt(("" + cells.eq(6).text()).replace(/\./g, ""), 10);
+        var ants = parseInt(("" + c["Arbeiterinnen"].text()).replace(/\./g, ""), 10);
+        var points = parseInt(("" + c["Punkte"].text()).replace(/\./g, ""), 10);
 
         var tip = [];
         if (max.unknown) {
@@ -2592,7 +2596,7 @@ function showMaxPoints() {
         // In das letzte Element-Kind der Punkte-Zelle hängen (meist <center>),
         // aber nur wenn es genau eines ist -- sonst in die Zelle selbst, damit
         // das <span> nicht in einem <img>/<a> landet.
-        var td = cells.eq(6);
+        var td = c["Punkte"];
         var kids = td.children();
         var host = (kids.length == 1) ? kids.last() : td;
         host.append(" <span class='eba_maxpt' style='color:#808080'>/ "
@@ -2603,6 +2607,10 @@ function showMaxPoints() {
       } catch (err) {}
     });
   } catch (err) {}
+  };
+  apply();
+  // Einzelansicht: wird nach dem Füttern per AJAX neu aufgebaut, apply() ist idempotent.
+  if (!overview) { new MutationObserver(apply).observe(document.body, {childList: true, subtree: true}); }
 }
 
 // ---------------------------------------------------------------------------
@@ -2615,10 +2623,13 @@ function showMaxPoints() {
 //
 // Platzbedarf: n bzw. f aus antmax gelten für a Arbeiterinnen, je Arbeiterin
 // also n/a bzw. f/a. In ein Nest der Kapazität C passen damit C * a / n
-// Arbeiterinnen. Die Brut ist NICHT eingerechnet (die Spielhilfe-Spalte b ist
-// unklar), die Grenze ist daher eine obere Schranke. Das Spiel meldet die
-// Belegung selbst ("Das Nest ist zu 76% belegt"), der Wert liegt wegen der Brut
-// über der reinen Arbeiterinnen-Rechnung.
+// Arbeiterinnen. Die Brut ist NICHT eingerechnet, die Grenze ist daher eine
+// obere Schranke. Gemessen am Spiel: Formicarium zählt nur Arbeiterinnen (Aphaenogaster
+// 9996 Arb: 9996*0,3/15000 = 19,99 % = Spielwert 19,9), das Nest zählt Brut mit
+// (Spielwert 27/28 % statt 20 %). Zwei Datenpunkte (Aphaenogaster, Temnothorax
+// 131 Arb/9+11+9 Brut/Reagenzglas = "76% belegt") lassen mehrere Formeln zu, z.B.
+// Larven+Puppen mit Arbeiterinnen-Gewicht oder alle Brut mit Faktor 0,75. Darum
+// nutzt die Einzelansicht den vom Spiel gelieferten Wert (ebaGameSpace()).
 // ---------------------------------------------------------------------------
 
 // Wert-Zellen einer Kolonie über ihre Beschriftung ("Arbeiterinnen: " usw.),
@@ -2686,7 +2697,31 @@ function ebaKindFromImg(div) {
   return "";
 }
 
-function ebaGrowthTip(g, kind, workers, nestLabel, nestName, formiName, srv) {
+// Art in der Einzelansicht: primär aus der Überschrift "Formicarium <Art>",
+// weil manche Arten das Bild je Entwicklungsstufe wechseln; Bildname nur als
+// Fallback. Nicht gefunden -> "".
+function ebaDetailKind(div) {
+  var h = "";
+  $("h3").each(function() {
+    var m = /^\s*Formicarium\s+(.+?)\s*$/.exec($(this).text());
+    if (m && ebaAntmaxLookup(m[1])) { h = m[1]; return false; }
+  });
+  return h || ebaKindFromImg(div);
+}
+
+// Belegung, die die Einzelansicht selbst liefert: jsProgressBar($('spacenest'), 28, ...)
+// bzw. $('spaceformi'). Der Wert steht nur in einem Skript. null = nicht vorhanden.
+function ebaGameSpace() {
+  var r = {nest: null, formi: null};
+  $("script").each(function() {
+    var t = this.text || this.textContent || "";
+    var m = /\$\('space(nest|formi)'\)\s*,\s*([\d.]+)/.exec(t);
+    if (m) { r[m[1]] = parseFloat(m[2]); }
+  });
+  return r;
+}
+
+function ebaGrowthTip(g, kind, workers, nestLabel, nestName, formiName, srv, space) {
   var tip = [], max = g.max;
   if (max.unknown) {
     tip.push("Polygyner Zuwachs für " + kind + " auf dem " + srv + " ist in der Spielhilfe nicht bekannt (???).");
@@ -2697,7 +2732,7 @@ function ebaGrowthTip(g, kind, workers, nestLabel, nestName, formiName, srv) {
   var part = function(label, name, fit) {
     if (fit == null) { return; }
     var line = label + " (" + name + "): voll bei ca. " + ebaFmtInt(fit) + " Arbeiterinnen";
-    if (isFinite(workers) && fit > 0) { line += ", aktuell " + ebaFmtDec(workers / fit * 100, 1) + " %"; }
+    if (!space && isFinite(workers) && fit > 0) { line += ", nur Arbeiterinnen aktuell " + ebaFmtDec(workers / fit * 100, 1) + " %"; }
     if (!max.unknown && fit >= max.ants) { line += " (reicht für das Maximum)"; }
     tip.push(line);
   };
@@ -2708,7 +2743,13 @@ function ebaGrowthTip(g, kind, workers, nestLabel, nestName, formiName, srv) {
     tip.push("Begrenzend: " + g.limiting + ". Ausgewachsen relativ zur Behausung: "
            + ebaFmtDec(workers / fit * 100, 1) + " %");
   }
-  tip.push("ohne Platzbedarf der Brut gerechnet");
+  if (space && (space.nest != null || space.formi != null)) {
+    tip.push("Belegung laut Spiel: " + (space.nest != null ? nestLabel + " " + ebaFmtDec(space.nest, 1) + " %" : "")
+           + (space.nest != null && space.formi != null ? ", " : "")
+           + (space.formi != null ? "Formicarium " + ebaFmtDec(space.formi, 1) + " %" : ""));
+  } else {
+    tip.push("Hinweis: Das Spiel zählt im Nest die Brut mit (Formicarium nur Arbeiterinnen); die Brutformel ist nicht eindeutig bekannt, daher hier nur Arbeiterinnen gerechnet. Exakte Belegung in der Einzelansicht.");
+  }
   return tip.join("\n");
 }
 
@@ -2729,7 +2770,7 @@ function showGrowthPercent() {
           if (!c["Arbeiterinnen"]) { return; }
           var nestLabel = c["Nestbecken"] ? "Nestbecken" : "Nest";
           // Die Einzelansicht hat keine Art-Zeile: Art dann aus dem Bildnamen ableiten.
-          var kind = c["Art"] ? ("" + c["Art"].text()).replace(/^\s+|\s+$/g, "") : ebaKindFromImg(div);
+          var kind = c["Art"] ? ("" + c["Art"].text()).replace(/^\s+|\s+$/g, "") : ebaDetailKind(div);
           if (!kind) { return; }
           var workers = parseInt(("" + c["Arbeiterinnen"].text()).replace(/\./g, ""), 10);
           var qRaw = c["Königinnen"] ? parseInt(("" + c["Königinnen"].text()).replace(/\./g, ""), 10) : NaN;
@@ -2748,7 +2789,7 @@ function showGrowthPercent() {
           html += "</span>";
           c["Arbeiterinnen"].append(html);
           c["Arbeiterinnen"].find("span.eba_growth").attr("title",
-            ebaGrowthTip(g, kind, workers, nestLabel, nestName, formiName, srv));
+            ebaGrowthTip(g, kind, workers, nestLabel, nestName, formiName, srv, overview ? null : ebaGameSpace()));
         } catch (err) {}
       });
     } catch (err) {}
