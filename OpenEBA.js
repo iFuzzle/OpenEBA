@@ -73,7 +73,8 @@ const configItems = {
   "eba_enable_search_statistic"              : [updateSearchStatistic, "Futter- und Ameisensuchen vollst&auml;ndig historisieren", "Das Spiel zeigt nur die letzten Ergebnisse einer Futtersuche bzw. K&ouml;niginnensuche. Beim Aufruf der jeweiligen Seite wird die angezeigte Tabelle mit der gespeicherten Historie verschmolzen, sodass auch &auml;ltere Treffer erhalten bleiben."],
   "eba_enable_history_compaction"            : [function(){}, "Historien ausd&uuml;nnen, wenn sie zu gro&szlig; werden", "Ohne diese Option wachsen die Historien unbegrenzt (bisheriges Verhalten). Mit der Option wird in einer Reihe ab " + EBA_HIST_MAX_LINES + " Zeilen aus der <b>&auml;lteren H&auml;lfte</b> jede zweite Zeile entfernt. Die j&uuml;ngere H&auml;lfte und die Kopfzeile bleiben unangetastet. <b>Achtung:</b> Das entfernt alte Messpunkte unwiderruflich. Den aktuellen Speicherverbrauch zeigt die Zeile unten. Vertr&auml;gt sich nicht mit dem WebDAV-Abgleich, der ist bei eingeschalteter Kompaktierung gesperrt."],
   "eba_enable_max_points"                    : [showMaxPoints, "Maximale Punktzahl in der Formicarien-&Uuml;bersicht anzeigen", "Hinter den Punkten jedes Formicariums erscheint die maximal erreichbare Punktzahl, z.B. <i>12.340 / 50.000</i>. Bei monogynen Arten ist das ein harter Wert, bei polygynen Arten wird der Zuwachs je weiterer K&ouml;nigin eingerechnet (auf dem Speedserver mit anderen Werten als auf dem Normalserver). Der Tooltip zeigt Arbeiterinnen-Maximum, Auslastung in Prozent und die gemessenen Punkte je Arbeiterin. Quelle der Werte ist die Spielhilfe; f&uuml;r zwei Arten ist der polygyne Zuwachs auf dem Speedserver dort unbekannt, dann erscheint ab zwei K&ouml;niginnen ein <i>?</i>."],
-  "eba_enable_webdav_sync"                   : [enableWebdavSync, "Historien per WebDAV/Nextcloud zwischen Ger&auml;ten abgleichen", "Jede Zeitreihe (Formicarien, Futter, Geld, Punkte, Tickl&auml;nge, Suchen) liegt als eigene Datei in einem WebDAV-Ordner und wird mit den lokalen Daten verschmolzen, h&ouml;chstens einmal pro Tick und nur f&uuml;r den aktuellen Server. Lokal geht dabei nie etwas verloren. Einrichtung unten unter <i>Abgleich der Historien per WebDAV</i>; der automatische Abgleich startet erst nach einem erfolgreichen <i>Verbindung testen</i> auf diesem Ger&auml;t. Tampermonkey fragt dabei einmal, ob das Skript den Host erreichen darf. Ein Skriptmanager, der stattdessen hart blockt, braucht im Skriptkopf eine Zeile <i>// @connect &lt;host&gt;</i>. Optionen, Filter und Notizen werden nie abgeglichen. Vertr&auml;gt sich nicht mit der Kompaktierung."]
+  "eba_enable_webdav_sync"                   : [enableWebdavSync, "Historien per WebDAV/Nextcloud zwischen Ger&auml;ten abgleichen", "Jede Zeitreihe (Formicarien, Futter, Geld, Punkte, Tickl&auml;nge, Suchen) liegt als eigene Datei in einem WebDAV-Ordner und wird mit den lokalen Daten verschmolzen, h&ouml;chstens einmal pro Tick und nur f&uuml;r den aktuellen Server. Lokal geht dabei nie etwas verloren. Einrichtung unten unter <i>Abgleich der Historien per WebDAV</i>; der automatische Abgleich startet erst nach einem erfolgreichen <i>Verbindung testen</i> auf diesem Ger&auml;t. Tampermonkey fragt dabei einmal, ob das Skript den Host erreichen darf. Ein Skriptmanager, der stattdessen hart blockt, braucht im Skriptkopf eine Zeile <i>// @connect &lt;host&gt;</i>. Optionen, Filter und Notizen werden nie abgeglichen. Vertr&auml;gt sich nicht mit der Kompaktierung."],
+  "eba_enable_history_charts"                : [enableHistoryCharts, "Verlaufsgrafiken f&uuml;r Geld, Punkte und Formicarien", "Beim &Uuml;berfahren von <i>Geld</i> und <i>Punkte</i> in der Kopfzeile erscheint eine kleine Kurve aus den gespeicherten Werten. Ein Klick darauf &ouml;ffnet unter <i>Statistik</i> die Seite <i>openEBA-Verlauf</i> mit gro&szlig;en Diagrammen (Geld, Punkte, Tickl&auml;nge, je Formicarium Arbeiterinnen, Punkte, Brut und Hunger). Die Kurven brauchen die Optionen <i>Geld, Punkte und Tickl&auml;nge historisieren</i> bzw. <i>Formicarien-Statistik</i>."]
 }
 const shopPriceLimits = {
   "Camponotus ligniperda": 6.34,
@@ -3052,3 +3053,304 @@ function davConfigBind() {
     $("#eba_dav_info").text("Zugangsdaten gelöscht.");
   });
 }
+
+// ---------------------------------------------------------------------------
+// Verlaufsgrafiken (Option eba_enable_history_charts)
+// Alles als Funktionsdeklarationen, weil die Init-Schleife oben läuft, bevor
+// Variablen weiter unten in der Datei initialisiert wären.
+// ---------------------------------------------------------------------------
+
+// Deutsche Zahl mit fester Nachkommastellenzahl und Tausenderpunkt
+function ebaFmtNum(x, digits) {
+  var neg = x < 0;
+  var s = Math.abs(x).toFixed(digits || 0).split(".");
+  var out = (neg ? "-" : "") + ebaFmtInt(s[0]);
+  return s.length > 1 ? out + "," + s[1] : out;
+}
+
+function ebaPad2(n) { return (n < 10 ? "0" : "") + n; }
+
+// Datum/Uhrzeit deutsch: "26.10.2026 14:00" (mode "short": nur Datum, "time": nur Uhrzeit)
+function ebaFmtDate(t, mode) {
+  var d = new Date(t);
+  var date = ebaPad2(d.getDate()) + "." + ebaPad2(d.getMonth() + 1) + ".";
+  var time = ebaPad2(d.getHours()) + ":" + ebaPad2(d.getMinutes());
+  if (mode === "short") { return date; }
+  if (mode === "time") { return time; }
+  return date + d.getFullYear() + " " + time;
+}
+
+// Runde Achsenschritte: [Start, Ende, Schritt]
+function ebaNiceScale(min, max, n) {
+  if (!(max > min)) { var pad = Math.abs(min) * 0.05 || 1; min -= pad; max += pad; }
+  var raw = (max - min) / n;
+  var mag = Math.pow(10, Math.floor(Math.log(raw) / Math.LN10));
+  var f = raw / mag;
+  var step = (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * mag;
+  return [Math.floor(min / step) * step, Math.ceil(max / step) * step, step];
+}
+
+// Wiederverwendbarer Liniengraph als Inline-SVG.
+//   container: jQuery-Objekt oder Selektor, wird geleert
+//   points:    [[tMs, wert], ...] aufsteigend
+//   opts:      width, height, color, fmt(wert)->Text, compact (ohne Achsen),
+//              tooltip (bool), unit, extra: [{points, color, name}] weitere Linien
+// Rückgabe: {min, max, last, first, count, from, to} oder null bei <2 Punkten.
+function ebaDrawLineChart(container, points, opts) {
+  opts = opts || {};
+  var $c = $(container).empty();
+  if (!points || points.length < 2) { return null; }
+  var W = opts.width || 600, H = opts.height || 220;
+  var fmt = opts.fmt || function(v) { return ebaFmtNum(v, 0); };
+  var lines = [{ points: points, color: opts.color || "#3CAC56", name: opts.name || "" }];
+  $.each(opts.extra || [], function(i, e) { lines.push(e); });
+  var tMin = Infinity, tMax = -Infinity, vMin = Infinity, vMax = -Infinity;
+  $.each(lines, function(li, l) {
+    $.each(l.points || [], function(j, p) {
+      if (p[0] < tMin) { tMin = p[0]; } if (p[0] > tMax) { tMax = p[0]; }
+      if (p[1] < vMin) { vMin = p[1]; } if (p[1] > vMax) { vMax = p[1]; }
+    });
+  });
+  var compact = !!opts.compact;
+  var ml = compact ? 6 : 64, mr = compact ? 6 : 14, mt = compact ? 6 : 12, mb = compact ? 6 : 26;
+  var scale = compact ? (vMax > vMin ? [vMin, vMax, 0] : [vMin - 1, vMax + 1, 0]) : ebaNiceScale(vMin, vMax, 5);
+  var y0 = scale[0], y1 = scale[1];
+  var tSpan = (tMax > tMin) ? (tMax - tMin) : 1;
+  var X = function(t) { return ml + (t - tMin) / tSpan * (W - ml - mr); };
+  var Y = function(v) { return mt + (1 - (v - y0) / (y1 - y0)) * (H - mt - mb); };
+  var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H
+    + '" style="display:block;background:#0f2a17;border-radius:3px;max-width:100%">';
+  if (!compact) {
+    for (var v = y0; v <= y1 + scale[2] / 2; v += scale[2]) {
+      var yy = Y(v);
+      svg += '<line x1="' + ml + '" x2="' + (W - mr) + '" y1="' + yy.toFixed(1) + '" y2="' + yy.toFixed(1) + '" stroke="#2a5a36" stroke-width="1"/>';
+      svg += '<text x="' + (ml - 6) + '" y="' + (yy + 4).toFixed(1) + '" text-anchor="end" font-size="11" fill="#a8d5b3">'
+        + fmt(v) + '</text>';
+    }
+    var longRange = tSpan > 2 * 86400000;
+    for (var i = 0; i <= 4; i++) {
+      var tt = tMin + tSpan * i / 4, xx = X(tt).toFixed(1);
+      svg += '<line x1="' + xx + '" x2="' + xx + '" y1="' + mt + '" y2="' + (H - mb) + '" stroke="#1d4529" stroke-width="1"/>';
+      svg += '<text x="' + xx + '" y="' + (H - 8) + '" text-anchor="' + (i == 0 ? "start" : i == 4 ? "end" : "middle")
+        + '" font-size="11" fill="#a8d5b3">' + ebaFmtDate(tt, longRange ? "short" : "time") + '</text>';
+    }
+  }
+  $.each(lines, function(li, l) {
+    if (!l.points || l.points.length < 2) { return; }
+    var d = "";
+    $.each(l.points, function(i, p) { d += (i ? "L" : "M") + X(p[0]).toFixed(1) + " " + Y(p[1]).toFixed(1); });
+    svg += '<path d="' + d + '" fill="none" stroke="' + l.color + '" stroke-width="' + (compact ? 1.5 : 2) + '" stroke-linejoin="round"/>';
+  });
+  svg += '<circle class="eba_chart_marker" r="4" cx="-10" cy="-10" fill="#fff" stroke="#3CAC56" stroke-width="2"/>';
+  svg += '</svg>';
+  var wrap = $('<div class="eba_chart_wrap" style="position:relative;display:inline-block;max-width:100%"></div>');
+  wrap.append(svg);
+  $c.append(wrap);
+  if (opts.tooltip) {
+    var tip = $('<div class="eba_chart_tip" style="display:none;position:absolute;pointer-events:none;background:#0a1d10;color:#e6f5ea;'
+      + 'border:1px solid #3CAC56;border-radius:3px;padding:2px 6px;font-size:11px;white-space:nowrap;z-index:10"></div>');
+    wrap.append(tip);
+    var marker = wrap.find(".eba_chart_marker");
+    wrap.find("svg").on("mousemove", function(ev) {
+      var rect = this.getBoundingClientRect();
+      var px = (ev.clientX - rect.left) * (W / rect.width);
+      var best = null, bd = Infinity;
+      $.each(points, function(i, p) {
+        var dd = Math.abs(X(p[0]) - px);
+        if (dd < bd) { bd = dd; best = p; }
+      });
+      if (!best) { return; }
+      var cx = X(best[0]), cy = Y(best[1]);
+      marker.attr({ cx: cx, cy: cy });
+      tip.text(ebaFmtDate(best[0]) + ": " + fmt(best[1]) + (opts.unit ? " " + opts.unit : "")).show();
+      var left = cx * rect.width / W + 10;
+      if (left + tip.outerWidth() > rect.width) { left = cx * rect.width / W - 10 - tip.outerWidth(); }
+      tip.css({ left: Math.max(0, left), top: Math.max(0, cy * rect.height / H - 26) });
+    }).on("mouseleave", function() { tip.hide(); marker.attr({ cx: -10, cy: -10 }); });
+  }
+  var vals = $.map(points, function(p) { return p[1]; });
+  return { min: Math.min.apply(null, vals), max: Math.max.apply(null, vals),
+           last: points[points.length - 1][1], first: points[0][1], count: points.length,
+           from: points[0][0], to: points[points.length - 1][0] };
+}
+
+// Nur Punkte ab tFrom (inklusive)
+function ebaSeriesSince(series, tFrom) {
+  return $.grep(series, function(p) { return p[0] >= tFrom; });
+}
+
+// Formatierer und Einheit je Messgröße
+function ebaMetricFmt(metric) {
+  if (metric === "money") { return function(c) { return ebaFmtNum(c / 100, 2); }; }
+  if (metric === "tickdur") { return function(ms) { return ebaFmtNum(ms / 1000, 1); }; }
+  return function(v) { return ebaFmtNum(Math.round(v), 0); };
+}
+function ebaMetricUnit(metric) {
+  return metric === "money" ? "€" : metric === "tickdur" ? "s" : metric === "pct" ? "%" : "";
+}
+
+// Brut = Eier + Larven + Puppen je Zeitpunkt
+function ebaFormiBroodSeries(id) {
+  var out = [];
+  $.each(ebaFormiRows(id), function(i, r) {
+    if (r.eggs == null && r.larvae == null && r.cocoons == null) { return; }
+    out.push([r.t, (r.eggs || 0) + (r.larvae || 0) + (r.cocoons || 0)]);
+  });
+  return out;
+}
+
+// --- Hover im Header ---------------------------------------------------------
+
+function enableHistoryCharts() {
+  enableHistoryHeaderHover();
+  enableHistoryPage();
+}
+
+function ebaIsStatsPage() { return /stats\.php$/.test(location.pathname); }
+
+// Textknoten "Geld: ..." und "Punkte: ..." in der Statusbox in Spans wickeln.
+// Der Text bleibt unverändert, daher funktionieren die Regexe in
+// insertPointsDiff() und readStatusMoney()/readStatusPoints() weiter.
+function enableHistoryHeaderHover() {
+  var status = $("div#status");
+  if (!status.length) { return; }
+  var defs = [[/^\s*Geld:/, "money", "Geld"], [/^\s*Punkte:/, "points", "Punkte"]];
+  var nodes = [];
+  var walk = function(el) {
+    $.each(el.childNodes, function(i, n) {
+      if (n.nodeType === 3) { nodes.push(n); }
+      else if (n.nodeType === 1 && n.id !== "headercountdown" && n.id !== "message" && n.id !== "error") { walk(n); }
+    });
+  };
+  walk(status[0]);
+  $.each(nodes, function(i, n) {
+    $.each(defs, function(j, d) {
+      if (!d[0].test(n.nodeValue)) { return; }
+      var span = document.createElement("span");
+      span.className = "eba_hist_hover";
+      span.setAttribute("data-metric", d[1]);
+      span.setAttribute("data-label", d[2]);
+      span.style.cursor = "pointer";
+      n.parentNode.replaceChild(span, n);
+      span.appendChild(n);
+      return false;
+    });
+  });
+  var pop = null;
+  var hide = function() { if (pop) { pop.remove(); pop = null; } };
+  status.on("mouseenter", ".eba_hist_hover", function() {
+    hide();
+    var el = $(this), metric = el.attr("data-metric");
+    var all = ebaGlobalSeries(metric);
+    var recent = ebaSeriesSince(all, new Date().getTime() - 7 * 86400000);
+    var pts = recent.length >= 2 ? recent : all;
+    pop = $('<div class="eba_hist_pop" style="position:absolute;z-index:9999;width:260px;padding:6px 8px;background:#14391f;'
+      + 'color:#e6f5ea;border:1px solid #3CAC56;border-radius:4px;font-size:11px;line-height:1.4;text-align:left;'
+      + 'box-shadow:0 2px 8px rgba(0,0,0,.5)"></div>');
+    pop.append('<div style="font-weight:bold;margin-bottom:3px">' + el.attr("data-label") + '-Verlauf</div>');
+    var chart = $('<div></div>');
+    pop.append(chart);
+    var fmt = ebaMetricFmt(metric);
+    var info = ebaDrawLineChart(chart, pts, { width: 244, height: 80, compact: true, fmt: fmt });
+    if (!info) {
+      chart.remove();
+      pop.append("Noch keine Daten &ndash; Option 'Geld, Punkte und Tickl&auml;nge historisieren' aktivieren");
+    } else {
+      var u = ebaMetricUnit(metric) ? " " + ebaMetricUnit(metric) : "";
+      pop.append("Min: " + fmt(info.min) + u + " &middot; Max: " + fmt(info.max) + u
+        + "<br>Aktuell: " + fmt(info.last) + u
+        + "<br>" + ebaFmtDate(info.from) + " &ndash; " + ebaFmtDate(info.to)
+        + "<br><i>Klick: Detailseite</i>");
+    }
+    $("body").append(pop);
+    var off = el.offset();
+    pop.css({ left: Math.max(4, Math.min(off.left, $(window).width() - 280)), top: off.top + el.outerHeight() + 4 });
+  }).on("mouseleave", ".eba_hist_hover", hide).on("click", ".eba_hist_hover", function() {
+    hide();
+    if (ebaIsStatsPage()) {
+      location.hash = "eba-verlauf";
+      renderHistoryPage();
+    } else {
+      location.href = "/stats.php#eba-verlauf";
+    }
+  });
+}
+
+// --- Detailseite unter Statistik --------------------------------------------
+
+function enableHistoryPage() {
+  if (!$("#shopmenu:contains('Statistik')").length) { return; }
+  if (!$("#eba_verlauf_start").length) {
+    $("#shopmenucats").append("<a id='eba_verlauf_start' href='/stats.php#eba-verlauf'>openEBA-Verlauf</a>");
+  }
+  $("#eba_verlauf_start").on("click", function(e) {
+    if (ebaIsStatsPage()) {
+      e.preventDefault();
+      location.hash = "eba-verlauf";
+      renderHistoryPage();
+    }
+  });
+  if (location.hash === "#eba-verlauf" && ebaIsStatsPage()) { renderHistoryPage(); }
+}
+
+function renderHistoryPage(rangeKey) {
+  var mainArea = $("td[width='700px']");
+  if (!mainArea.length) { return; }
+  var ranges = [["24h", "24 Stunden", 86400000], ["7d", "7 Tage", 7 * 86400000],
+                ["30d", "30 Tage", 30 * 86400000], ["all", "Alles", 0]];
+  var cur = rangeKey || "7d";
+  var span = 0, btns = "";
+  $.each(ranges, function(i, r) {
+    if (r[0] === cur) { span = r[2]; }
+    btns += "<button type='button' class='eba_range' data-range='" + r[0] + "'"
+      + (r[0] === cur ? " disabled" : "") + ">" + r[1] + "</button> ";
+  });
+  mainArea.empty();
+  var page = $("<div id='shopitem' class='eba_verlauf'></div>");
+  page.append("<h3>openEBA-Verlauf (" + srvName(srvKey()) + ")</h3><div>Zeitraum: " + btns + "</div>");
+  mainArea.append(page);
+  page.on("click", ".eba_range", function() { renderHistoryPage($(this).attr("data-range")); });
+  var since = span ? new Date().getTime() - span : 0;
+  var add = function(title, series, metric, extra) {
+    var box = $("<div style='margin:10px 0'></div>");
+    box.append("<b>" + title + "</b><br>");
+    var holder = $("<div></div>");
+    box.append(holder);
+    page.append(box);
+    var ex = [];
+    $.each(extra || [], function(i, e) { ex.push({ points: ebaSeriesSince(e.points, since), color: e.color, name: e.name }); });
+    var fmt = ebaMetricFmt(metric), unit = ebaMetricUnit(metric);
+    var info = ebaDrawLineChart(holder, ebaSeriesSince(series, since), { width: 660, height: 220, color: "#3CAC56",
+      fmt: fmt, unit: unit, tooltip: true, extra: ex });
+    if (!info) {
+      holder.text("Im gewählten Zeitraum noch keine (ausreichenden) Daten.");
+    } else {
+      var u = unit ? " " + unit : "";
+      box.append("<div style='font-size:0.9em'>Min " + fmt(info.min) + u + " &middot; Max " + fmt(info.max) + u
+        + " &middot; Aktuell " + fmt(info.last) + u + " (" + info.count + " Messwerte)</div>");
+    }
+  };
+  add("Geld (&euro;)", ebaGlobalSeries("money"), "money");
+  add("Punkte", ebaGlobalSeries("points"), "points");
+  add("Tickl&auml;nge (Sekunden)", ebaGlobalSeries("tickdur"), "tickdur");
+  var ids = ebaFormiIds();
+  ids.sort(function(a, b) { return parseInt(a, 10) - parseInt(b, 10); });
+  if (!ids.length) {
+    page.append("<p>Keine Formicarien-Historie vorhanden (Option <i>Formicarien-Statistik</i> aktivieren).</p>");
+  }
+  $.each(ids, function(i, id) {
+    var kind = ebaFormiKind(id);
+    page.append("<h4>Formicarium " + id + (kind ? " (" + $("<div>").text(kind).html() + ")" : "") + "</h4>");
+    add("Arbeiterinnen", ebaFormiSeries(id, "ants"), "count");
+    add("Punkte", ebaFormiSeries(id, "points"), "points");
+    add("Brut (Eier + Larven + Puppen)", ebaFormiBroodSeries(id), "count");
+    add("Hunger in % (Zucker gr&uuml;n, Protein orange)", ebaFormiSeries(id, "sugar"), "pct",
+      [{ points: ebaFormiSeries(id, "protein"), color: "#E8963C", name: "Protein" }]);
+  });
+}
+
+$(window).on("hashchange", function() {
+  if (location.hash === "#eba-verlauf" && ebaIsStatsPage() && GM_getValue("eba_enable_history_charts", false)) {
+    renderHistoryPage();
+  }
+});
