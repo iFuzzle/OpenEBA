@@ -3719,7 +3719,9 @@ function ebaNiceScale(min, max, n) {
 //   container: jQuery-Objekt oder Selektor, wird geleert
 //   points:    [[tMs, wert], ...] aufsteigend
 //   opts:      width, height, color, fmt(wert)->Text, compact (ohne Achsen),
-//              tooltip (bool), unit, extra: [{points, color, name}] weitere Linien
+//              tooltip (bool), unit, extra: [{points, color, name}] weitere Linien,
+//              yMin/yMax (feste Achsengrenzen), multiTip (Tooltip zeigt alle Linien
+//              zum Zeitpunkt), tipText(punkt)->Text (Zusatz im Tooltip)
 // Rückgabe: {min, max, last, first, count, from, to} oder null bei <2 Punkten.
 function ebaDrawLineChart(container, points, opts) {
   opts = opts || {};
@@ -3736,6 +3738,8 @@ function ebaDrawLineChart(container, points, opts) {
       if (p[1] < vMin) { vMin = p[1]; } if (p[1] > vMax) { vMax = p[1]; }
     });
   });
+  if (opts.yMin != null) { vMin = opts.yMin; }
+  if (opts.yMax != null) { vMax = opts.yMax; }
   var compact = !!opts.compact;
   var ml = compact ? 6 : 64, mr = compact ? 6 : 14, mt = compact ? 6 : 12, mb = compact ? 6 : 26;
   var scale = compact ? (vMax > vMin ? [vMin, vMax, 0] : [vMin - 1, vMax + 1, 0]) : ebaNiceScale(vMin, vMax, 5);
@@ -3787,7 +3791,26 @@ function ebaDrawLineChart(container, points, opts) {
       if (!best) { return; }
       var cx = X(best[0]), cy = Y(best[1]);
       marker.attr({ cx: cx, cy: cy });
-      tip.text(ebaFmtDate(best[0]) + ": " + fmt(best[1]) + (opts.unit ? " " + opts.unit : "")).show();
+      var u = opts.unit ? " " + opts.unit : "";
+      if (opts.multiTip) {
+        // Wert jeder Linie zum nächstgelegenen Zeitpunkt
+        var h = $("<div></div>").text(ebaFmtDate(best[0])).html();
+        $.each(lines, function(li, l) {
+          var q = null, qd = Infinity;
+          $.each(l.points || [], function(j, p) {
+            var d2 = Math.abs(p[0] - best[0]);
+            if (d2 < qd) { qd = d2; q = p; }
+          });
+          if (q) {
+            h += '<br><span style="color:' + l.color + '">&#9632;</span> '
+              + $("<div></div>").text((l.name ? l.name + ": " : "") + fmt(q[1]) + u).html();
+          }
+        });
+        tip.html(h).show();
+      } else {
+        var extraTxt = opts.tipText ? opts.tipText(best) : "";
+        tip.text(ebaFmtDate(best[0]) + ": " + (extraTxt ? extraTxt + " " : "") + fmt(best[1]) + u).show();
+      }
       var left = cx * rect.width / W + 10;
       if (left + tip.outerWidth() > rect.width) { left = cx * rect.width / W - 10 - tip.outerWidth(); }
       tip.css({ left: Math.max(0, left), top: Math.max(0, cy * rect.height / H - 26) });
@@ -3812,6 +3835,29 @@ function ebaMetricFmt(metric) {
 }
 function ebaMetricUnit(metric) {
   return metric === "money" ? "€" : metric === "tickdur" ? "s" : metric === "pct" ? "%" : "";
+}
+
+// Farben der Brut-Linien (Gesamt = Summe aus Eiern, Larven und Puppen).
+// Funktion statt var, weil die Seite schon in der Init-Schleife gezeichnet werden kann.
+function ebaBroodColors() {
+  return { total: "#3CAC56", eggs: "#F2D14B", larvae: "#5BC0EB", cocoons: "#C77DFF" };
+}
+
+// Ausbruchschutz eines Formicariums aus der Futter-Historie:
+// {points: [[tMs, Prozent], ...], types: {tMs: "PTFE"}, last: Eintrag|null}
+// Ohne Glättung: jeder Tick ein Punkt, damit Erneuerungen als Sprung sichtbar bleiben.
+function ebaFormiEscapeSeries(id) {
+  var res = { points: [], types: {}, last: null };
+  var rows = ebaFoodSeries(id);
+  $.each(rows, function(i, r) {
+    if (r.escapePct == null || isNaN(r.escapePct)) { return; }
+    res.points.push([r.t, r.escapePct]);
+    res.types[r.t] = r.escapeType;
+  });
+  res.points.sort(function(a, b) { return a[0] - b[0]; });
+  var lr = rows.length ? rows[rows.length - 1] : null;
+  if (lr && lr.escapePct != null && !isNaN(lr.escapePct)) { res.last = lr; }
+  return res;
 }
 
 // Brut = Eier + Larven + Puppen je Zeitpunkt
@@ -3936,17 +3982,29 @@ function renderHistoryPage(rangeKey) {
   mainArea.append(page);
   page.on("click", ".eba_range", function() { renderHistoryPage($(this).attr("data-range")); });
   var since = span ? new Date().getTime() - span : 0;
-  var add = function(target, title, series, metric, extra) {
+  var add = function(target, title, series, metric, extra, o) {
+    o = o || {};
     var box = $("<div style='margin:10px 0'></div>");
     box.append("<b>" + title + "</b><br>");
+    if (o.legend) {
+      var lg = "<div style='font-size:0.9em;margin:2px 0'>";
+      $.each(o.legend, function(i, l) {
+        lg += "<span style='margin-right:12px'><span style='color:" + l[1] + "'>&#9632;</span> " + l[0] + "</span>";
+      });
+      box.append(lg + "</div>");
+    }
     var holder = $("<div></div>");
     box.append(holder);
     target.append(box);
     var ex = [];
     $.each(extra || [], function(i, e) { ex.push({ points: ebaSeriesSince(e.points, since), color: e.color, name: e.name }); });
-    var fmt = ebaMetricFmt(metric), unit = ebaMetricUnit(metric);
-    var info = ebaDrawLineChart(holder, ebaSeriesSince(series, since), { width: 660, height: 220, color: "#3CAC56",
-      fmt: fmt, unit: unit, tooltip: true, extra: ex });
+    var fmt = o.fmt || ebaMetricFmt(metric), unit = ebaMetricUnit(metric);
+    if (o.emptyHint && !series.length) {
+      holder.text(o.emptyHint);
+      return;
+    }
+    var info = ebaDrawLineChart(holder, ebaSeriesSince(series, since), $.extend({ width: 660, height: 220,
+      color: o.color || "#3CAC56", fmt: fmt, unit: unit, tooltip: true, extra: ex }, o.chart || {}));
     if (!info) {
       holder.text("Im gewählten Zeitraum noch keine (ausreichenden) Daten.");
     } else {
@@ -3977,7 +4035,18 @@ function renderHistoryPage(rangeKey) {
     body.empty();
     add(body, "Arbeiterinnen", ebaFormiSeries(id, "ants"), "count");
     add(body, "Punkte", ebaFormiSeries(id, "points"), "points");
-    add(body, "Brut (Eier + Larven + Puppen)", ebaFormiBroodSeries(id), "count");
+    var bc = ebaBroodColors();
+    add(body, "Brut", ebaFormiBroodSeries(id), "count", [
+      { points: ebaFormiSeries(id, "eggs"), color: bc.eggs, name: "Eier" },
+      { points: ebaFormiSeries(id, "larvae"), color: bc.larvae, name: "Larven" },
+      { points: ebaFormiSeries(id, "cocoons"), color: bc.cocoons, name: "Puppen" }
+    ], { color: bc.total, chart: { multiTip: true, name: "Gesamt" },
+         legend: [["Eier", bc.eggs], ["Larven", bc.larvae], ["Puppen", bc.cocoons], ["Gesamt", bc.total]] });
+    var esc = ebaFormiEscapeSeries(id);
+    add(body, "Ausbruchschutz (%)", esc.points, "pct", null, { color: "#4FC3F7", fmt: function(v) { return ebaFmtNum(v, 1); },
+      chart: { yMin: 0, yMax: 100, tipText: function(p) { return esc.types[p[0]] || ""; } },
+      emptyHint: "Noch keine Werte – werden ab dem nächsten Tick beim Abruf der Detailseite erfasst; "
+        + "benötigt die Option „Futterbestand und Ausbruchschutz pro Tick festhalten“." });
     add(body, "Hunger in % (Zucker gr&uuml;n, Protein orange)", ebaFormiSeries(id, "sugar"), "pct",
       [{ points: ebaFormiSeries(id, "protein"), color: "#E8963C", name: "Protein" }]);
   };
@@ -3995,6 +4064,10 @@ function renderHistoryPage(rangeKey) {
     var cur = [];
     if (ants.length) { cur.push(ebaFmtNum(ants[ants.length - 1][1], 0) + " Arbeiterinnen"); }
     if (pts.length) { cur.push(ebaFmtNum(pts[pts.length - 1][1], 0) + " Punkte"); }
+    var escLast = ebaFormiEscapeSeries(id).last;
+    if (escLast) {
+      cur.push($("<div>").text((escLast.escapeType ? escLast.escapeType + " " : "") + ebaFmtNum(escLast.escapePct, 1) + " %").html());
+    }
     var g = $("<div class='eba_formi_group' data-id='" + id + "' data-open='0'></div>");
     g.append("<div class='eba_formi_head' " + hs + "><span class='eba_formi_arrow'>\u25B8</span> <b>Formicarium " + id
       + (kind ? " (" + $("<div>").text(kind).html() + ")" : "") + "</b>"
