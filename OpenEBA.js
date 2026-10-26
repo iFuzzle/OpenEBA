@@ -19,7 +19,15 @@
 // Version des Speicherschemas der Historien.
 // 0/1 = Altbestand (nur Formi- und Futter-Historie, ohne Versionsschlüssel)
 // 2   = zusätzliche Zeitreihen für Geld, Punkte, Ticklänge sowie Futter-/Ameisensuchen
-const EBA_SCHEMA_VERSION = 2;
+// 3   = Formi-Historie höchstens eine Zeile je Tick; Futter-Historie eine Zeile je
+//       Tick mit leerem Feld 1 (früher Abrufzeit) und Feld 3 = Ausbruchschutz
+// 4   = Futtertiersuchen, die fälschlich in der Ameisensuche-Reihe lagen, wandern
+//       in die Reihe foodsearch
+const EBA_SCHEMA_VERSION = 4;
+// Format der Kopfzeile der eba_hist_*-Reihen. Bewusst getrennt von der Schema-
+// Version: Schema 3 ändert nur Formi-/Futter-Historie, die Kopfzeilen der übrigen
+// Reihen bleiben "2", damit Geräte mit älterem Skript sie weiter lesen.
+const EBA_HIST_FORMAT = 2;
 // Obergrenze an Zeilen pro Zeitreihe, ab der ausgedünnt wird (nur mit aktivierter Kompaktierung)
 const EBA_HIST_MAX_LINES = 2000;
 
@@ -53,11 +61,11 @@ const configItems = {
   "eba_enable_formi_move_form"               : [processSingleFormicariumView, "F&uuml;tterformular &uuml;ber die Futtertabelle schieben"],
   "eba_enable_key_navi"                      : [enableKeyNavi, "Mit v und n (bzw. q und e) zwischen Formicarien navigieren, mit z bzw. p f&uuml;ttern"],
   "eba_enable_always_show_shop_prices"       : [alwaysShowShopPrices, "Ameisenshop-Preise immer zeigen", "Links neben dem Ameisenshop-Men&uuml;eintrag. Kann sein, dass nicht jeder Browser das richtig (verkleinert) darstellt."],
-  "eba_enable_highlight_shop_prices"         : [highlightShopPrices, "Ameisenshop-Preise f&auml;rben", "Hohe Preise gelb, auf (fast) Maximum rot."],
+  "eba_enable_highlight_shop_prices"         : [highlightShopPrices, "Ameisenshop-Preise f&auml;rben", "Preise ab 95 % des H&ouml;chstpreises gelb, ab 98 % sanft rot, bei 100 % dunkelrot mit wei&szlig;er Schrift."],
   "eba_enable_stat_beautify"                 : [statBeautify, "Statistik verbessern", "Einf&uuml;gen von 1.000er-Trennzeichen und Tooltips, die die Differenz zu den eigenen Punkten anzeigen. Das Avatar-Bild oben rechts bekommt als Tooltip die eigene Punkte-Entwicklung pro Stunde."],
   "eba_enable_process_jobs"                  : [processJobOffers, "Jobs/Forschungen mit Informationen anreichern", "Stundenlohn und Dauer (nach Abschluss der aktuellen Aktion) anzeigen."],
   "eba_enable_formi_statistic"               : [updateFormiStatistic, "Formicarien-Statistik", "Wird aktualisiert bei jedem Aufruf der Formicarien-&Uuml;bersicht. Aufzurufen dort mit dem Link <i>Statistik</i> bei jedem Formicarium. Optimiert zum Kopieren und Einf&uuml;gen in Excel und Co. Die Werte werden auch genutzt, um die Entwicklung von Eiern, Larven, Puppen, Ameisen und Punkten pro Stunde als jeweiligen Tooltip anzuzeigen."],
-  "eba_enable_food_snapshot"                 : [function(){}, "Futterbestand pro Tick festhalten", "Beim ersten Aufruf der Formicarien-&Uuml;bersicht nach einem Tick wird die Futtertabelle jedes Formicariums im Hintergrund aus der Detailansicht geholt und in der Formicarien-Statistik erg&auml;nzt. Funktioniert nur zusammen mit der Formicarien-Statistik."],
+  "eba_enable_food_snapshot"                 : [function(){}, "Futterbestand und Ausbruchschutz pro Tick festhalten", "Beim ersten Aufruf der Formicarien-&Uuml;bersicht nach einem Tick wird die Futtertabelle jedes Formicariums samt Ausbruchschutz (Typ und Prozent, z.B. <i>PTFE 97,4</i>) im Hintergrund aus der Detailansicht geholt und in der Formicarien-Statistik erg&auml;nzt. Funktioniert nur zusammen mit der Formicarien-Statistik."],
   "eba_enable_mark_shop_messages"            : [enableMarkShopMessages, "Option zum Markieren von Kleinanzeigen-Nachrichten einblenden"],
   "eba_enable_sum_multiple_messages"         : [sumMultipleMessages, "Gleichartige Nachrichten zusammenfassen", "Nachrichten desselben Benutzers mit demselben Betreff werden zusamengefasst. Der Haken zum L&ouml;schen bezieht sich auf alle zusammengefassten Nachrichten!"],
   "eba_enable_message_filter"                : [enableMessageFilter, "Nachrichten nach Absendern filtern", "Pflege der Suchbegriffe in der Liste unten. In den Nachrichten wird der Absender gepr&uuml;ft, ob er einen der Suchbegriffe enth&auml;llt. Falls ja, wird die Zeile ausgeblendet.<br>Z.B. blendet der Eintrag <i>Pepper</i> alle Nachrichten von Pepper aus, aber auch die Nachrichten eines Spielers namens \"Pepperoni\"."],
@@ -72,8 +80,11 @@ const configItems = {
   "eba_enable_global_statistic"              : [updateGlobalStatistic, "Geld, Punkte und Tickl&auml;nge historisieren", "Je Tick wird einmal der Geldbestand, die Punktzahl und die Dauer des letzten Ticks mit Zeitstempel festgehalten. Die Erfassung l&auml;uft auf jeder Spielseite (die Werte stehen in der Statusbox oben), aber immer nur einmal pro Tick."],
   "eba_enable_search_statistic"              : [updateSearchStatistic, "Futter- und Ameisensuchen vollst&auml;ndig historisieren", "Das Spiel zeigt nur die letzten Ergebnisse einer Futtersuche bzw. K&ouml;niginnensuche. Beim Aufruf der jeweiligen Seite wird die angezeigte Tabelle mit der gespeicherten Historie verschmolzen, sodass auch &auml;ltere Treffer erhalten bleiben."],
   "eba_enable_history_compaction"            : [function(){}, "Historien ausd&uuml;nnen, wenn sie zu gro&szlig; werden", "Ohne diese Option wachsen die Historien unbegrenzt (bisheriges Verhalten). Mit der Option wird in einer Reihe ab " + EBA_HIST_MAX_LINES + " Zeilen aus der <b>&auml;lteren H&auml;lfte</b> jede zweite Zeile entfernt. Die j&uuml;ngere H&auml;lfte und die Kopfzeile bleiben unangetastet. <b>Achtung:</b> Das entfernt alte Messpunkte unwiderruflich. Den aktuellen Speicherverbrauch zeigt die Zeile unten. Vertr&auml;gt sich nicht mit dem WebDAV-Abgleich, der ist bei eingeschalteter Kompaktierung gesperrt."],
-  "eba_enable_max_points"                    : [showMaxPoints, "Maximale Punktzahl in der Formicarien-&Uuml;bersicht anzeigen", "Hinter den Punkten jedes Formicariums erscheint die maximal erreichbare Punktzahl, z.B. <i>12.340 / 50.000</i>. Bei monogynen Arten ist das ein harter Wert, bei polygynen Arten wird der Zuwachs je weiterer K&ouml;nigin eingerechnet (auf dem Speedserver mit anderen Werten als auf dem Normalserver). Der Tooltip zeigt Arbeiterinnen-Maximum, Auslastung in Prozent und die gemessenen Punkte je Arbeiterin. Quelle der Werte ist die Spielhilfe; f&uuml;r zwei Arten ist der polygyne Zuwachs auf dem Speedserver dort unbekannt, dann erscheint ab zwei K&ouml;niginnen ein <i>?</i>."],
-  "eba_enable_webdav_sync"                   : [enableWebdavSync, "Historien per WebDAV/Nextcloud zwischen Ger&auml;ten abgleichen", "Jede Zeitreihe (Formicarien, Futter, Geld, Punkte, Tickl&auml;nge, Suchen) liegt als eigene Datei in einem WebDAV-Ordner und wird mit den lokalen Daten verschmolzen, h&ouml;chstens einmal pro Tick und nur f&uuml;r den aktuellen Server. Lokal geht dabei nie etwas verloren. Einrichtung unten unter <i>Abgleich der Historien per WebDAV</i>; der automatische Abgleich startet erst nach einem erfolgreichen <i>Verbindung testen</i> auf diesem Ger&auml;t. Tampermonkey fragt dabei einmal, ob das Skript den Host erreichen darf. Ein Skriptmanager, der stattdessen hart blockt, braucht im Skriptkopf eine Zeile <i>// @connect &lt;host&gt;</i>. Optionen, Filter und Notizen werden nie abgeglichen. Vertr&auml;gt sich nicht mit der Kompaktierung."]
+  "eba_enable_max_points"                    : [showMaxPoints, "Maximale Punktzahl in der Formicarien-&Uuml;bersicht anzeigen", "Hinter den Punkten jedes Formicariums erscheint die maximal erreichbare Punktzahl, z.B. <i>12.340 / 50.000</i>. Bei monogynen Arten ist das ein harter Wert, bei polygynen Arten wird der Zuwachs je weiterer K&ouml;nigin eingerechnet (auf dem Speedserver mit anderen Werten als auf dem Normalserver). Der Tooltip zeigt Arbeiterinnen-Maximum, Auslastung in Prozent und die Punkte je Arbeiterin laut Tabelle. Quelle der Werte ist die Spielhilfe; f&uuml;r zwei Arten ist der polygyne Zuwachs auf dem Speedserver dort unbekannt, dann erscheint ab zwei K&ouml;niginnen ein <i>?</i>."],
+  "eba_enable_webdav_sync"                   : [enableWebdavSync, "Historien per WebDAV/Nextcloud zwischen Ger&auml;ten abgleichen", "Jede Zeitreihe (Formicarien, Futter, Geld, Punkte, Tickl&auml;nge, Suchen) liegt als eigene Datei in einem WebDAV-Ordner und wird mit den lokalen Daten verschmolzen, h&ouml;chstens einmal pro Tick und nur f&uuml;r den aktuellen Server. Lokal geht dabei nie etwas verloren. Einrichtung unten unter <i>Abgleich der Historien per WebDAV</i>; der automatische Abgleich startet erst nach einem erfolgreichen <i>Verbindung testen</i> auf diesem Ger&auml;t. Tampermonkey fragt dabei einmal, ob das Skript den Host erreichen darf. Ein Skriptmanager, der stattdessen hart blockt, braucht im Skriptkopf eine Zeile <i>// @connect &lt;host&gt;</i>. Optionen, Filter und Notizen werden nie abgeglichen. Vertr&auml;gt sich nicht mit der Kompaktierung."],
+  "eba_enable_search_history_view"          : [showSearchHistory, "Alle gespeicherten Ergebnisse unter draussen.php?cat=3 anzeigen", "Zeigt unter jeder der beiden Ergebnistabellen des Spiels (Ameisensuche, Futtertiersuche; nur die letzten 10) eine einklappbare Tabelle mit den &auml;lteren gespeicherten Ergebnissen, neueste oben, samt kurzen Summen. Die Erfassung wird auf dieser Seite selbst angesto&szlig;en (Option <i>Futter- und Ameisensuchen vollst&auml;ndig historisieren</i> ist nicht n&ouml;tig, aber die Historie w&auml;chst nur, wenn die Seite aufgerufen wird). Wird keine Tabelle erkannt, erscheint ein kleiner Hinweis."],
+  "eba_enable_growth_percent"                : [showGrowthPercent, "Auswachszustand der Kolonien in Prozent anzeigen", "Hinter den Punkten (bei aktivierter maximaler Punktzahl dahinter) steht in Klammern der Auswachszustand, z.B. <i>4998 / 5.000 (99,9 %)</i> in Formicarien-&Uuml;bersicht und Einzelansicht: Arbeiterinnen geteilt durch die maximalen Arbeiterinnen der Art (bei polygynen Arten mit dem Zuwachs je K&ouml;nigin laut Polygynierechner wie bei der maximalen Punktzahl, bei unbekanntem Zuwachs ein <i>?</i>). Die Prozentzahl wird abgeschnitten, nicht gerundet. Die Farbe zeigt die Wachstumsphase: unter 24 % Anlaufphase (blau), 24&ndash;94 % Hauptwachstumsphase (gr&uuml;n), ab 94 % Endphase (gelb), 100 % ausgewachsen (hell, fett). Ist das Nest zu mehr als 75 % belegt, erscheint ein oranges <i>&#9888;</i>, denn das bremst das Wachstum (in der Einzelansicht mit der Belegung des Spiels, in der &Uuml;bersicht nur, wenn schon die Arbeiterinnen allein dar&uuml;ber liegen). Der Tooltip zeigt Phase, ob Nest oder Formicarium zuerst voll ist (z.B. <i>Nest voll bei ca. 5.000 Arbeiterinnen</i>) und die Belegung. Der Platzbedarf der Brut ist nicht eingerechnet."],
+  "eba_enable_history_charts"                : [enableHistoryCharts, "Verlaufsgrafiken f&uuml;r Geld, Punkte und Formicarien", "Beim &Uuml;berfahren von <i>Geld</i> und <i>Punkte</i> in der Kopfzeile erscheint eine kleine Kurve aus den gespeicherten Werten. Ein Klick darauf &ouml;ffnet unter <i>Statistik</i> die Seite <i>openEBA-Verlauf</i> mit gro&szlig;en Diagrammen (Geld, Punkte, Tickl&auml;nge, je Formicarium Arbeiterinnen, Punkte, Brut und Hunger). Die Kurven brauchen die Optionen <i>Geld, Punkte und Tickl&auml;nge historisieren</i> bzw. <i>Formicarien-Statistik</i>."]
 }
 const shopPriceLimits = {
   "Camponotus ligniperda": 6.34,
@@ -193,21 +204,12 @@ const formiCapacity = {
   "riesige anlage": 200000
 }
 
-// Zustand der Futter-Warteschlange. Muss VOR der Init-Schleife unten stehen,
-// weil updateFormiStatistic() schon beim Start darauf zugreift.
+// Zustand der Futter-Warteschlange. Der Start der Features (Init-Schleife) steht
+// ganz am Ende der Datei, siehe dort.
 var foodQueue = [];
 var foodQueueRunning = false;
 var foodQueued = {};
 
-// Einmalige Schema-Migration vor allen Features, damit der Versionsschlüssel
-// auch gesetzt wird, wenn keine der neuen Optionen aktiv ist.
-migrateHistorySchema();
-enableConfig();
-$.each(configItems, function(k, v) {
-  var timer = new Date().getTime();
-  GM_getValue(k, false) && v[0]();
-  var time = new Date().getTime()-timer;
-});
 function showInventory(){
   var doInsert = function(rowsHTML) {
     $("body").append(rowsHTML);
@@ -322,17 +324,28 @@ function highlightShopPrices() {
       var row = $(this);
       var ant = row.find("td").eq(0).text();
       var price = parseFloat(row.find("td").eq(1).text().replace(/,/, "."));
-      var color = "";
-      if (shopPriceLimits[ant]*0.99<=price) {
-        color = "#FF5555";
-      } else if (shopPriceLimits[ant]*0.95<=price) {
+      var limit = shopPriceLimits[ant];
+      var ratio = limit ? price/limit : NaN;
+      var color = "", bg = "", weight = "", title = "";
+      // kleines Epsilon gegen Gleitkomma-Ungenauigkeiten (z.B. 6,34 bei Grenze 6.34)
+      if (ratio >= 1-1e-9) {
+        color = "#FFFFFF"; bg = "#8B0000"; weight = "bold";   // Höchstpreis erreicht
+      } else if (ratio >= 0.98-1e-9) {
+        color = "#FF8A8A";                                    // sanftes Rot
+      } else if (ratio >= 0.95-1e-9) {
         color = "#FFFF00";
+      }
+      if (color) {
+        title = (Math.round(ratio*1000)/10).toString().replace(".", ",") + " % des H\u00F6chstpreises";
       }
       // nur färben, wenn sich die Farbe ändert (verhindert Endlosschleife mit dem Observer
       // und entfernt die Farbe wieder, wenn der Preis gefallen ist)
-      if (row.data("eba_color") !== color) {
-        row.data("eba_color", color);
-        row.css("color", color);
+      var key = color + "|" + bg + "|" + title;
+      if (row.data("eba_color") !== key) {
+        row.data("eba_color", key);
+        row.css({"color": color, "font-weight": weight, "background-color": bg});
+        row.children("td").css("background-color", bg);
+        if (title) { row.attr("title", title); } else { row.removeAttr("title"); }
       }
     });
   };
@@ -506,15 +519,15 @@ function elapsedHours(baseHour, tickStartMs) {
 // ---------------------------------------------------------------------------
 // Plausibilität von Zeitschlüsseln
 //
-// Alle drei Erfassungspfade prüfen nur die LETZTE Zeile einer Reihe, ob schon
-// etwas für den aktuellen Tick vorliegt: histAppend(), updateFormiStatistic()
-// und hasFoodSnapshot(). Eine einzige Zeile mit einem Zeitschlüssel aus der
-// Zukunft genügt deshalb, um die Erfassung von Geld, Punkten, Ticklänge, Formis
-// und Futter dauerhaft und ohne jede Fehlermeldung einzufrieren - und weil
-// aufsteigend sortiert wird, landet so ein Wert garantiert genau an dieser
-// Gift-Position. Die Grenzen hier fangen das an zwei Stellen ab: eingehende
-// Daten werden vor dem Verschmelzen gefiltert, und ein trotzdem vorhandener
-// Zukunftswert blockiert das Anhängen nicht mehr.
+// histAppend() prüft nur die LETZTE Zeile einer Reihe, ob schon etwas für den
+// aktuellen Tick vorliegt (updateFormiStatistic() und hasFoodSnapshot() suchen
+// dagegen in der ganzen Reihe). Eine einzige Zeile mit einem Zeitschlüssel aus der
+// Zukunft genügt deshalb, um die Erfassung von Geld, Punkten und Ticklänge
+// dauerhaft und ohne jede Fehlermeldung einzufrieren - und weil aufsteigend
+// sortiert wird, landet so ein Wert garantiert genau an dieser Gift-Position.
+// Die Grenzen hier fangen das an zwei Stellen ab: eingehende Daten werden vor dem
+// Verschmelzen gefiltert, und ein trotzdem vorhandener Zukunftswert blockiert das
+// Anhängen nicht mehr.
 // ---------------------------------------------------------------------------
 
 // Frühestes plausibles Datum: 01.01.2020 UTC. Davor gab es diese Reihen nicht.
@@ -528,18 +541,75 @@ function ebaTimePlausible(ms) {
   return !isNaN(ms) && ms >= EBA_TIME_MIN && ms <= ebaTimeMax();
 }
 
-// Futter-Snapshots im Hintergrund holen (sequentiell, um den Server zu schonen)
+// ---------------------------------------------------------------------------
+// Futter-Historie (eba_food_<id>): genau eine Zeile je Tick
+//   Feld 0 = Tick in Minuten seit Epoch
+//   Feld 1 = leer (früher die krumme Uhrzeit des Abrufs, wird nicht mehr geführt)
+//   Feld 2 = Futter "Name 1,00g 97% | ..." oder "leer"
+//   Feld 3 = Ausbruchschutz "PTFE 97,4" (Typ, Wert in %), leer = keiner
+// Ältere Zeilen haben nur drei Felder; mergeFoodHistory() bringt sie in die
+// Form oben.
+// ---------------------------------------------------------------------------
+
+// Zwei Futter-Historien verschmelzen: höchstens eine Zeile je Tick.
+// Bei mehreren Zeilen zum selben Tick gewinnt die mit Ausbruchschutz-Angabe (sie
+// ist vollständiger), danach die lexikografisch kleinere. Das ist eine totale
+// Ordnung auf dem Inhalt, also kommutativ, assoziativ und idempotent.
+function mergeFoodHistory(a, b) {
+  var best = {};
+  var add = function(text) {
+    if (typeof text !== "string") { return; }
+    var ls = text.split("\n");
+    for (var i = 0; i < ls.length; i++) {
+      if (!ls[i]) { continue; }
+      var f = ls[i].split("\t");
+      var t = parseFloat(f[0]);
+      if (isNaN(t)) { continue; }
+      var esc = f[3] || "";
+      var line = t + "\t\t" + (f[2] == null ? "" : f[2]) + "\t" + esc;
+      var cur = best["k" + t];
+      if (!cur || (esc !== "" && cur.esc === "") ||
+          ((esc !== "") === (cur.esc !== "") && syncCmpLine(line, cur.line) < 0)) {
+        best["k" + t] = { t: t, line: line, esc: esc };
+      }
+    }
+  };
+  add(a); add(b);
+  var all = [];
+  for (var k in best) { if (Object.prototype.hasOwnProperty.call(best, k)) { all.push(best[k]); } }
+  all.sort(function(x, y) { return x.t - y.t; });
+  var out = [];
+  for (var j = 0; j < all.length; j++) { out.push(all[j].line); }
+  return out.join("\n");
+}
+
+// Gibt es für diesen Tick schon einen Futter-Snapshot?
+// Es wird die ganze Reihe nach dem Zeitschlüssel durchsucht, nicht nur die letzte
+// Zeile: nach dem Verschmelzen mit einem anderen Gerät muss die letzte Zeile
+// nicht die aktuellste sein.
 function hasFoodSnapshot(id, tickMin) {
   var saved = GM_getValue("eba_food_" + srvKey() + id, "");
   if (!saved) { return false; }
-  var last = saved.substr(saved.lastIndexOf("\n") + 1);
-  var lastMin = parseInt(last.split("\t")[0]);
-  if (isNaN(lastMin)) { return false; }
-  // Zukunftswert in der letzten Zeile: nicht als "schon erfasst" deuten, sonst
-  // würde nie wieder ein Snapshot geholt (siehe ebaTimePlausible()).
-  if (!ebaTimePlausible(lastMin * 60000)) { return false; }
-  return lastMin >= tickMin;
+  var ls = saved.split("\n");
+  for (var i = ls.length - 1; i >= 0; i--) {
+    if (parseFloat(ls[i]) === tickMin) { return true; }
+  }
+  return false;
 }
+
+// Ausbruchschutz aus dem Quelltext der Detailseite:
+//   <b>Ausbruchschutz: PTFE</b> ... jsProgressBar($('escape'), 97.4, {...
+// Rückgabe "PTFE 97,4" bzw. "Talkum 75"; leer, wenn kein Balken da ist.
+function ebaParseEscape(html) {
+  var v = /jsProgressBar\s*\(\s*\$\(\s*['"]escape['"]\s*\)\s*,\s*(-?[\d.]+)/.exec(html);
+  if (!v) { return ""; }
+  var t = /<b>\s*Ausbruchschutz:\s*([^<]*?)\s*<\/b>/.exec(html);
+  var val = parseFloat(v[1]);
+  if (isNaN(val)) { return ""; }
+  return $.trim((t ? t[1] + " " : "") + val.toString().replace(".", ","));
+}
+
+// Futter-Snapshots im Hintergrund holen (sequentiell, um den Server zu schonen)
 function queueFoodSnapshot(id, url, tickMin) {
   var k = srvKey() + id + "_" + tickMin;
   if (foodQueued[k] || hasFoodSnapshot(id, tickMin)) { return; }
@@ -572,11 +642,9 @@ function runFoodQueue() {
             var cond = $.trim(td.eq(3).text());
             entries.push(name + " " + gram + "g " + cond);
           });
-          var srv = /(\d+:\d+:\d+)/.exec($("#servertime").text());
           var key = "eba_food_" + srvKey() + job.id;
-          var saved = GM_getValue(key, "");
-          var line = job.tickMin + "\t" + (srv ? srv[1] : "") + "\t" + (entries.length ? entries.join(" | ") : "leer");
-          GM_setValue(key, saved ? saved + "\n" + line : line);
+          var line = job.tickMin + "\t\t" + (entries.length ? entries.join(" | ") : "leer") + "\t" + ebaParseEscape(response.responseText);
+          GM_setValue(key, mergeFoodHistory(GM_getValue(key, ""), line));
         }
         next();
       } catch (err) { fail(); }
@@ -584,6 +652,28 @@ function runFoodQueue() {
     onerror: fail,
     ontimeout: fail
   });
+}
+
+// Hunger-Prozentwert einer Zelle (Zahl als Text mit Komma, "" wenn unlesbar).
+// Der genaue Wert steht im Skriptaufruf hinter dem Span:
+//   jsProgressBar($('sugarhunger123'), 0.3, {...
+// Der sichtbare Text ist vom Spiel auf ganze Prozent gerundet und wird von
+// copyHungerPercentages() verändert; er dient nur als Notnagel. Früher wurde
+// childNodes[2] der Zelle gelesen - das hängt an der Knotenreihenfolge und
+// liefert bei jeder Abweichung NaN bzw. einen gerundeten Wert.
+function ebaHungerFromCell(td) {
+  var val = NaN;
+  td.find("script").each(function() {
+    var m = /jsProgressBar\s*\(\s*\$\(\s*['"][^'"]*['"]\s*\)\s*,\s*(-?[\d.]+)/.exec($(this).text());
+    if (m) { val = parseFloat(m[1]); return false; }
+  });
+  if (isNaN(val)) {
+    var clone = td.clone();
+    clone.find("script,span").remove();
+    var tm = /(-?\d+(?:[.,]\d+)?)\s*%/.exec(clone.text());
+    if (tm) { val = parseFloat(tm[1].replace(",", ".")); }
+  }
+  return isNaN(val) ? "" : val.toString().replace(".", ",");
 }
 
 function updateFormiStatistic() {
@@ -608,21 +698,15 @@ function updateFormiStatistic() {
     var points = parseInt(cells.eq(6).text());
     var nest = cells.eq(7).text();
     var formicarium = cells.eq(8).text();
-    var id = cells.eq(9).find("span").attr("id").substr(11);
-    var sugarHunger = parseFloat(cells.eq(9).get(0).childNodes[2].nodeValue).toString().replace(/\./, ",");
-    var proteinHunger = parseFloat(cells.eq(10).get(0).childNodes[2].nodeValue).toString().replace(/\./, ",");
+    var idSpan = cells.eq(9).find("span").first();
+    if (!idSpan.length) { return; } // keine Formicarium-Kachel
+    var id = idSpan.attr("id").substr(11);
+    var sugarHunger = ebaHungerFromCell(cells.eq(9));
+    var proteinHunger = ebaHungerFromCell(cells.eq(10));
     for(var n = 0; n < long_str.length; n++){
       if(long_str[n] == nest){ nest = short_str[n]; }
       if(long_str[n] == formicarium){ formicarium = short_str[n]; }
     }
-    // Bezeichnung der "Pr(%)"-Spalte aus der Seite lesen: "Hunger (Proteine)" (0% gut)
-    // oder z.B. "Pilzstatus" (100% gut). Wird nur bei der Anzeige genutzt, nicht gespeichert.
-    var protLabel = "";
-    try {
-      var lblA = cells.eq(10).closest("tr").children("td").first().find("a").get(0);
-      if (lblA) { protLabel = $.trim(lblA.childNodes[0].nodeValue).replace(/:$/, ""); }
-    } catch (err) {}
-    var protMeaning = protLabel ? protLabel + (/Hunger/i.test(protLabel) ? " (gut: 0%)" : " (gut: 100%)") : "";
 
     var dataLine = queens+"\t"+ants+"\t"+eggs+"\t"+larvae+"\t"+cocoons+"\t"+points+"\t"+nest+"\t"+formicarium+"\t"+sugarHunger+"\t"+proteinHunger;
     var key = "eba_statistic_" + srvKey() + id;
@@ -637,23 +721,33 @@ function updateFormiStatistic() {
     }
     if (savedData == null) { return; } // Tick läuft noch, noch keine Daten
 
+    // Mehrfachzeilen zum selben Tick (aus älteren Versionen oder von einem noch
+    // nicht aktualisierten Gerät) beseitigen: höchstens eine Zeile je Tick.
+    var healed = mergeFormiHistory(savedData, "");
+    if (healed && healed !== savedData) { savedData = healed; GM_setValue(key, savedData); }
+
     var baseHour = parseInt(savedData.substring(0, savedData.indexOf("\t")));
     var nowElapsed = elapsedHours(baseHour, tk.nowTick);
     var lines = savedData.split("\n"); // lines[0] = Kopfzeile
-    var lastElapsed = parseFloat(lines[lines.length - 1].split("\t")[0]);
 
-    // Steht in der letzten Zeile ein Zeitstempel aus der Zukunft, wird er nicht
-    // als Sperre gewertet - sonst erfasst dieses Formicarium nie wieder etwas.
-    if (!ebaTimePlausible(baseHour * 3600000 + lastElapsed * 3600000)) { lastElapsed = -Infinity; }
-
-    // neuer Tick seit der letzten Zeile? Ausgefallene Ticks dazwischen werden nicht aufgefüllt.
-    if (tk.done && nowElapsed > lastElapsed) {
-      lines.push(nowElapsed+"\t"+dataLine+"\t"+timeStr);
+    // Gibt es für diesen Tick schon eine Zeile? Es wird die ganze Reihe geprüft,
+    // nicht nur die letzte Zeile: nach dem Verschmelzen (WebDAV, Import) muss die
+    // letzte Zeile nicht die des aktuellen Ticks sein. Ein Zeitstempel aus der
+    // Zukunft blockiert so auch nichts. Ausgefallene Ticks werden nicht aufgefüllt.
+    var haveTick = false;
+    for (var q = lines.length - 1; q >= 1; q--) {
+      if (Math.abs(parseFloat(lines[q].split("\t")[0]) - nowElapsed) < 0.005) { haveTick = true; break; }
+    }
+    if (tk.done && !haveTick) {
+      // chronologisch einsortieren (normal: ans Ende)
+      var at = lines.length;
+      while (at > 1 && parseFloat(lines[at - 1].split("\t")[0]) > nowElapsed) { at--; }
+      lines.splice(at, 0, nowElapsed+"\t"+dataLine+"\t"+timeStr);
       savedData = lines.join("\n");
       GM_setValue(key, savedData);
     }
 
-    // Futter-Snapshot im Hintergrund holen (einmal pro Tick und Formicarium)
+    // Futter-Snapshot samt Ausbruchschutz im Hintergrund holen (einmal pro Tick und Formicarium)
     if (tk.done && GM_getValue("eba_enable_food_snapshot", false)) {
       var href = div.find("a:contains('Formicarium anschauen')").attr("href");
       var detailUrl = href ? new URL(href, location.href).href
@@ -693,15 +787,15 @@ function updateFormiStatistic() {
       statisticHTML += "<button id='eba_statistic_ok' type='button'>OK</button></div>";
       mainArea.append(statisticHTML);
 
-      // Futter-Snapshots nach Tick (Minuten seit Epoch) indexieren
+      // Futter und Ausbruchschutz nach Tick (Minuten seit Epoch) indexieren
       var foodMap = {};
-      $.each(GM_getValue("eba_food_" + srvKey() + id, "").split("\n"), function(k, line) {
+      $.each(mergeFoodHistory(GM_getValue("eba_food_" + srvKey() + id, ""), "").split("\n"), function(k, line) {
         if (!line) { return; }
         var ff = line.split("\t");
-        foodMap[ff[0]] = [ff[1], ff[2]];
+        foodMap[ff[0]] = [ff[2] || "", ff[3] || ""];
       });
 
-      var headLines = savedData.substring(0, savedData.indexOf("\n"))+"\nZeit(h)\tKön.\tArb.\tEier\tLarven\tPuppen\tPunkte\tNest       \tFormicarium\tZu(%)\tPr(%)\tUhrzeit\tFutter erfasst\tFutter\tPr-Bedeutung\n";
+      var headLines = savedData.substring(0, savedData.indexOf("\n"))+"\nZeit(h)\tKön.\tArb.\tEier\tLarven\tPuppen\tPunkte\tNest       \tFormicarium\tZu(%)\tPr(%)\tUhrzeit\tFutter\tAusbruchschutz\n";
       var rows = savedData.substr(savedData.indexOf("\n")+1).split("\n");
       var body = $.map(rows, function(line) {
         var r = line.split("\t");
@@ -711,7 +805,7 @@ function updateFormiStatistic() {
         }
         var tickKey = Math.round((baseHour * 60 + elapsed * 60) / tickMin) * tickMin;
         var fd = foodMap[tickKey];
-        r.push(fd ? fd[0] : "", fd ? fd[1] : "", protMeaning);
+        r.push(fd ? fd[0] : "", fd ? fd[1] : "");
         r[0] = r[0].replace(".", ",");
         return r.join("\t");
       }).join("\n");
@@ -745,7 +839,7 @@ function histKey(name) { return "eba_hist_" + srvKey() + name; }
 
 // Kopfzeile einer Zeitreihe: Schema, Name, Einheit, Ticklänge in Minuten
 function histHead(name, unit) {
-  return EBA_SCHEMA_VERSION + "\t" + name + "\t" + unit + "\t" + getTickMinutes();
+  return EBA_HIST_FORMAT + "\t" + name + "\t" + unit + "\t" + getTickMinutes();
 }
 
 // Messwert anhängen. Pro Zeitschlüssel landet nur ein Wert, geprüft an der
@@ -836,6 +930,23 @@ function updateGlobalStatistic() {
 // die Suche in der Kopfzeile nennt. Die Forschung nennt die Königinnensuche
 // ebenfalls, hat aber eine andere Überschrift und keine passende Tabelle.
 function searchPageKind() {
+  var k = searchPageKindBase();
+  if (k || !isDraussenCat3()) { return k; }
+  // draussen.php?cat=3: Überschrift/Kopfzeile ungetestet, daher großzügiger
+  // über alle Überschriften und Tabellenköpfe suchen.
+  var t = $("h1,h2,h3,h4,b,strong,th").text();
+  if (/Futtersuche/i.test(t)) { return "foodsearch"; }
+  if (/(Königinnensuche|Ameisensuche)/i.test(t)) { return "antsearch"; }
+  return null;
+}
+// Seite draussen.php?cat=3 bzw. draussen.php ohne cat (Spiel zeigt dann cat=3).
+function isDraussenCat3() {
+  if (location.pathname !== "/draussen.php") { return false; }
+  // Ohne cat-Parameter zeigt das Spiel automatisch cat=3 (Ergebnisse).
+  if (!/[?&]cat=/.test(location.search)) { return true; }
+  return /[?&]cat=3(&|#|$)/.test(location.search);
+}
+function searchPageKindBase() {
   var h = $("h3").text();
   if (/Futtersuche/i.test(h)) { return "foodsearch"; }
   if (/(Königinnensuche|Ameisensuche)/i.test(h)) { return "antsearch"; }
@@ -855,10 +966,36 @@ function searchPageKind() {
 function findSearchTable() {
   var best = null, bestRows = 0;
   $("table.liste").each(function() {
+    if ($(this).closest(".eba_search_hist").length) { return; } // eigene Anzeige
     var rows = $(this).find("tr").length;
     if (rows > bestRows) { bestRows = rows; best = $(this); }
   });
   return (bestRows >= 2) ? best : null;
+}
+
+// draussen.php?cat=3 zeigt ZWEI Ergebnistabellen (Ameisensuche, Futtertiersuche),
+// jeweils mit einer h3-Überschrift davor. Zuordnung über die letzte h3 vor der
+// Tabelle. Rückgabe: [{kind, tbl}]
+function draussenSearchTables() {
+  var out = [];
+  $("table.liste").each(function() {
+    var tbl = $(this), el = this;
+    if (tbl.closest(".eba_search_hist").length) { return; } // eigene Anzeige
+    if (tbl.find("tr").length < 2) { return; }
+    var h = $("h3").filter(function() { return !!(el.compareDocumentPosition(this) & 2); }).last().text();
+    var kind = null;
+    if (/Futter(tier)?suche/i.test(h)) { kind = "foodsearch"; }
+    else if (/(Königinnen|Ameisen)suche/i.test(h)) { kind = "antsearch"; }
+    if (kind) { out.push({kind: kind, tbl: tbl}); }
+  });
+  return out;
+}
+// Gehört eine gespeicherte Zeile zu dieser Reihe? Ameisensuchen nennen immer
+// "Königin(nen) gefunden", Futtersuchen nie. Schützt vor falsch einsortierten
+// Altzeilen (z.B. von einem Gerät mit älterem Skript über den Abgleich).
+function searchRowBelongs(kind, text) {
+  var q = /Königin/i.test(text);
+  return kind === "antsearch" ? q : !q;
 }
 
 // Zellen einer Zeile als Tab-getrennte Zeichenkette (Tabs/Umbrüche entschärft)
@@ -910,10 +1047,21 @@ function mergeRollingRows(oldRows, newRows) {
 }
 
 function updateSearchStatistic() {
+  if (isDraussenCat3()) {
+    $.each(draussenSearchTables(), function(i, t) { captureSearchRows(t.kind, t.tbl, true); });
+    return;
+  }
   var kind = searchPageKind();
   if (!kind) { return; }
   var tbl = findSearchTable();
   if (!tbl) { return; }
+  captureSearchRows(kind, tbl, false);
+}
+
+// bySet: neue Zeilen = alle, die inhaltlich noch nicht gespeichert sind (robust
+// gegen eine nach Abgleich/Migration andere Reihenfolge der Historie). Sonst
+// die Überlappungssuche von mergeRollingRows().
+function captureSearchRows(kind, tbl, bySet) {
   var trs = tbl.find("tr");
   if (trs.length < 2) { return; }
 
@@ -934,7 +1082,18 @@ function updateSearchStatistic() {
     if (!/^\d/.test(lines[i])) { continue; }
     oldContent.push(lines[i].substr(lines[i].indexOf("\t") + 1));
   }
-  var fresh = mergeRollingRows(oldContent, rows);
+  var fresh;
+  if (bySet) {
+    var known = {};
+    for (var o = 0; o < oldContent.length; o++) { known["C " + oldContent[o]] = true; }
+    fresh = $.grep(rows, function(r) {
+      if (known["C " + r]) { return false; }
+      known["C " + r] = true; // auch innerhalb der Seite nicht doppelt
+      return true;
+    });
+  } else {
+    fresh = mergeRollingRows(oldContent, rows);
+  }
 
   // Spaltenbelegung geändert? Kopfzeile aktualisieren und den Wechsel als
   // Marker festhalten, damit ältere Zeilen weiterhin deutbar bleiben.
@@ -950,6 +1109,156 @@ function updateSearchStatistic() {
   var now = getServerNow(); // Erfassungszeitpunkt, für alle neuen Zeilen derselbe
   for (var j = 0; j < fresh.length; j++) { lines.push(now + "\t" + fresh[j]); }
   GM_setValue(key, compactHistory(lines.join("\n")));
+}
+
+// ---------------------------------------------------------------------------
+// draussen.php?cat=3: alle gespeicherten Ergebnisse anzeigen
+// ---------------------------------------------------------------------------
+
+// Zahl in deutscher Schreibweise lesen, sonst null
+function parseDeNumber(v) {
+  v = $.trim(v);
+  if (!/^[-+]?(\d{1,3}(\.\d{3})+|\d+)(,\d+)?$/.test(v)) { return null; }
+  return parseFloat(v.replace(/\./g, "").replace(",", "."));
+}
+
+// Kurze Summen aus dem Ergebnistext, nur wo robust lesbar.
+// Ameisensuche: "... 3 Königinnen gefunden: ..." / "... 1 Königin gefunden".
+// Futtertiersuche: "... 25 Blätter gefunden: 25 Brombeerblätter" bzw. mehrere
+// Sorten, durch Komma getrennt. Zeilen, die nicht passen, zählen nur als Suche.
+function searchSummaryHTML(kind, rows) {
+  var out = $("<div>");
+  var parts = [rows.length + " Suchen gespeichert"];
+  var text = function(r) { return r.cells.slice(1).join(" "); };
+  if (kind === "antsearch") {
+    var qs = 0, ok = 0;
+    $.each(rows, function(i, r) {
+      var m = /(\d+)\s+Königin(?:nen)?\s+gefunden/i.exec(text(r));
+      if (m) { qs += parseInt(m[1], 10); ok++; }
+    });
+    if (ok === rows.length) { parts.push(qs + " Königinnen gefunden"); }
+  } else {
+    var sums = {}, names = [];
+    $.each(rows, function(i, r) {
+      var m = /gefunden:\s*(.+)$/i.exec(text(r));
+      if (!m) { return; }
+      var items = $.map(m[1].split(","), function(x) { return $.trim(x); });
+      var parsed = [];
+      for (var k = 0; k < items.length; k++) {
+        var im = /^(\d+)\s+(\S.*)$/.exec(items[k]);
+        if (!im) { return; } // Zeile nicht robust lesbar: auslassen
+        parsed.push([im[2], parseInt(im[1], 10)]);
+      }
+      $.each(parsed, function(j, p) {
+        if (!Object.prototype.hasOwnProperty.call(sums, p[0])) { sums[p[0]] = 0; names.push(p[0]); }
+        sums[p[0]] += p[1];
+      });
+    });
+    names.sort(function(a, b) { return sums[b] - sums[a] || (a < b ? -1 : 1); });
+    if (names.length) {
+      parts.push($.map(names, function(n) { return n + ": " + sums[n]; }).join(", "));
+    }
+  }
+  out.text(parts.join(" · "));
+  return out;
+}
+
+// Ältere gespeicherte Ergebnisse einer Reihe: alle, die nicht (mehr) in der
+// sichtbaren Spieltabelle stehen, neueste oben (nach Spieldatum).
+function olderSearchRows(kind, tbl) {
+  var visible = {};
+  tbl.find("tr").slice(1).each(function() { visible[rowCells($(this))] = true; });
+  var all = $.grep(ebaSearchSeries(kind).rows, function(r) {
+    return searchRowBelongs(kind, r.cells.join(" "));
+  });
+  var seen = {};
+  all = $.grep(all, function(r) {
+    var c = "C " + r.cells.join("\t");
+    if (seen[c]) { return false; }
+    seen[c] = true;
+    return true;
+  });
+  var older = $.grep(all, function(r) { return !visible[r.cells.join("\t")]; });
+  var tv = function(r) { var v = rowTimeValue(r.cells[0] || ""); return v == null ? r.t : v; };
+  older.sort(function(a, b) { return tv(b) - tv(a); });
+  return {older: older, all: all};
+}
+
+// Zustand/Konstanten lazy anlegen: die Optionen laufen oben im Skript, bevor
+// Zuweisungen weiter unten ausgeführt wurden.
+function renderSearchHistory() {
+  if (!isDraussenCat3()) { return; }
+  var tables = draussenSearchTables();
+  if (!tables.length) {
+    if (!$(".eba_search_hist").length) {
+      var hint = $("<div class='eba_search_hist' style='font-size:0.8em;color:#888;margin:6px 0'>").text("openEBA: Ergebnistabelle nicht erkannt");
+      var main = $("td[width='700px']").first();
+      (main.length ? main : $("body")).append(hint);
+    }
+    return;
+  }
+  $(".eba_search_hist").not("[data-kind]").remove(); // Hinweis, falls vorhanden
+  $.each(tables, function(i, t) { renderSearchHistoryFor(t.kind, t.tbl); });
+}
+
+function renderSearchHistoryFor(kind, tbl) {
+  var SEARCH_VIEW_PAGE_SIZE = 50;
+  var states = window.ebaSearchViewState || (window.ebaSearchViewState = {});
+  var st = states[kind] || (states[kind] = {open: false, page: 0});
+  captureSearchRows(kind, tbl, true); // idempotent: ohne neue Zeilen wird nichts geschrieben
+  var res = olderSearchRows(kind, tbl);
+  var rows = res.older;
+  var cont = tbl.nextAll(".eba_search_hist[data-kind='" + kind + "']").first();
+  var sig = kind + "|" + rows.length + "|" + (rows.length ? rows[0].cells.join("\t") : "") + "|" + res.all.length + "|" + st.open + "|" + st.page;
+  if (cont.length && cont.data("sig") === sig && cont.prev().is(tbl)) { return; }
+  $(".eba_search_hist[data-kind='" + kind + "']").remove();
+  if (!rows.length) { return; }
+  var pages = Math.ceil(rows.length / SEARCH_VIEW_PAGE_SIZE);
+  if (st.page >= pages) { st.page = pages - 1; }
+  cont = $("<div class='eba_search_hist' style='margin:8px 0'>").attr("data-kind", kind).data("sig", sig);
+  var rerender = function() { cont.remove(); renderSearchHistory(); };
+  var label = rows.length === 1 ? "Weiteres älteres Ergebnis anzeigen" : "Weitere " + rows.length + " ältere Ergebnisse anzeigen";
+  var toggle = $("<a href='#'>").text(st.open ? "Ältere Ergebnisse ausblenden" : label)
+    .click(function(e) { e.preventDefault(); st.open = !st.open; rerender(); });
+  cont.append($("<div>").append(toggle));
+  if (st.open) {
+    cont.append(searchSummaryHTML(kind, res.all).css("margin", "6px 0"));
+    var t = $("<table class='liste'>");
+    var head = tbl.find("tr").first().children("td,th").map(function() { return $.trim($(this).text()); }).get();
+    var htr = $("<tr class='liste'>");
+    $.each(head, function(j, h) { htr.append($("<td class='liste'>").text(h)); });
+    t.append(htr);
+    var start = st.page * SEARCH_VIEW_PAGE_SIZE, n = 0;
+    $.each(rows.slice(start, start + SEARCH_VIEW_PAGE_SIZE), function(i, r) {
+      var row = $("<tr>").addClass(n++ % 2 ? "color2" : "color1");
+      $.each(r.cells, function(j, v) {
+        row.append($("<td class='liste'>").text(v).css(j === 0 ? {textAlign: "left"} : {}));
+      });
+      t.append(row);
+    });
+    cont.append($("<center>").append(t));
+    if (pages > 1) {
+      var nav = $("<div style='margin-top:4px;text-align:center'>");
+      var go = function(p) { return function(e) { e.preventDefault(); st.page = p; rerender(); }; };
+      if (st.page > 0) { nav.append($("<a href='#'>").text("« neuere").click(go(st.page - 1))).append(" "); }
+      nav.append(document.createTextNode("Seite " + (st.page + 1) + " von " + pages));
+      if (st.page < pages - 1) { nav.append(" ").append($("<a href='#'>").text("ältere »").click(go(st.page + 1))); }
+      cont.append(nav);
+    }
+  }
+  tbl.after(cont);
+}
+
+function showSearchHistory() {
+  if (!isDraussenCat3()) { return; }
+  renderSearchHistory();
+  // Das Spiel kann die Seite per AJAX neu aufbauen; renderSearchHistory() ist
+  // idempotent (Signatur), daher löst die eigene Einfügung keine Endlosschleife aus.
+  var timer = null;
+  new MutationObserver(function() {
+    if (timer) { return; }
+    timer = setTimeout(function() { timer = null; renderSearchHistory(); }, 100);
+  }).observe(document.body, {childList: true, subtree: true});
 }
 
 // ---------------------------------------------------------------------------
@@ -1023,8 +1332,8 @@ function migrateServerKeys() {
   }
 }
 
-// Die Formi- und Futter-Historien werden NICHT angefasst: Schema 2 erweitert
-// nur um neue Schlüssel. Zusätzlich werden die alten Einzelwerte aus
+// Schema 2 erweitert nur um neue Schlüssel (Schema 3 bereinigt dann die Formi- und
+// Futter-Historien, siehe unten). Zusätzlich werden die alten Einzelwerte aus
 // eba_points_1/2 (Punkte je Epoch-Stunde) und eba_tickdur_* (eine Ticklänge)
 // verlustfrei als Startpunkte in die neuen Zeitreihen übernommen.
 function migrateHistorySchema() {
@@ -1068,7 +1377,65 @@ function migrateHistorySchema() {
       }
     }
   }
+  if (from < 3) {
+    // Schema 3: Mehrfachzeilen je Tick beseitigen. Bis Version 31.3 hängte jeder
+    // Aufruf der Übersicht eine neue Zeile an (siehe Start am Dateiende).
+    // Formi-Historie: eine Zeile je Tick (mergeFormiHistory()). Futter-Historie:
+    // eine Zeile je Tick, Feld 1 (Abrufzeit) geleert, Feld 3 (Ausbruchschutz)
+    // ergänzt (mergeFoodHistory()). Geld/Punkte/Ticklänge: nur ganz gleiche Zeilen
+    // zusammenfassen, denn zwei verschiedene Werte desselben Ticks können echt sein.
+    $.each(GM_listValues(), function(i, k) {
+      if (!isHistoryKey(k) || keyServer(k) !== srvKey()) { return; }
+      var v = GM_getValue(k, "");
+      if (typeof v !== "string" || !v) { return; }
+      var res = v;
+      if (k.indexOf("eba_statistic_") === 0) {
+        if (isNaN(parseInt(v, 10))) { return; } // unlesbare Kopfzeile nicht anfassen
+        res = mergeFormiHistory(v, "");
+      } else if (k.indexOf("eba_food_") === 0) {
+        res = mergeFoodHistory(v, "");
+      } else if (new RegExp("^eba_hist_" + srvKey() + "(money|points|tickdur)$").test(k)) {
+        if (isNaN(parseInt(v, 10))) { return; }
+        res = mergeSeries(v, "", true, false);
+      }
+      if (res && res !== v) { GM_setValue(k, res); }
+    });
+  }
+  if (from < 4) { migrateMisfiledSearches(); }
   GM_setValue(schemaKey(), EBA_SCHEMA_VERSION);
+}
+
+// Schema 4: Bis 31.8 landete auf draussen.php die Futtertiersuche in der Reihe
+// antsearch. Zeilen ohne "Königin" wandern nach foodsearch; beide Reihen werden
+// danach über (Datum, Ergebnis) entdoppelt. Das Verschieben geschieht über
+// mergeSeries(), die Ergebnisse sind also kanonisch und konvergieren beim Abgleich.
+function migrateMisfiledSearches() {
+  var aKey = histKey("antsearch"), fKey = histKey("foodsearch");
+  var a = GM_getValue(aKey, "");
+  if (typeof a !== "string" || !a) { return; }
+  var lines = a.split("\n");
+  if (isNaN(parseInt(lines[0], 10))) { return; } // unlesbare Kopfzeile nicht anfassen
+  var fh = lines[0].split("\t");
+  fh[1] = "foodsearch";
+  var keep = [lines[0]], moved = [fh.join("\t")];
+  var marker = null, markerIn = {keep: false, moved: false};
+  for (var i = 1; i < lines.length; i++) {
+    var line = lines[i];
+    if (!line) { continue; }
+    if (line.indexOf("H\t") === 0) { marker = line; markerIn = {keep: false, moved: false}; continue; }
+    if (isNaN(parseFloat(line))) { continue; }
+    var to = /Königin/i.test(line.substr(line.indexOf("\t") + 1)) ? "keep" : "moved";
+    var target = to === "keep" ? keep : moved;
+    if (marker && !markerIn[to]) { target.push(marker); markerIn[to] = true; }
+    target.push(line);
+  }
+  var keepTxt = keep.join("\n");
+  if (moved.length > 1) {
+    var f = GM_getValue(fKey, "");
+    var merged = mergeSeries(typeof f === "string" ? f : "", moved.join("\n"), true, true);
+    GM_setValue(fKey, mergeSeries(merged, merged, true, true)); // Inhalt entdoppeln
+  }
+  GM_setValue(aKey, mergeSeries(keepTxt, keepTxt, true, true));
 }
 
 // ---------------------------------------------------------------------------
@@ -1217,6 +1584,15 @@ function mergeSeries(a, b, hasHeader, byContent) {
 // Formi-Historien speichern die Zeit relativ zur Basis-Stunde aus Zeile 0.
 // Beim Verschmelzen werden daher beide Seiten auf die kleinere Basis-Stunde
 // umgerechnet, damit die Zeitstempel zueinander passen und positiv bleiben.
+//
+// Pro Tick bleibt höchstens EINE Zeile. Früher blieben bei gleichem Zeitstempel
+// alle Zeilen mit abweichenden Datenfeldern erhalten ("der Spieler hat mitten im
+// Tick gefüttert, beide Werte sind richtig"). Zusammen mit dem Append-Fehler
+// (siehe Start am Dateiende) wuchs die Reihe dadurch bei jedem Abgleich. Die
+// Auswahl je Tick (bestRow unten) ist eine totale Ordnung auf dem Inhalt und
+// damit kommutativ, assoziativ und idempotent; die Geräte konvergieren.
+// Ist nur eine Seite lesbar, wird trotzdem kanonisiert (sortiert, entdoppelt):
+// mergeFormiHistory(x, "") ist die Bereinigung einer einzelnen Reihe.
 function mergeFormiHistory(a, b) {
   if (typeof a !== "string") { a = ""; }
   if (typeof b !== "string") { b = ""; }
@@ -1227,9 +1603,7 @@ function mergeFormiHistory(a, b) {
   // auch hier gilt. Der Abgleich verschmilzt eine solche Reihe gar nicht erst
   // (siehe syncMergeOne()), damit nie lokale Daten verloren gehen.
   if (isNaN(ba) && isNaN(bb)) { return syncCmpLine(a, b) <= 0 ? a : b; }
-  if (isNaN(ba)) { return b; }
-  if (isNaN(bb)) { return a; }
-  var base = Math.min(ba, bb);
+  var base = isNaN(ba) ? bb : (isNaN(bb) ? ba : Math.min(ba, bb));
   var shift = function(lines, oldBase) {
     var out = [], d = oldBase - base;
     for (var i = 1; i < lines.length; i++) {
@@ -1240,32 +1614,29 @@ function mergeFormiHistory(a, b) {
     }
     return out;
   };
-  var all = shift(la, ba).concat(shift(lb, bb));
-  // Vollständige Ordnung statt stabiler Sortierung. Vorher entschied bei
-  // gleichem Zeitstempel die Argumentreihenfolge: weil die lokale Seite immer
-  // als a übergeben wird, behielt JEDES Gerät seinen eigenen Wert und verwarf
-  // den des anderen - sie konvergierten nie.
-  //
-  // Entdoppelt wird über Zeit + alle Felder OHNE das letzte. Das letzte Feld
-  // ist timeStr aus formatStatTime(), das über getDate()/getHours() von
-  // Zeitzone und Sommerzeit des jeweiligen Geräts abhängt: zwei Geräte in
-  // verschiedenen Zeitzonen erzeugen für denselben Tick unterschiedliche
-  // timeStr bei völlig identischen Messwerten. Das ist keine Information,
-  // sondern ein Artefakt - deshalb entscheidet es nicht über die Identität.
-  // Bei Gleichstand bleibt die lexikografisch kleinere Gesamtzeile.
-  //
-  // Unterscheiden sich dagegen die DATENfelder (der Spieler hat mitten im Tick
-  // gefüttert oder gekauft), bleiben BEIDE Zeilen erhalten. Keiner der beiden
-  // Werte ist falsch, einer ist nur später, und es gibt kein Feld, das das
-  // entscheiden könnte. ebaFormiRows() verträgt zwei Einträge mit gleichem t.
+  var all = (isNaN(ba) ? [] : shift(la, ba)).concat(isNaN(bb) ? [] : shift(lb, bb));
+  // Rangfolge innerhalb eines Ticks (kleiner = gewinnt):
+  //  1. größere Hunger-Summe (Zucker + Protein). Hunger sinkt innerhalb eines
+  //     Ticks nur durch Füttern; die Zeile mit dem höchsten Wert ist daher die,
+  //     die dem Tickbeginn am nächsten liegt (= die zuerst erfasste). Die Zeilen
+  //     mit 0/0 sind Aufrufe NACH dem Füttern. Unlesbarer Hunger zählt als -1.
+  //  2. kleinerer Dedup-Schlüssel: Zeit + alle Felder OHNE das letzte. Das letzte
+  //     Feld ist timeStr aus formatStatTime(), das über getDate()/getHours() von
+  //     Zeitzone und Sommerzeit des Geräts abhängt - bei identischen Messwerten
+  //     ist es ein Artefakt und entscheidet nicht über die Identität.
+  //  3. kleinere Gesamtzeile.
   for (var i = 0; i < all.length; i++) {
     var line = all[i][0] + "\t" + all[i][1];
     var cut = line.lastIndexOf("\t");
+    var f = all[i][1].split("\t"); // queens ... points, nest, formicarium, sugar, protein, time
+    var hs = function(x) { var v = parseFloat(("" + (x == null ? "" : x)).replace(",", ".")); return isNaN(v) ? -1 : v; };
     all[i][2] = line;
     all[i][3] = (cut > 0) ? line.substr(0, cut) : line; // Dedup-Schlüssel ohne timeStr
+    all[i][4] = hs(f[8]) + hs(f[9]);
   }
   all.sort(function(x, y) {
     if (x[0] !== y[0]) { return x[0] - y[0]; }
+    if (x[4] !== y[4]) { return y[4] - x[4]; }
     var d = syncCmpLine(x[3], y[3]);
     if (d !== 0) { return d; }
     return syncCmpLine(x[2], y[2]);
@@ -1273,15 +1644,16 @@ function mergeFormiHistory(a, b) {
   // Zeile 0 trägt die Basis-Stunde: die Seite mit der kleineren Basis-Stunde
   // gewinnt, bei Gleichstand die lexikografisch kleinere Zeile.
   var head;
-  if (ba !== bb) { head = (base === ba) ? la[0] : lb[0]; }
+  if (isNaN(ba)) { head = lb[0]; }
+  else if (isNaN(bb)) { head = la[0]; }
+  else if (ba !== bb) { head = (base === ba) ? la[0] : lb[0]; }
   else { head = syncCmpLine(la[0], lb[0]) <= 0 ? la[0] : lb[0]; }
   var res = [head];
-  var prevId = null;
+  var prevT = null;
   for (var j = 0; j < all.length; j++) {
-    // Gleicher Dedup-Schlüssel: nur die erste (= lexikografisch kleinste)
-    // Gesamtzeile behalten. Die Sortierung stellt sie direkt nebeneinander.
-    if (all[j][3] === prevId) { continue; }
-    prevId = all[j][3];
+    // Je Zeitstempel nur die erste Zeile der Sortierung behalten (= die beste).
+    if (all[j][0] === prevT) { continue; }
+    prevT = all[j][0];
     res.push(all[j][2]);
   }
   return res.join("\n");
@@ -1351,7 +1723,7 @@ function importHistoryJSON(text) {
       if (k.indexOf("eba_statistic_") === 0) {
         res = mergeFormiHistory(mine, v);
       } else if (k.indexOf("eba_food_") === 0) {
-        res = mergeSeries(mine, v, false, false);
+        res = mergeFoodHistory(mine, v);
       } else if (/_(foodsearch|antsearch)$/.test(k)) {
         res = mergeSeries(mine, v, true, true);
       } else {
@@ -1475,7 +1847,8 @@ function ebaFormiSeries(id, field) {
 }
 
 // Futter-Snapshots eines Formicariums:
-// [{t, servertime, raw, entries:[{name, gram, cond}]}]
+// [{t, servertime, raw, entries:[{name, gram, cond}], escape, escapeType, escapePct}]
+// servertime ist seit Schema 3 immer leer; escape z.B. "PTFE 97,4" (leer = keiner).
 function ebaFoodSeries(id) {
   var out = [];
   var saved = GM_getValue("eba_food_" + srvKey() + id, "");
@@ -1496,7 +1869,12 @@ function ebaFoodSeries(id) {
         }
       });
     }
-    out.push({t: t * 60000, servertime: f[1] || "", raw: f[2] || "", entries: entries});
+    // Feld 3 (ab Schema 3): Ausbruchschutz "PTFE 97,4", leer = keiner
+    var escRaw = f[3] || "";
+    var em = /^(.*?)\s*(-?[\d.,]+)$/.exec(escRaw);
+    out.push({t: t * 60000, servertime: f[1] || "", raw: f[2] || "", entries: entries,
+              escape: escRaw, escapeType: em ? $.trim(em[1]) : escRaw,
+              escapePct: em ? parseFloat(em[2].replace(",", ".")) : null});
   });
   return out;
 }
@@ -1520,7 +1898,7 @@ function ebaSearchSeries(kind) {
     }
     var t = parseFloat(line);
     if (isNaN(t)) { continue; }
-    res.rows.push({t: t, cells: line.split("\t").slice(1)});
+    res.rows.push({t: t, cells: line.split("\t").slice(1), header: res.header});
   }
   return res;
 }
@@ -2308,16 +2686,21 @@ function initSnow(){
 // nicht arbeiterinnen * (p/a) -- sonst schlägt die Gleitkomma-Ungenauigkeit
 // der Division durch.
 //
-// ANNAHME (nicht belegt): bei polygynen Arten wächst das Maximum um
-// (Königinnen - 1) * Zuwachs. Die Spalten G/H der Spielhilfe sind Literale
-// ohne Formel, und der dort als Referenz verlinkte Polygynierechner ist
-// gelöscht. Für monogyne Arten und für genau eine Königin ist die Zahl
-// dagegen belegt. Darum legt der Tooltip die Rechnung offen und zeigt
-// zusätzlich die am laufenden Spiel gemessenen Punkte je Arbeiterin -- weil
-// die Punkte linear sind, muss gemessen ~ Tabelle gelten. Das ist der Ersatz
-// für den gelöschten Rechner. Ein geratener Zuwachs wird nie verwendet: ist
-// er in der Spielhilfe unbekannt ("???"), erscheint ab zwei Königinnen ein
-// Fragezeichen statt einer Zahl.
+// Polygynie (belegt durch den Polygynierechner, Blatt "Polygynie"; die Datei
+// selbst ist nicht im Repo): Arbeiterinnen = H + (Gynen - 1) * Zuwachs, in der
+// Excel-Formel if(len(Gynen), H + (Gynen-1) * I bzw. J, H). Also streng
+// linear in der Königinnenzahl, ohne Deckel und ohne Höchstzahl an Königinnen.
+// H = Arbeiterinnen bei einer Königin (= antmax.a), I = Zuwachs je weiterer
+// Königin Normalserver (= pn), J = Speedserver (= ps). Je Art gibt es nur diese
+// drei Werte; die Formel ist für alle Arten dieselbe. Bei Lasius fuliginosus und
+// Cataglyphis velox steht der Speed-Zuwachs im Rechner als "---" (unbekannt,
+// der Rechner selbst liefert dort #WERT!). Der Rechner kennt keine Punkte; die
+// Punkte folgen aus der Spielhilfe (Spalte B = C * P, siehe oben). Das
+// Nest-/Formicarium-Minimum des Rechners ist Arbeiterinnen * P/Nest bzw. * Pt/Formi
+// und stimmt mit n/a bzw. f/a aus antmax überein; der Rechner markiert ab 75 %
+// Belegung rot (Wachstum bremst). Monogyne Arten kommen im Rechner nicht vor.
+// Ist der Zuwachs unbekannt (ps: null), erscheint ab zwei Königinnen ein
+// Fragezeichen statt einer Zahl; geraten wird nie.
 // ---------------------------------------------------------------------------
 
 // Normalform eines Artnamens für den Fallback-Vergleich: klein geschrieben,
@@ -2387,6 +2770,22 @@ function ebaFmtDec(x, digits) {
   return ("" + (Math.round(x * f) / f)).replace(".", ",");
 }
 
+// Prozent auf eine Nachkommastelle ABGESCHNITTEN, nicht gerundet: 99,96 % bleibt
+// 99,9 %, 100 % erscheint erst bei erreichtem Maximum. Über dem Maximum ehrlich
+// (z.B. 105,0 %). Der Epsilon fängt Gleitkomma-Fehler wie 29,999999 ab.
+function ebaFmtPct(x) {
+  return ("" + (Math.floor(x * 10 + 1e-6) / 10)).replace(".", ",");
+}
+
+// Element in der Punkte-Zelle, an das showMaxPoints() und showGrowthPercent()
+// anhängen: das einzige Element-Kind (meist <center>), sonst die Zelle selbst,
+// damit nichts in einem <img>/<a> landet. Nur vor dem ersten Anhängen aufrufen
+// (danach wäre das eigene <span> das einzige Kind).
+function ebaPointsHost(td) {
+  var kids = td.children();
+  return (kids.length == 1) ? kids.last() : td;
+}
+
 // Hinter den Punkten jedes Formicariums das Maximum anzeigen: "12.340 / 50.000".
 // Die Prozentzahl steht absichtlich NICHT in der Spalte (zu schmal), sondern im
 // Tooltip des eigenen <span>. Das Tooltip hängt am <span> und nicht am <td>,
@@ -2395,24 +2794,28 @@ function ebaFmtDec(x, digits) {
 // wird nicht umformatiert, damit parseInt(cells.eq(6).text()) dort unabhängig
 // von der Reihenfolge der Features weiter funktioniert.
 function showMaxPoints() {
-  if (!$("h3:contains('Deine Formicarien')").length) { return; }
+  var overview = $("h3:contains('Deine Formicarien')").length > 0;
+  if (!overview && (!$("h3:contains('Formicarium')").length || $("h3:contains('einrichten')").length)) { return; }
+  var apply = function() {
   try {
     var speed = isSpeedServer();
     var srv = speed ? "Speedserver" : "Normalserver";
-    $("div[id='shopitem']:contains('Larven')").each(function(i, el) {
+    var boxes = overview ? $("div[id='shopitem']:contains('Larven')") : $("div[data-formi='stats']");
+    boxes.each(function(i, el) {
       try {
         var div = $(this);
         if (div.find("span.eba_maxpt").length) { return; } // schon angezeigt
-        // Zellen genau wie in updateFormiStatistic() lesen:
-        // 0 Königinnen, 1 Arbeiterinnen, 2 Eier, 3 Larven, 4 Puppen,
-        // 5 Art, 6 Punkte, 7 Nest, 8 Formicarium, 9/10 Hunger
-        var cells = div.find("table.liste td").add(div.find("div[id='group'] table.inner td")).filter(":odd");
-        var kind = ("" + cells.eq(5).text()).replace(/^\s+|\s+$/g, "");
-        var qRaw = parseInt(("" + cells.eq(0).text()).replace(/\./g, ""), 10);
+        // Zellen über ihre Beschriftung lesen (Übersicht und Einzelansicht
+        // haben unterschiedliche Reihenfolgen; die Einzelansicht hat keine Art-Zeile).
+        var c = ebaColonyCells(div);
+        if (!c["Punkte"] || !c["Arbeiterinnen"]) { return; }
+        var kind = c["Art"] ? ("" + c["Art"].text()).replace(/^\s+|\s+$/g, "") : ebaDetailKind(div);
+        if (!kind) { return; }
+        var qRaw = c["Königinnen"] ? parseInt(("" + c["Königinnen"].text()).replace(/\./g, ""), 10) : NaN;
         var max = ebaMaxPoints(kind, qRaw, speed);
         if (!max) { return; } // Art nicht in antmax -> gar nichts anzeigen
-        var ants = parseInt(("" + cells.eq(1).text()).replace(/\./g, ""), 10);
-        var points = parseInt(("" + cells.eq(6).text()).replace(/\./g, ""), 10);
+        var ants = parseInt(("" + c["Arbeiterinnen"].text()).replace(/\./g, ""), 10);
+        var points = parseInt(("" + c["Punkte"].text()).replace(/\./g, ""), 10);
 
         var tip = [];
         if (max.unknown) {
@@ -2436,32 +2839,255 @@ function showMaxPoints() {
         if (max.poly && !(isFinite(qRaw) && qRaw >= 1)) {
           tip.push("Königinnenzahl unklar, gerechnet mit 1");
         }
-        // Laufende Selbstprüfung des Modells am lebenden Spiel: weil die
-        // Punkte linear sind, muss punkte/arbeiterinnen ~ p/a gelten.
         var probe = [];
         if (!max.unknown && isFinite(points) && max.points > 0) {
-          probe.push("aktuell " + ebaFmtDec(points / max.points * 100, 1) + " %");
+          probe.push("aktuell " + ebaFmtPct(points / max.points * 100) + " %");
         }
-        if (isFinite(points) && isFinite(ants) && ants > 0) {
-          probe.push("gemessen " + ebaFmtDec(points / ants, 3) + " Pt/Arbeiterin (Tabelle "
-                   + ebaFmtDec(max.ratio, 3) + ")");
-        }
+        probe.push(ebaFmtDec(max.ratio, 3) + " Pt/Arbeiterin");
         if (probe.length) { tip.push(probe.join("  ·  ")); }
 
         // In das letzte Element-Kind der Punkte-Zelle hängen (meist <center>),
         // aber nur wenn es genau eines ist -- sonst in die Zelle selbst, damit
         // das <span> nicht in einem <img>/<a> landet.
-        var td = cells.eq(6);
-        var kids = td.children();
-        var host = (kids.length == 1) ? kids.last() : td;
-        host.append(" <span class='eba_maxpt' style='color:#808080'>/ "
-                  + (max.unknown ? "?" : ebaFmtInt(max.points)) + "</span>");
+        // Steht die Prozentklammer (showGrowthPercent) schon da, davor einsetzen.
+        var td = c["Punkte"];
+        var maxHtml = " <span class='eba_maxpt' style='color:#808080'>/ "
+                    + (max.unknown ? "?" : ebaFmtInt(max.points)) + "</span>";
+        var gSpan = td.find("span.eba_growth").first();
+        if (gSpan.length) { gSpan.before(maxHtml); } else { ebaPointsHost(td).append(maxHtml); }
         // title per attr() statt inline, damit der Artname aus dem DOM nicht
         // escaped werden muss.
         div.find("span.eba_maxpt").last().attr("title", tip.join("\n"));
       } catch (err) {}
     });
   } catch (err) {}
+  };
+  apply();
+  // Einzelansicht: wird nach dem Füttern per AJAX neu aufgebaut, apply() ist idempotent.
+  if (!overview) { new MutationObserver(apply).observe(document.body, {childList: true, subtree: true}); }
+}
+
+// ---------------------------------------------------------------------------
+// Auswachszustand der Kolonien in Prozent
+//
+// Arbeiterinnen / maximale Arbeiterinnen der Art. Das Maximum kommt aus
+// ebaMaxPoints() und damit mit derselben Polygynie-Rechnung wie bei
+// showMaxPoints() (Polygynierechner): bei polygynen Arten wächst es um
+// (Königinnen - 1) * Zuwachs, bei unbekanntem Zuwachs und mehr als einer
+// Königin gibt es kein Ergebnis.
+//
+// Platzbedarf: n bzw. f aus antmax gelten für a Arbeiterinnen, je Arbeiterin
+// also n/a bzw. f/a. In ein Nest der Kapazität C passen damit C * a / n
+// Arbeiterinnen. Die Brut ist NICHT eingerechnet, die Grenze ist daher eine
+// obere Schranke. Gemessen am Spiel: Formicarium zählt nur Arbeiterinnen (Aphaenogaster
+// 9996 Arb: 9996*0,3/15000 = 19,99 % = Spielwert 19,9), das Nest zählt Brut mit
+// (Spielwert 27/28 % statt 20 %). Zwei Datenpunkte (Aphaenogaster, Temnothorax
+// 131 Arb/9+11+9 Brut/Reagenzglas = "76% belegt") lassen mehrere Formeln zu, z.B.
+// Larven+Puppen mit Arbeiterinnen-Gewicht oder alle Brut mit Faktor 0,75. Darum
+// nutzt die Einzelansicht den vom Spiel gelieferten Wert (ebaGameSpace()).
+// ---------------------------------------------------------------------------
+
+// Wert-Zellen einer Kolonie über ihre Beschriftung ("Arbeiterinnen: " usw.),
+// unabhängig von der Zeilenreihenfolge und von Übersicht/Einzelansicht.
+// Zeilen mit verschachtelter Tabelle werden übergangen.
+// Rückgabe: { "Arbeiterinnen": <td>, "Nest": <td>, ... }
+function ebaColonyCells(root) {
+  var map = {};
+  root.find("tr").each(function() {
+    var tr = $(this);
+    if (tr.find("table").length) { return; }
+    var tds = tr.children("td");
+    if (tds.length < 2) { return; }
+    var label = ("" + tds.eq(0).text()).split(":")[0].replace(/^\s+|\s+$/g, "");
+    if (label && !Object.prototype.hasOwnProperty.call(map, label)) { map[label] = tds.eq(1); }
+  });
+  return map;
+}
+
+// Kapazität einer Behausung nach Namen aus der Übersicht. Beim Pilzzüchter
+// steht unter "Nestbecken:" ein Formicarium, daher auch dort nachschlagen.
+function ebaHousingCap(name, formiFirst) {
+  var key = ebaAntmaxNorm(name);
+  var a = formiFirst ? formiCapacity : nestCapacity;
+  var b = formiFirst ? nestCapacity : formiCapacity;
+  if (Object.prototype.hasOwnProperty.call(a, key)) { return a[key]; }
+  if (Object.prototype.hasOwnProperty.call(b, key)) { return b[key]; }
+  return null;
+}
+
+// Reine Rechnung ohne DOM. Rückgabe null bei unbekannter Art, sonst
+// { max, percent (null = unbekannt), nestFit, formiFit, limiting }.
+// nestFit/formiFit: Arbeiterinnen, bei denen die Behausung voll ist (null =
+// Behausung unbekannt). limiting: "Nest", "Formicarium" oder null, wenn die
+// Behausung das Art-Maximum fasst (oder das Maximum unbekannt ist).
+function ebaGrowth(kind, queens, workers, nestName, formiName, speed) {
+  var max = ebaMaxPoints(kind, queens, speed);
+  if (!max) { return null; }
+  var e = ebaAntmaxLookup(kind);
+  var percent = (!max.unknown && isFinite(workers) && max.ants > 0) ? workers / max.ants * 100 : null;
+  var nc = nestName ? ebaHousingCap(nestName, false) : null;
+  var fc = formiName ? ebaHousingCap(formiName, true) : null;
+  var nestFit = (nc != null && e.n > 0) ? Math.floor(nc * e.a / e.n) : null;
+  var formiFit = (fc != null && e.f > 0) ? Math.floor(fc * e.a / e.f) : null;
+  // Untere Schranke der Nestbelegung in %: nur Arbeiterinnen, Brut zählt im
+  // Spiel zusätzlich mit (Formel unbekannt). null = Nest oder Arbeiterinnen unbekannt.
+  var nestMin = (nc != null && e.n > 0 && isFinite(workers)) ? workers * e.n / (e.a * nc) * 100 : null;
+  var limiting = null;
+  if (!max.unknown) {
+    var lim = max.ants;
+    if (nestFit != null && nestFit < lim) { lim = nestFit; limiting = "Nest"; }
+    if (formiFit != null && formiFit < lim) { lim = formiFit; limiting = "Formicarium"; }
+  }
+  return { max: max, percent: percent, nestFit: nestFit, formiFit: formiFit, limiting: limiting, nestMin: nestMin };
+}
+
+// Art aus dem Bildnamen, z.B. "img/ants/Lasius_niger9.jpg" -> "Lasius niger",
+// "Acromyrmex_spec3.jpg" -> "Acromyrmex spec.", "Pheidole_pallidula_shop.jpg".
+// Abgleich robust über ebaAntmaxLookup(); nicht gefunden -> "".
+function ebaKindFromImg(div) {
+  var src = div.find("img").first().attr("src") || "";
+  var base = src.split("?")[0].split("/").pop().replace(/\.[A-Za-z]+$/, "");
+  base = base.replace(/_shop$/i, "").replace(/\d+$/, "").replace(/_/g, " ").replace(/^\s+|\s+$/g, "");
+  var cands = [base, base + ".", base.replace(/\s+shop$/i, "")];
+  for (var i = 0; i < cands.length; i++) {
+    if (cands[i] && ebaAntmaxLookup(cands[i])) { return cands[i]; }
+  }
+  return "";
+}
+
+// Art in der Einzelansicht: primär aus der Überschrift "Formicarium <Art>",
+// weil manche Arten das Bild je Entwicklungsstufe wechseln; Bildname nur als
+// Fallback. Nicht gefunden -> "".
+function ebaDetailKind(div) {
+  var h = "";
+  $("h3").each(function() {
+    var m = /^\s*Formicarium\s+(.+?)\s*$/.exec($(this).text());
+    if (m && ebaAntmaxLookup(m[1])) { h = m[1]; return false; }
+  });
+  return h || ebaKindFromImg(div);
+}
+
+// Belegung, die die Einzelansicht selbst liefert: jsProgressBar($('spacenest'), 28, ...)
+// bzw. $('spaceformi'). Der Wert steht nur in einem Skript. null = nicht vorhanden.
+function ebaGameSpace() {
+  var r = {nest: null, formi: null};
+  $("script").each(function() {
+    var t = this.text || this.textContent || "";
+    var m = /\$\('space(nest|formi)'\)\s*,\s*([\d.]+)/.exec(t);
+    if (m) { r[m[1]] = parseFloat(m[2]); }
+  });
+  return r;
+}
+
+// Wachstumsphasen laut Spielhilfe: Hauptwachstumsphase ~24-94 % der
+// Koloniegröße. percent = unabgeschnittener Wert; 100 % gilt erst bei erreichtem
+// Maximum (passend zu ebaFmtPct, das ebenfalls abschneidet). null = unbekannt.
+function ebaGrowthPhase(percent) {
+  if (percent == null || !isFinite(percent)) { return {name: "unbekannt", color: "#808080", bold: false}; }
+  if (percent >= 100 - 1e-9) { return {name: "ausgewachsen", color: "#f2f7f2", bold: true}; }
+  if (percent >= 94) { return {name: "Endphase, fast ausgewachsen (ab 94 %)", color: "#e6c35c", bold: false}; }
+  if (percent >= 24) { return {name: "Hauptwachstumsphase (ca. 24-94 %)", color: "#9bd66b", bold: false}; }
+  return {name: "Anlaufphase (unter 24 %)", color: "#8fb8d0", bold: false};
+}
+
+// Nest über 75 % Belegung bremst das Wachstum (Spielhilfe, Polygynierechner).
+// Das Formicarium bremst nicht (dort zählt die Brut nicht mit).
+var EBA_NEST_BRAKE = 75;
+
+function ebaGrowthTip(g, kind, workers, nestLabel, nestName, formiName, srv, space) {
+  var tip = [], max = g.max;
+  if (max.unknown) {
+    tip.push("Polygyner Zuwachs für " + kind + " auf dem " + srv + " ist in der Spielhilfe nicht bekannt (???).");
+  } else {
+    tip.push(ebaFmtInt(workers) + " von max. " + ebaFmtInt(max.ants) + " Arbeiterinnen"
+           + (max.poly && max.queens > 1 ? " (" + max.queens + " Königinnen, polygyn)" : ""));
+  }
+  var part = function(label, name, fit) {
+    if (fit == null) { return; }
+    var line = label + " (" + name + "): voll bei ca. " + ebaFmtInt(fit) + " Arbeiterinnen";
+    if (!space && isFinite(workers) && fit > 0) { line += ", nur Arbeiterinnen aktuell " + ebaFmtPct(workers / fit * 100) + " %"; }
+    if (!max.unknown && fit >= max.ants) { line += " (reicht für das Maximum)"; }
+    tip.push(line);
+  };
+  part(nestLabel, nestName, g.nestFit);
+  part("Formicarium", formiName, g.formiFit);
+  var ph = ebaGrowthPhase(g.percent);
+  if (g.percent != null) { tip.push("Phase: " + ph.name); }
+  if (g.limiting) {
+    var fit = g.limiting == "Nest" ? g.nestFit : g.formiFit;
+    tip.push("Begrenzend: " + g.limiting + ". Ausgewachsen relativ zur Behausung: "
+           + ebaFmtPct(workers / fit * 100) + " %");
+  }
+  if (space && (space.nest != null || space.formi != null)) {
+    tip.push("Belegung laut Spiel: " + (space.nest != null ? nestLabel + " " + ebaFmtPct(space.nest) + " %" : "")
+           + (space.nest != null && space.formi != null ? ", " : "")
+           + (space.formi != null ? "Formicarium " + ebaFmtPct(space.formi) + " %" : ""));
+  } else {
+    tip.push("Hinweis: Das Spiel zählt im Nest die Brut mit (Formicarium nur Arbeiterinnen); die Brutformel ist nicht eindeutig bekannt, daher hier nur Arbeiterinnen gerechnet. Exakte Belegung in der Einzelansicht.");
+  }
+  return tip.join("\n");
+}
+
+function showGrowthPercent() {
+  var overview = $("h3:contains('Deine Formicarien')").length > 0;
+  if (!overview && !$("h3:contains('Formicarium')").length) { return; }
+  if ($("h3:contains('einrichten')").length) { return; }
+  var apply = function() {
+    try {
+      var speed = isSpeedServer();
+      var srv = speed ? "Speedserver" : "Normalserver";
+      var boxes = overview ? $("div[id='shopitem']:contains('Larven')") : $("div[data-formi='stats']");
+      boxes.each(function() {
+        try {
+          var div = $(this);
+          if (div.find("span.eba_growth").length) { return; } // schon angezeigt, verhindert Endlosschleife mit dem Observer
+          var c = ebaColonyCells(div);
+          if (!c["Arbeiterinnen"]) { return; }
+          var nestLabel = c["Nestbecken"] ? "Nestbecken" : "Nest";
+          // Die Einzelansicht hat keine Art-Zeile: Art dann aus dem Bildnamen ableiten.
+          var kind = c["Art"] ? ("" + c["Art"].text()).replace(/^\s+|\s+$/g, "") : ebaDetailKind(div);
+          if (!kind) { return; }
+          var workers = parseInt(("" + c["Arbeiterinnen"].text()).replace(/\./g, ""), 10);
+          var qRaw = c["Königinnen"] ? parseInt(("" + c["Königinnen"].text()).replace(/\./g, ""), 10) : NaN;
+          var nestName = c[nestLabel] ? $.trim(c[nestLabel].text()) : "";
+          var formiName = c["Formicarium"] ? $.trim(c["Formicarium"].text()) : "";
+          var g = ebaGrowth(kind, qRaw, workers, nestName, formiName, speed);
+          if (!g || !isFinite(workers)) { return; } // Art nicht in antmax -> nichts anzeigen
+          var txt = "(" + (g.percent == null ? "?" : ebaFmtPct(g.percent) + " %") + ")";
+          var ph = ebaGrowthPhase(g.percent);
+          var html = "<span class='eba_growth' style='color:" + ph.color + (ph.bold ? ";font-weight:bold" : "")
+                   + ";white-space:nowrap'> " + txt;
+          // Nestwarnung kompakt: nur ein Zeichen, Text im Tooltip. Einzelansicht mit
+          // der Spiel-Belegung, Übersicht nur wenn schon die Arbeiterinnen allein
+          // über der Grenze liegen (untere Schranke).
+          var space = overview ? null : ebaGameSpace();
+          var warnTip = "";
+          if (space && space.nest != null) {
+            if (space.nest > EBA_NEST_BRAKE) {
+              warnTip = nestLabel + " ist laut Spiel zu " + ebaFmtPct(space.nest) + " % belegt (über 75 %): das bremst das Wachstum. Ein größeres Nest nutzen.";
+            }
+          } else if (!space && g.nestMin != null && g.nestMin > EBA_NEST_BRAKE) {
+            warnTip = nestLabel + ": schon die Arbeiterinnen allein belegen mind. " + ebaFmtPct(g.nestMin)
+                    + " % (die Brut zählt im Spiel zusätzlich mit). Über 75 % Belegung bremst das Wachstum. Ein größeres Nest nutzen.";
+          }
+          if (warnTip) { html += "<span class='eba_nestwarn' style='color:#ff9a5c;font-weight:normal'> &#9888;</span>"; }
+          html += "</span>";
+          // In die Punkte-Zelle, hinter die Max-Punkte (falls schon da).
+          var td = c["Punkte"];
+          if (!td) { return; }
+          var mSpan = td.find("span.eba_maxpt").first();
+          if (mSpan.length) { mSpan.after(html); } else { ebaPointsHost(td).append(html); }
+          var gs = td.find("span.eba_growth").first();
+          gs.attr("title", ebaGrowthTip(g, kind, workers, nestLabel, nestName, formiName, srv, space));
+          if (warnTip) { gs.find("span.eba_nestwarn").attr("title", warnTip); }
+        } catch (err) {}
+      });
+    } catch (err) {}
+  };
+  apply();
+  // Die Einzelansicht wird nach dem Füttern per AJAX neu aufgebaut, daher nach
+  // jeder DOM-Änderung erneut anwenden. apply() ist idempotent.
+  if (!overview) { new MutationObserver(apply).observe(document.body, {childList: true, subtree: true}); }
 }
 
 // ---------------------------------------------------------------------------
@@ -2581,7 +3207,7 @@ function davKind(key) {
 function davMerge(key, a, b) {
   switch (davKind(key)) {
     case "formi": return mergeFormiHistory(a, b);
-    case "food": return mergeSeries(a, b, false, false);
+    case "food": return mergeFoodHistory(a, b);
     case "search": return mergeSeries(a, b, true, true);
     default: return mergeSeries(a, b, true, false);
   }
@@ -2610,9 +3236,9 @@ function davValidate(key, text) {
     var name = key.substr(("eba_hist_" + (keyServer(key) || "")).length);
     var schema = parseInt(head[0], 10);
     if (isNaN(schema) || head[1] !== name) { res.reason = "Kopfzeile gehört nicht zu " + key; return res; }
-    if (schema > EBA_SCHEMA_VERSION) {
+    if (schema > EBA_HIST_FORMAT) {
       res.newer = true;
-      res.reason = "Datei hat Schema " + schema + ", dieses Skript kennt nur " + EBA_SCHEMA_VERSION + " - bitte openEBA aktualisieren";
+      res.reason = "Datei hat Schema " + schema + ", dieses Skript kennt nur " + EBA_HIST_FORMAT + " - bitte openEBA aktualisieren";
       return res;
     }
     out.push(lines[0]); start = 1;
@@ -3052,3 +3678,451 @@ function davConfigBind() {
     $("#eba_dav_info").text("Zugangsdaten gelöscht.");
   });
 }
+
+// ---------------------------------------------------------------------------
+// Verlaufsgrafiken (Option eba_enable_history_charts)
+// Alles als Funktionsdeklarationen, weil die Init-Schleife oben läuft, bevor
+// Variablen weiter unten in der Datei initialisiert wären.
+// ---------------------------------------------------------------------------
+
+// Deutsche Zahl mit fester Nachkommastellenzahl und Tausenderpunkt
+function ebaFmtNum(x, digits) {
+  var neg = x < 0;
+  var s = Math.abs(x).toFixed(digits || 0).split(".");
+  var out = (neg ? "-" : "") + ebaFmtInt(s[0]);
+  return s.length > 1 ? out + "," + s[1] : out;
+}
+
+function ebaPad2(n) { return (n < 10 ? "0" : "") + n; }
+
+// Datum/Uhrzeit deutsch: "26.10.2026 14:00" (mode "short": nur Datum, "time": nur Uhrzeit)
+function ebaFmtDate(t, mode) {
+  var d = new Date(t);
+  var date = ebaPad2(d.getDate()) + "." + ebaPad2(d.getMonth() + 1) + ".";
+  var time = ebaPad2(d.getHours()) + ":" + ebaPad2(d.getMinutes());
+  if (mode === "short") { return date; }
+  if (mode === "time") { return time; }
+  return date + d.getFullYear() + " " + time;
+}
+
+// Runde Achsenschritte: [Start, Ende, Schritt]
+function ebaNiceScale(min, max, n) {
+  if (!(max > min)) { var pad = Math.abs(min) * 0.05 || 1; min -= pad; max += pad; }
+  var raw = (max - min) / n;
+  var mag = Math.pow(10, Math.floor(Math.log(raw) / Math.LN10));
+  var f = raw / mag;
+  var step = (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * mag;
+  return [Math.floor(min / step) * step, Math.ceil(max / step) * step, step];
+}
+
+// Wiederverwendbarer Liniengraph als Inline-SVG.
+//   container: jQuery-Objekt oder Selektor, wird geleert
+//   points:    [[tMs, wert], ...] aufsteigend
+//   opts:      width, height, color, fmt(wert)->Text, compact (ohne Achsen),
+//              tooltip (bool), unit, extra: [{points, color, name}] weitere Linien,
+//              yMin/yMax (feste Achsengrenzen), multiTip (Tooltip zeigt alle Linien
+//              zum Zeitpunkt; exactTip: nur exakt gleicher Zeitpunkt, sonst Strich), tipText(punkt)->Text (Zusatz im Tooltip)
+// Rückgabe: {min, max, last, first, count, from, to} oder null bei <2 Punkten.
+function ebaDrawLineChart(container, points, opts) {
+  opts = opts || {};
+  var $c = $(container).empty();
+  if (!points || points.length < 2) { return null; }
+  var W = opts.width || 600, H = opts.height || 220;
+  var fmt = opts.fmt || function(v) { return ebaFmtNum(v, 0); };
+  var lines = [{ points: points, color: opts.color || "#3CAC56", name: opts.name || "" }];
+  $.each(opts.extra || [], function(i, e) { lines.push(e); });
+  var tMin = Infinity, tMax = -Infinity, vMin = Infinity, vMax = -Infinity;
+  $.each(lines, function(li, l) {
+    $.each(l.points || [], function(j, p) {
+      if (p[0] < tMin) { tMin = p[0]; } if (p[0] > tMax) { tMax = p[0]; }
+      if (p[1] < vMin) { vMin = p[1]; } if (p[1] > vMax) { vMax = p[1]; }
+    });
+  });
+  if (opts.yMin != null) { vMin = opts.yMin; }
+  if (opts.yMax != null) { vMax = opts.yMax; }
+  var compact = !!opts.compact;
+  var ml = compact ? 6 : 64, mr = compact ? 6 : 14, mt = compact ? 6 : 12, mb = compact ? 6 : 26;
+  var scale = compact ? (vMax > vMin ? [vMin, vMax, 0] : [vMin - 1, vMax + 1, 0]) : ebaNiceScale(vMin, vMax, 5);
+  var y0 = scale[0], y1 = scale[1];
+  var tSpan = (tMax > tMin) ? (tMax - tMin) : 1;
+  var X = function(t) { return ml + (t - tMin) / tSpan * (W - ml - mr); };
+  var Y = function(v) { return mt + (1 - (v - y0) / (y1 - y0)) * (H - mt - mb); };
+  var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H
+    + '" style="display:block;background:#0f2a17;border-radius:3px;max-width:100%">';
+  if (!compact) {
+    for (var v = y0; v <= y1 + scale[2] / 2; v += scale[2]) {
+      var yy = Y(v);
+      svg += '<line x1="' + ml + '" x2="' + (W - mr) + '" y1="' + yy.toFixed(1) + '" y2="' + yy.toFixed(1) + '" stroke="#2a5a36" stroke-width="1"/>';
+      svg += '<text x="' + (ml - 6) + '" y="' + (yy + 4).toFixed(1) + '" text-anchor="end" font-size="11" fill="#a8d5b3">'
+        + fmt(v) + '</text>';
+    }
+    var longRange = tSpan > 2 * 86400000;
+    for (var i = 0; i <= 4; i++) {
+      var tt = tMin + tSpan * i / 4, xx = X(tt).toFixed(1);
+      svg += '<line x1="' + xx + '" x2="' + xx + '" y1="' + mt + '" y2="' + (H - mb) + '" stroke="#1d4529" stroke-width="1"/>';
+      svg += '<text x="' + xx + '" y="' + (H - 8) + '" text-anchor="' + (i == 0 ? "start" : i == 4 ? "end" : "middle")
+        + '" font-size="11" fill="#a8d5b3">' + ebaFmtDate(tt, longRange ? "short" : "time") + '</text>';
+    }
+  }
+  $.each(lines, function(li, l) {
+    if (!l.points || l.points.length < 2) { return; }
+    var d = "";
+    $.each(l.points, function(i, p) { d += (i ? "L" : "M") + X(p[0]).toFixed(1) + " " + Y(p[1]).toFixed(1); });
+    svg += '<path d="' + d + '" fill="none" stroke="' + l.color + '" stroke-width="' + (compact ? 1.5 : 2) + '" stroke-linejoin="round"/>';
+  });
+  svg += '<circle class="eba_chart_marker" r="4" cx="-10" cy="-10" fill="#fff" stroke="#3CAC56" stroke-width="2"/>';
+  svg += '</svg>';
+  var wrap = $('<div class="eba_chart_wrap" style="position:relative;display:inline-block;max-width:100%"></div>');
+  wrap.append(svg);
+  $c.append(wrap);
+  if (opts.tooltip) {
+    var tip = $('<div class="eba_chart_tip" style="display:none;position:absolute;pointer-events:none;background:#0a1d10;color:#e6f5ea;'
+      + 'border:1px solid #3CAC56;border-radius:3px;padding:2px 6px;font-size:11px;white-space:nowrap;z-index:10"></div>');
+    wrap.append(tip);
+    var marker = wrap.find(".eba_chart_marker");
+    wrap.find("svg").on("mousemove", function(ev) {
+      var rect = this.getBoundingClientRect();
+      var px = (ev.clientX - rect.left) * (W / rect.width);
+      var best = null, bd = Infinity;
+      $.each(points, function(i, p) {
+        var dd = Math.abs(X(p[0]) - px);
+        if (dd < bd) { bd = dd; best = p; }
+      });
+      if (!best) { return; }
+      var cx = X(best[0]), cy = Y(best[1]);
+      marker.attr({ cx: cx, cy: cy });
+      var u = opts.unit ? " " + opts.unit : "";
+      if (opts.multiTip) {
+        // Wert jeder Linie zum nächstgelegenen Zeitpunkt
+        var h = $("<div></div>").text(ebaFmtDate(best[0])).html();
+        $.each(lines, function(li, l) {
+          var q = null, qd = Infinity;
+          $.each(l.points || [], function(j, p) {
+            var d2 = Math.abs(p[0] - best[0]);
+            if (d2 < qd) { qd = d2; q = p; }
+          });
+          if (opts.exactTip && q && q[0] !== best[0]) { q = null; }
+          if (!q && opts.exactTip) {
+            h += '<br><span style="color:' + l.color + '">&#9632;</span> '
+              + $("<div></div>").text((l.name ? l.name + ": " : "") + "\u2013").html();
+          } else if (q) {
+            h += '<br><span style="color:' + l.color + '">&#9632;</span> '
+              + $("<div></div>").text((l.name ? l.name + ": " : "") + fmt(q[1]) + u).html();
+          }
+        });
+        tip.html(h).show();
+      } else {
+        var extraTxt = opts.tipText ? opts.tipText(best) : "";
+        tip.text(ebaFmtDate(best[0]) + ": " + (extraTxt ? extraTxt + " " : "") + fmt(best[1]) + u).show();
+      }
+      var left = cx * rect.width / W + 10;
+      if (left + tip.outerWidth() > rect.width) { left = cx * rect.width / W - 10 - tip.outerWidth(); }
+      tip.css({ left: Math.max(0, left), top: Math.max(0, cy * rect.height / H - 26) });
+    }).on("mouseleave", function() { tip.hide(); marker.attr({ cx: -10, cy: -10 }); });
+  }
+  var vals = $.map(points, function(p) { return p[1]; });
+  return { min: Math.min.apply(null, vals), max: Math.max.apply(null, vals),
+           last: points[points.length - 1][1], first: points[0][1], count: points.length,
+           from: points[0][0], to: points[points.length - 1][0] };
+}
+
+// Nur Punkte ab tFrom (inklusive)
+function ebaSeriesSince(series, tFrom) {
+  return $.grep(series, function(p) { return p[0] >= tFrom; });
+}
+
+// Formatierer und Einheit je Messgröße
+function ebaMetricFmt(metric) {
+  if (metric === "money") { return function(c) { return ebaFmtNum(c / 100, 2); }; }
+  if (metric === "tickdur") { return function(ms) { return ebaFmtNum(ms / 1000, 1); }; }
+  return function(v) { return ebaFmtNum(Math.round(v), 0); };
+}
+function ebaMetricUnit(metric) {
+  return metric === "money" ? "€" : metric === "tickdur" ? "s" : metric === "pct" ? "%" : "";
+}
+
+// Farben der Brut-Linien (Gesamt = Summe aus Eiern, Larven und Puppen).
+// Funktion statt var, weil die Seite schon in der Init-Schleife gezeichnet werden kann.
+function ebaBroodColors() {
+  return { total: "#3CAC56", eggs: "#F2D14B", larvae: "#5BC0EB", cocoons: "#C77DFF" };
+}
+
+// Ausbruchschutz eines Formicariums aus der Futter-Historie:
+// {points: [[tMs, Prozent], ...], types: {tMs: "PTFE"}, last: Eintrag|null}
+// Ohne Glättung: jeder Tick ein Punkt, damit Erneuerungen als Sprung sichtbar bleiben.
+function ebaFormiEscapeSeries(id) {
+  var res = { points: [], types: {}, last: null };
+  var rows = ebaFoodSeries(id);
+  $.each(rows, function(i, r) {
+    if (r.escapePct == null || isNaN(r.escapePct)) { return; }
+    res.points.push([r.t, r.escapePct]);
+    res.types[r.t] = r.escapeType;
+  });
+  res.points.sort(function(a, b) { return a[0] - b[0]; });
+  var lr = rows.length ? rows[rows.length - 1] : null;
+  if (lr && lr.escapePct != null && !isNaN(lr.escapePct)) { res.last = lr; }
+  return res;
+}
+
+// Brut = Eier + Larven + Puppen je Zeitpunkt
+function ebaFormiBroodSeries(id) {
+  var out = [];
+  $.each(ebaFormiRows(id), function(i, r) {
+    if (r.eggs == null && r.larvae == null && r.cocoons == null) { return; }
+    out.push([r.t, (r.eggs || 0) + (r.larvae || 0) + (r.cocoons || 0)]);
+  });
+  return out;
+}
+
+// --- Hover im Header ---------------------------------------------------------
+
+function enableHistoryCharts() {
+  enableHistoryHeaderHover();
+  enableHistoryPage();
+}
+
+function ebaIsStatsPage() { return /stats\.php$/.test(location.pathname); }
+
+// Textknoten "Geld: ..." und "Punkte: ..." in der Statusbox in Spans wickeln.
+// Der Text bleibt unverändert, daher funktionieren die Regexe in
+// insertPointsDiff() und readStatusMoney()/readStatusPoints() weiter.
+function enableHistoryHeaderHover() {
+  var status = $("div#status");
+  if (!status.length) { return; }
+  var defs = [[/^\s*Geld:/, "money", "Geld"], [/^\s*Punkte:/, "points", "Punkte"]];
+  var nodes = [];
+  var walk = function(el) {
+    $.each(el.childNodes, function(i, n) {
+      if (n.nodeType === 3) { nodes.push(n); }
+      else if (n.nodeType === 1 && n.id !== "headercountdown" && n.id !== "message" && n.id !== "error") { walk(n); }
+    });
+  };
+  walk(status[0]);
+  $.each(nodes, function(i, n) {
+    $.each(defs, function(j, d) {
+      if (!d[0].test(n.nodeValue)) { return; }
+      var span = document.createElement("span");
+      span.className = "eba_hist_hover";
+      span.setAttribute("data-metric", d[1]);
+      span.setAttribute("data-label", d[2]);
+      span.style.cursor = "pointer";
+      n.parentNode.replaceChild(span, n);
+      span.appendChild(n);
+      return false;
+    });
+  });
+  var pop = null;
+  var hide = function() { if (pop) { pop.remove(); pop = null; } };
+  status.on("mouseenter", ".eba_hist_hover", function() {
+    hide();
+    var el = $(this), metric = el.attr("data-metric");
+    var all = ebaGlobalSeries(metric);
+    var recent = ebaSeriesSince(all, new Date().getTime() - 7 * 86400000);
+    var pts = recent.length >= 2 ? recent : all;
+    pop = $('<div class="eba_hist_pop" style="position:absolute;z-index:9999;width:260px;padding:6px 8px;background:#14391f;'
+      + 'color:#e6f5ea;border:1px solid #3CAC56;border-radius:4px;font-size:11px;line-height:1.4;text-align:left;'
+      + 'box-shadow:0 2px 8px rgba(0,0,0,.5)"></div>');
+    pop.append('<div style="font-weight:bold;margin-bottom:3px">' + el.attr("data-label") + '-Verlauf</div>');
+    var chart = $('<div></div>');
+    pop.append(chart);
+    var fmt = ebaMetricFmt(metric);
+    var info = ebaDrawLineChart(chart, pts, { width: 244, height: 80, compact: true, fmt: fmt });
+    if (!info) {
+      chart.remove();
+      pop.append("Noch keine Daten &ndash; Option 'Geld, Punkte und Tickl&auml;nge historisieren' aktivieren");
+    } else {
+      var u = ebaMetricUnit(metric) ? " " + ebaMetricUnit(metric) : "";
+      pop.append("Min: " + fmt(info.min) + u + " &middot; Max: " + fmt(info.max) + u
+        + "<br>Aktuell: " + fmt(info.last) + u
+        + "<br>" + ebaFmtDate(info.from) + " &ndash; " + ebaFmtDate(info.to)
+        + "<br><i>Klick: Detailseite</i>");
+    }
+    $("body").append(pop);
+    var off = el.offset();
+    pop.css({ left: Math.max(4, Math.min(off.left, $(window).width() - 280)), top: off.top + el.outerHeight() + 4 });
+  }).on("mouseleave", ".eba_hist_hover", hide).on("click", ".eba_hist_hover", function() {
+    hide();
+    if (ebaIsStatsPage()) {
+      location.hash = "eba-verlauf";
+      renderHistoryPage();
+    } else {
+      location.href = "/stats.php#eba-verlauf";
+    }
+  });
+}
+
+// --- Detailseite unter Statistik --------------------------------------------
+
+function enableHistoryPage() {
+  if (!$("#shopmenu:contains('Statistik')").length) { return; }
+  if (!$("#eba_verlauf_start").length) {
+    $("#shopmenucats").append("<a id='eba_verlauf_start' href='/stats.php#eba-verlauf'>openEBA-Verlauf</a>");
+  }
+  $("#eba_verlauf_start").on("click", function(e) {
+    if (ebaIsStatsPage()) {
+      e.preventDefault();
+      location.hash = "eba-verlauf";
+      renderHistoryPage();
+    }
+  });
+  if (location.hash === "#eba-verlauf" && ebaIsStatsPage()) { renderHistoryPage(); }
+}
+
+function renderHistoryPage(rangeKey) {
+  var mainArea = $("td[width='700px']");
+  if (!mainArea.length) { return; }
+  var ranges = [["24h", "24 Stunden", 86400000], ["7d", "7 Tage", 7 * 86400000],
+                ["30d", "30 Tage", 30 * 86400000], ["all", "Alles", 0]];
+  var cur = rangeKey || "7d";
+  var span = 0, btns = "";
+  $.each(ranges, function(i, r) {
+    if (r[0] === cur) { span = r[2]; }
+    btns += "<button type='button' class='eba_range' data-range='" + r[0] + "'"
+      + (r[0] === cur ? " disabled" : "") + ">" + r[1] + "</button> ";
+  });
+  mainArea.empty();
+  var page = $("<div id='shopitem' class='eba_verlauf'></div>");
+  page.append("<h3>openEBA-Verlauf (" + srvName(srvKey()) + ")</h3><div>Zeitraum: " + btns + "</div>");
+  mainArea.append(page);
+  page.on("click", ".eba_range", function() { renderHistoryPage($(this).attr("data-range")); });
+  var since = span ? new Date().getTime() - span : 0;
+  var add = function(target, title, series, metric, extra, o) {
+    o = o || {};
+    var box = $("<div style='margin:10px 0'></div>");
+    box.append("<b>" + title + "</b><br>");
+    if (o.legend) {
+      var lg = "<div style='font-size:0.9em;margin:2px 0'>";
+      $.each(o.legend, function(i, l) {
+        lg += "<span style='margin-right:12px'><span style='color:" + l[1] + "'>&#9632;</span> " + l[0] + "</span>";
+      });
+      box.append(lg + "</div>");
+    }
+    var holder = $("<div></div>");
+    box.append(holder);
+    target.append(box);
+    var ex = [];
+    $.each(extra || [], function(i, e) { ex.push({ points: ebaSeriesSince(e.points, since), color: e.color, name: e.name }); });
+    var fmt = o.fmt || ebaMetricFmt(metric), unit = ebaMetricUnit(metric);
+    if (o.emptyHint && !series.length) {
+      holder.text(o.emptyHint);
+      return;
+    }
+    var info = ebaDrawLineChart(holder, ebaSeriesSince(series, since), $.extend({ width: 660, height: 220,
+      color: o.color || "#3CAC56", fmt: fmt, unit: unit, tooltip: true, extra: ex }, o.chart || {}));
+    if (!info) {
+      holder.text("Im gewählten Zeitraum noch keine (ausreichenden) Daten.");
+    } else {
+      var u = unit ? " " + unit : "";
+      box.append("<div style='font-size:0.9em'>Min " + fmt(info.min) + u + " &middot; Max " + fmt(info.max) + u
+        + " &middot; Aktuell " + fmt(info.last) + u + " (" + info.count + " Messwerte)</div>");
+    }
+  };
+  add(page, "Geld (&euro;)", ebaGlobalSeries("money"), "money");
+  add(page, "Punkte", ebaGlobalSeries("points"), "points");
+  add(page, "Tickl&auml;nge (Sekunden)", ebaGlobalSeries("tickdur"), "tickdur");
+  var ids = ebaFormiIds();
+  ids.sort(function(a, b) { return parseInt(a, 10) - parseInt(b, 10); });
+  if (!ids.length) {
+    page.append("<p>Keine Formicarien-Historie vorhanden (Option <i>Formicarien-Statistik</i> aktivieren).</p>");
+    return;
+  }
+  // Formicarien: je Gruppe eingeklappt, Diagramme werden erst beim Aufklappen gezeichnet
+  var open = ebaHistOpenLoad();
+  var hs = "style='cursor:pointer;background:#14391f;color:#e6f5ea;border:1px solid #3CAC56;border-radius:3px;"
+    + "padding:4px 8px;margin:4px 0;user-select:none'";
+  var bar = $("<div style='margin:12px 0 4px'><b>Formicarien</b> "
+    + "<button type='button' class='eba_formi_all' data-open='1'>alle aufklappen</button> "
+    + "<button type='button' class='eba_formi_all' data-open='0'>alle zuklappen</button></div>");
+  page.append(bar);
+  var drawGroup = function(g) {
+    var id = g.attr("data-id"), body = g.find(".eba_formi_body");
+    body.empty();
+    add(body, "Arbeiterinnen", ebaFormiSeries(id, "ants"), "count");
+    add(body, "Punkte", ebaFormiSeries(id, "points"), "points");
+    var bc = ebaBroodColors();
+    add(body, "Brut", ebaFormiBroodSeries(id), "count", [
+      { points: ebaFormiSeries(id, "eggs"), color: bc.eggs, name: "Eier" },
+      { points: ebaFormiSeries(id, "larvae"), color: bc.larvae, name: "Larven" },
+      { points: ebaFormiSeries(id, "cocoons"), color: bc.cocoons, name: "Puppen" }
+    ], { color: bc.total, chart: { multiTip: true, name: "Gesamt" },
+         legend: [["Eier", bc.eggs], ["Larven", bc.larvae], ["Puppen", bc.cocoons], ["Gesamt", bc.total]] });
+    var esc = ebaFormiEscapeSeries(id);
+    add(body, "Ausbruchschutz (%)", esc.points, "pct", null, { color: "#4FC3F7", fmt: function(v) { return ebaFmtNum(v, 1); },
+      chart: { yMin: 0, yMax: 100, tipText: function(p) { return esc.types[p[0]] || ""; } },
+      emptyHint: "Noch keine Werte – werden ab dem nächsten Tick beim Abruf der Detailseite erfasst; "
+        + "benötigt die Option „Futterbestand und Ausbruchschutz pro Tick festhalten“." });
+    add(body, "Hunger in % (Zucker gr&uuml;n, Protein orange)", ebaFormiSeries(id, "sugar"), "pct",
+      [{ points: ebaFormiSeries(id, "protein"), color: "#E8963C", name: "Protein" }],
+      { fmt: function(v) { return ebaFmtNum(v, 1); }, chart: { multiTip: true, exactTip: true, name: "Zucker" } });
+  };
+  var setGroup = function(g, isOpen) {
+    var id = g.attr("data-id");
+    g.find(".eba_formi_arrow").text(isOpen ? "\u25BE" : "\u25B8");
+    g.find(".eba_formi_body").toggle(isOpen);
+    g.attr("data-open", isOpen ? "1" : "0");
+    if (isOpen) { drawGroup(g); open[id] = 1; } else { g.find(".eba_formi_body").empty(); delete open[id]; }
+    ebaHistOpenSave(open);
+  };
+  $.each(ids, function(i, id) {
+    var kind = ebaFormiKind(id);
+    var ants = ebaFormiSeries(id, "ants"), pts = ebaFormiSeries(id, "points");
+    var cur = [];
+    if (ants.length) { cur.push(ebaFmtNum(ants[ants.length - 1][1], 0) + " Arbeiterinnen"); }
+    if (pts.length) { cur.push(ebaFmtNum(pts[pts.length - 1][1], 0) + " Punkte"); }
+    var g = $("<div class='eba_formi_group' data-id='" + id + "' data-open='0'></div>");
+    g.append("<div class='eba_formi_head' " + hs + "><span class='eba_formi_arrow'>\u25B8</span> <b>Formicarium " + id
+      + (kind ? " (" + $("<div>").text(kind).html() + ")" : "") + "</b>"
+      + (cur.length ? " <span style='color:#a8d5b3;font-size:0.9em'>&ndash; " + cur.join(" &middot; ") + "</span>" : "") + "</div>");
+    g.append("<div class='eba_formi_body' style='display:none;padding-left:8px'></div>");
+    page.append(g);
+    if (open[id]) { setGroup(g, true); }
+  });
+  page.on("click", ".eba_formi_head", function() {
+    var g = $(this).closest(".eba_formi_group");
+    setGroup(g, g.attr("data-open") !== "1");
+  });
+  page.on("click", ".eba_formi_all", function() {
+    var o = $(this).attr("data-open") === "1";
+    page.find(".eba_formi_group").each(function() { setGroup($(this), o); });
+  });
+}
+
+// Auf/Zu-Zustand der Formi-Gruppen nur für die Sitzung (sessionStorage), nicht dauerhaft
+var EBA_HIST_OPEN_MEM = null;
+function ebaHistOpenLoad() {
+  try {
+    var raw = sessionStorage.getItem("eba_hist_open_" + srvKey());
+    if (raw) { var o = JSON.parse(raw); if (o && typeof o === "object") { return o; } }
+  } catch (e) { /* ohne sessionStorage: nur im Speicher */ }
+  return $.extend({}, EBA_HIST_OPEN_MEM || {});
+}
+function ebaHistOpenSave(o) {
+  EBA_HIST_OPEN_MEM = $.extend({}, o);
+  try { sessionStorage.setItem("eba_hist_open_" + srvKey(), JSON.stringify(o)); } catch (e) { /* egal */ }
+}
+
+$(window).on("hashchange", function() {
+  if (location.hash === "#eba-verlauf" && ebaIsStatsPage() && GM_getValue("eba_enable_history_charts", false)) {
+    renderHistoryPage();
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Start. MUSS die letzte Anweisung der Datei sein: "var"-Konstanten wie
+// EBA_TIME_MIN oder EBA_DAV_* werden erst beim Erreichen ihrer Zeile gesetzt.
+// Stand der Init-Schleife früher davor, sah updateFormiStatistic() beim Laden
+// EBA_TIME_MIN === undefined; ebaTimePlausible() lieferte dann für jeden Wert
+// false, der Append-Guard wertete die letzte Zeile als "Zukunftswert" und
+// hängte bei JEDEM Aufruf der Übersicht eine neue Zeile an (ebenso histAppend()
+// und hasFoodSnapshot()).
+// ---------------------------------------------------------------------------
+
+// Einmalige Schema-Migration vor allen Features, damit der Versionsschlüssel
+// auch gesetzt wird, wenn keine der neuen Optionen aktiv ist.
+migrateHistorySchema();
+enableConfig();
+$.each(configItems, function(k, v) {
+  var timer = new Date().getTime();
+  GM_getValue(k, false) && v[0]();
+  var time = new Date().getTime()-timer;
+});
