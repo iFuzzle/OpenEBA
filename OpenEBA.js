@@ -2532,6 +2532,20 @@ function ebaGrowth(kind, queens, workers, nestName, formiName, speed) {
   return { max: max, percent: percent, nestFit: nestFit, formiFit: formiFit, limiting: limiting };
 }
 
+// Art aus dem Bildnamen, z.B. "img/ants/Lasius_niger9.jpg" -> "Lasius niger",
+// "Acromyrmex_spec3.jpg" -> "Acromyrmex spec.", "Pheidole_pallidula_shop.jpg".
+// Abgleich robust über ebaAntmaxLookup(); nicht gefunden -> "".
+function ebaKindFromImg(div) {
+  var src = div.find("img").first().attr("src") || "";
+  var base = src.split("?")[0].split("/").pop().replace(/\.[A-Za-z]+$/, "");
+  base = base.replace(/_shop$/i, "").replace(/\d+$/, "").replace(/_/g, " ").replace(/^\s+|\s+$/g, "");
+  var cands = [base, base + ".", base.replace(/\s+shop$/i, "")];
+  for (var i = 0; i < cands.length; i++) {
+    if (cands[i] && ebaAntmaxLookup(cands[i])) { return cands[i]; }
+  }
+  return "";
+}
+
 function ebaGrowthTip(g, kind, workers, nestLabel, nestName, formiName, srv) {
   var tip = [], max = g.max;
   if (max.unknown) {
@@ -2572,9 +2586,11 @@ function showGrowthPercent() {
           var div = $(this);
           if (div.find("span.eba_growth").length) { return; } // schon angezeigt, verhindert Endlosschleife mit dem Observer
           var c = ebaColonyCells(div);
-          if (!c["Arbeiterinnen"] || !c["Art"]) { return; }
+          if (!c["Arbeiterinnen"]) { return; }
           var nestLabel = c["Nestbecken"] ? "Nestbecken" : "Nest";
-          var kind = ("" + c["Art"].text()).replace(/^\s+|\s+$/g, "");
+          // Die Einzelansicht hat keine Art-Zeile: Art dann aus dem Bildnamen ableiten.
+          var kind = c["Art"] ? ("" + c["Art"].text()).replace(/^\s+|\s+$/g, "") : ebaKindFromImg(div);
+          if (!kind) { return; }
           var workers = parseInt(("" + c["Arbeiterinnen"].text()).replace(/\./g, ""), 10);
           var qRaw = c["Königinnen"] ? parseInt(("" + c["Königinnen"].text()).replace(/\./g, ""), 10) : NaN;
           var nestName = c[nestLabel] ? $.trim(c[nestLabel].text()) : "";
