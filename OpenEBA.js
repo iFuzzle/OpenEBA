@@ -74,7 +74,8 @@ const configItems = {
   "eba_enable_history_compaction"            : [function(){}, "Historien ausd&uuml;nnen, wenn sie zu gro&szlig; werden", "Ohne diese Option wachsen die Historien unbegrenzt (bisheriges Verhalten). Mit der Option wird in einer Reihe ab " + EBA_HIST_MAX_LINES + " Zeilen aus der <b>&auml;lteren H&auml;lfte</b> jede zweite Zeile entfernt. Die j&uuml;ngere H&auml;lfte und die Kopfzeile bleiben unangetastet. <b>Achtung:</b> Das entfernt alte Messpunkte unwiderruflich. Den aktuellen Speicherverbrauch zeigt die Zeile unten. Vertr&auml;gt sich nicht mit dem WebDAV-Abgleich, der ist bei eingeschalteter Kompaktierung gesperrt."],
   "eba_enable_max_points"                    : [showMaxPoints, "Maximale Punktzahl in der Formicarien-&Uuml;bersicht anzeigen", "Hinter den Punkten jedes Formicariums erscheint die maximal erreichbare Punktzahl, z.B. <i>12.340 / 50.000</i>. Bei monogynen Arten ist das ein harter Wert, bei polygynen Arten wird der Zuwachs je weiterer K&ouml;nigin eingerechnet (auf dem Speedserver mit anderen Werten als auf dem Normalserver). Der Tooltip zeigt Arbeiterinnen-Maximum, Auslastung in Prozent und die gemessenen Punkte je Arbeiterin. Quelle der Werte ist die Spielhilfe; f&uuml;r zwei Arten ist der polygyne Zuwachs auf dem Speedserver dort unbekannt, dann erscheint ab zwei K&ouml;niginnen ein <i>?</i>."],
   "eba_enable_webdav_sync"                   : [enableWebdavSync, "Historien per WebDAV/Nextcloud zwischen Ger&auml;ten abgleichen", "Jede Zeitreihe (Formicarien, Futter, Geld, Punkte, Tickl&auml;nge, Suchen) liegt als eigene Datei in einem WebDAV-Ordner und wird mit den lokalen Daten verschmolzen, h&ouml;chstens einmal pro Tick und nur f&uuml;r den aktuellen Server. Lokal geht dabei nie etwas verloren. Einrichtung unten unter <i>Abgleich der Historien per WebDAV</i>; der automatische Abgleich startet erst nach einem erfolgreichen <i>Verbindung testen</i> auf diesem Ger&auml;t. Tampermonkey fragt dabei einmal, ob das Skript den Host erreichen darf. Ein Skriptmanager, der stattdessen hart blockt, braucht im Skriptkopf eine Zeile <i>// @connect &lt;host&gt;</i>. Optionen, Filter und Notizen werden nie abgeglichen. Vertr&auml;gt sich nicht mit der Kompaktierung."],
-  "eba_enable_search_history_view"          : [showSearchHistory, "Alle gespeicherten Ergebnisse unter draussen.php?cat=3 anzeigen", "Zeigt unter der Ergebnistabelle des Spiels (nur die letzten 10) eine einklappbare Tabelle mit allen gespeicherten Ergebnissen, neueste oben, samt Zusammenfassung. Die Erfassung wird auf dieser Seite selbst angesto&szlig;en (Option <i>Futter- und Ameisensuchen vollst&auml;ndig historisieren</i> ist nicht n&ouml;tig, aber die Historie w&auml;chst nur, wenn die Seite aufgerufen wird). Wird keine Tabelle erkannt, erscheint ein kleiner Hinweis."]
+  "eba_enable_search_history_view"          : [showSearchHistory, "Alle gespeicherten Ergebnisse unter draussen.php?cat=3 anzeigen", "Zeigt unter der Ergebnistabelle des Spiels (nur die letzten 10) eine einklappbare Tabelle mit allen gespeicherten Ergebnissen, neueste oben, samt Zusammenfassung. Die Erfassung wird auf dieser Seite selbst angesto&szlig;en (Option <i>Futter- und Ameisensuchen vollst&auml;ndig historisieren</i> ist nicht n&ouml;tig, aber die Historie w&auml;chst nur, wenn die Seite aufgerufen wird). Wird keine Tabelle erkannt, erscheint ein kleiner Hinweis."],
+  "eba_enable_growth_percent"                : [showGrowthPercent, "Auswachszustand der Kolonien in Prozent anzeigen", "Hinter der Arbeiterinnen-Zahl (Formicarien-&Uuml;bersicht und Einzelansicht) steht <i>ausgewachsen zu 87,3 %</i> mit schmalem Balken: Arbeiterinnen geteilt durch die maximalen Arbeiterinnen der Art (bei polygynen Arten mit der gleichen Annahme zum Zuwachs je K&ouml;nigin wie die maximale Punktzahl, bei unbekanntem Zuwachs ein <i>?</i>). Der Tooltip zeigt, ob Nest oder Formicarium zuerst voll ist (z.B. <i>Nest voll bei ca. 5.000 Arbeiterinnen</i>). Der Platzbedarf der Brut ist nicht eingerechnet."],
 }
 const shopPriceLimits = {
   "Camponotus ligniperda": 6.34,
@@ -2601,6 +2602,160 @@ function showMaxPoints() {
       } catch (err) {}
     });
   } catch (err) {}
+}
+
+// ---------------------------------------------------------------------------
+// Auswachszustand der Kolonien in Prozent
+//
+// Arbeiterinnen / maximale Arbeiterinnen der Art. Das Maximum kommt aus
+// ebaMaxPoints() und damit mit derselben (unbelegten) Polygynie-Annahme wie bei
+// showMaxPoints(): bei polygynen Arten wächst es um (Königinnen - 1) * Zuwachs,
+// bei unbekanntem Zuwachs und mehr als einer Königin gibt es kein Ergebnis.
+//
+// Platzbedarf: n bzw. f aus antmax gelten für a Arbeiterinnen, je Arbeiterin
+// also n/a bzw. f/a. In ein Nest der Kapazität C passen damit C * a / n
+// Arbeiterinnen. Die Brut ist NICHT eingerechnet (die Spielhilfe-Spalte b ist
+// unklar), die Grenze ist daher eine obere Schranke. Das Spiel meldet die
+// Belegung selbst ("Das Nest ist zu 76% belegt"), der Wert liegt wegen der Brut
+// über der reinen Arbeiterinnen-Rechnung.
+// ---------------------------------------------------------------------------
+
+// Wert-Zellen einer Kolonie über ihre Beschriftung ("Arbeiterinnen: " usw.),
+// unabhängig von der Zeilenreihenfolge und von Übersicht/Einzelansicht.
+// Zeilen mit verschachtelter Tabelle werden übergangen.
+// Rückgabe: { "Arbeiterinnen": <td>, "Nest": <td>, ... }
+function ebaColonyCells(root) {
+  var map = {};
+  root.find("tr").each(function() {
+    var tr = $(this);
+    if (tr.find("table").length) { return; }
+    var tds = tr.children("td");
+    if (tds.length < 2) { return; }
+    var label = ("" + tds.eq(0).text()).split(":")[0].replace(/^\s+|\s+$/g, "");
+    if (label && !Object.prototype.hasOwnProperty.call(map, label)) { map[label] = tds.eq(1); }
+  });
+  return map;
+}
+
+// Kapazität einer Behausung nach Namen aus der Übersicht. Beim Pilzzüchter
+// steht unter "Nestbecken:" ein Formicarium, daher auch dort nachschlagen.
+function ebaHousingCap(name, formiFirst) {
+  var key = ebaAntmaxNorm(name);
+  var a = formiFirst ? formiCapacity : nestCapacity;
+  var b = formiFirst ? nestCapacity : formiCapacity;
+  if (Object.prototype.hasOwnProperty.call(a, key)) { return a[key]; }
+  if (Object.prototype.hasOwnProperty.call(b, key)) { return b[key]; }
+  return null;
+}
+
+// Reine Rechnung ohne DOM. Rückgabe null bei unbekannter Art, sonst
+// { max, percent (null = unbekannt), nestFit, formiFit, limiting }.
+// nestFit/formiFit: Arbeiterinnen, bei denen die Behausung voll ist (null =
+// Behausung unbekannt). limiting: "Nest", "Formicarium" oder null, wenn die
+// Behausung das Art-Maximum fasst (oder das Maximum unbekannt ist).
+function ebaGrowth(kind, queens, workers, nestName, formiName, speed) {
+  var max = ebaMaxPoints(kind, queens, speed);
+  if (!max) { return null; }
+  var e = ebaAntmaxLookup(kind);
+  var percent = (!max.unknown && isFinite(workers) && max.ants > 0) ? workers / max.ants * 100 : null;
+  var nc = nestName ? ebaHousingCap(nestName, false) : null;
+  var fc = formiName ? ebaHousingCap(formiName, true) : null;
+  var nestFit = (nc != null && e.n > 0) ? Math.floor(nc * e.a / e.n) : null;
+  var formiFit = (fc != null && e.f > 0) ? Math.floor(fc * e.a / e.f) : null;
+  var limiting = null;
+  if (!max.unknown) {
+    var lim = max.ants;
+    if (nestFit != null && nestFit < lim) { lim = nestFit; limiting = "Nest"; }
+    if (formiFit != null && formiFit < lim) { lim = formiFit; limiting = "Formicarium"; }
+  }
+  return { max: max, percent: percent, nestFit: nestFit, formiFit: formiFit, limiting: limiting };
+}
+
+// Art aus dem Bildnamen, z.B. "img/ants/Lasius_niger9.jpg" -> "Lasius niger",
+// "Acromyrmex_spec3.jpg" -> "Acromyrmex spec.", "Pheidole_pallidula_shop.jpg".
+// Abgleich robust über ebaAntmaxLookup(); nicht gefunden -> "".
+function ebaKindFromImg(div) {
+  var src = div.find("img").first().attr("src") || "";
+  var base = src.split("?")[0].split("/").pop().replace(/\.[A-Za-z]+$/, "");
+  base = base.replace(/_shop$/i, "").replace(/\d+$/, "").replace(/_/g, " ").replace(/^\s+|\s+$/g, "");
+  var cands = [base, base + ".", base.replace(/\s+shop$/i, "")];
+  for (var i = 0; i < cands.length; i++) {
+    if (cands[i] && ebaAntmaxLookup(cands[i])) { return cands[i]; }
+  }
+  return "";
+}
+
+function ebaGrowthTip(g, kind, workers, nestLabel, nestName, formiName, srv) {
+  var tip = [], max = g.max;
+  if (max.unknown) {
+    tip.push("Polygyner Zuwachs für " + kind + " auf dem " + srv + " ist in der Spielhilfe nicht bekannt (???).");
+  } else {
+    tip.push(ebaFmtInt(workers) + " von max. " + ebaFmtInt(max.ants) + " Arbeiterinnen"
+           + (max.poly && max.queens > 1 ? " (" + max.queens + " Königinnen, polygyn, Annahme)" : ""));
+  }
+  var part = function(label, name, fit) {
+    if (fit == null) { return; }
+    var line = label + " (" + name + "): voll bei ca. " + ebaFmtInt(fit) + " Arbeiterinnen";
+    if (isFinite(workers) && fit > 0) { line += ", aktuell " + ebaFmtDec(workers / fit * 100, 1) + " %"; }
+    if (!max.unknown && fit >= max.ants) { line += " (reicht für das Maximum)"; }
+    tip.push(line);
+  };
+  part(nestLabel, nestName, g.nestFit);
+  part("Formicarium", formiName, g.formiFit);
+  if (g.limiting) {
+    var fit = g.limiting == "Nest" ? g.nestFit : g.formiFit;
+    tip.push("Begrenzend: " + g.limiting + ". Ausgewachsen relativ zur Behausung: "
+           + ebaFmtDec(workers / fit * 100, 1) + " %");
+  }
+  tip.push("ohne Platzbedarf der Brut gerechnet");
+  return tip.join("\n");
+}
+
+function showGrowthPercent() {
+  var overview = $("h3:contains('Deine Formicarien')").length > 0;
+  if (!overview && !$("h3:contains('Formicarium')").length) { return; }
+  if ($("h3:contains('einrichten')").length) { return; }
+  var apply = function() {
+    try {
+      var speed = isSpeedServer();
+      var srv = speed ? "Speedserver" : "Normalserver";
+      var boxes = overview ? $("div[id='shopitem']:contains('Larven')") : $("div[data-formi='stats']");
+      boxes.each(function() {
+        try {
+          var div = $(this);
+          if (div.find("span.eba_growth").length) { return; } // schon angezeigt, verhindert Endlosschleife mit dem Observer
+          var c = ebaColonyCells(div);
+          if (!c["Arbeiterinnen"]) { return; }
+          var nestLabel = c["Nestbecken"] ? "Nestbecken" : "Nest";
+          // Die Einzelansicht hat keine Art-Zeile: Art dann aus dem Bildnamen ableiten.
+          var kind = c["Art"] ? ("" + c["Art"].text()).replace(/^\s+|\s+$/g, "") : ebaKindFromImg(div);
+          if (!kind) { return; }
+          var workers = parseInt(("" + c["Arbeiterinnen"].text()).replace(/\./g, ""), 10);
+          var qRaw = c["Königinnen"] ? parseInt(("" + c["Königinnen"].text()).replace(/\./g, ""), 10) : NaN;
+          var nestName = c[nestLabel] ? $.trim(c[nestLabel].text()) : "";
+          var formiName = c["Formicarium"] ? $.trim(c["Formicarium"].text()) : "";
+          var g = ebaGrowth(kind, qRaw, workers, nestName, formiName, speed);
+          if (!g || !isFinite(workers)) { return; } // Art nicht in antmax -> nichts anzeigen
+          var txt = "ausgewachsen zu " + (g.percent == null ? "?" : ebaFmtDec(g.percent, 1) + " %");
+          var html = "<span class='eba_growth' style='color:#808080;font-size:smaller;white-space:nowrap'> &middot; " + txt;
+          if (g.limiting) { html += " (" + g.limiting + " begrenzt)"; }
+          if (g.percent != null) {
+            html += " <span style='display:inline-block;width:40px;height:4px;background:#ddd;vertical-align:middle'>"
+                  + "<span style='display:block;height:100%;width:" + Math.max(0, Math.min(100, g.percent)).toFixed(1)
+                  + "%;background:#7a7'></span></span>";
+          }
+          html += "</span>";
+          c["Arbeiterinnen"].append(html);
+          c["Arbeiterinnen"].find("span.eba_growth").attr("title",
+            ebaGrowthTip(g, kind, workers, nestLabel, nestName, formiName, srv));
+        } catch (err) {}
+      });
+    } catch (err) {}
+  };
+  apply();
+  // Die Einzelansicht wird nach dem Füttern per AJAX neu aufgebaut, daher nach
+  // jeder DOM-Änderung erneut anwenden. apply() ist idempotent.
+  if (!overview) { new MutationObserver(apply).observe(document.body, {childList: true, subtree: true}); }
 }
 
 // ---------------------------------------------------------------------------
