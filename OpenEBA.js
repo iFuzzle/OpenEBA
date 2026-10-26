@@ -3813,12 +3813,12 @@ function renderHistoryPage(rangeKey) {
   mainArea.append(page);
   page.on("click", ".eba_range", function() { renderHistoryPage($(this).attr("data-range")); });
   var since = span ? new Date().getTime() - span : 0;
-  var add = function(title, series, metric, extra) {
+  var add = function(target, title, series, metric, extra) {
     var box = $("<div style='margin:10px 0'></div>");
     box.append("<b>" + title + "</b><br>");
     var holder = $("<div></div>");
     box.append(holder);
-    page.append(box);
+    target.append(box);
     var ex = [];
     $.each(extra || [], function(i, e) { ex.push({ points: ebaSeriesSince(e.points, since), color: e.color, name: e.name }); });
     var fmt = ebaMetricFmt(metric), unit = ebaMetricUnit(metric);
@@ -3832,23 +3832,76 @@ function renderHistoryPage(rangeKey) {
         + " &middot; Aktuell " + fmt(info.last) + u + " (" + info.count + " Messwerte)</div>");
     }
   };
-  add("Geld (&euro;)", ebaGlobalSeries("money"), "money");
-  add("Punkte", ebaGlobalSeries("points"), "points");
-  add("Tickl&auml;nge (Sekunden)", ebaGlobalSeries("tickdur"), "tickdur");
+  add(page, "Geld (&euro;)", ebaGlobalSeries("money"), "money");
+  add(page, "Punkte", ebaGlobalSeries("points"), "points");
+  add(page, "Tickl&auml;nge (Sekunden)", ebaGlobalSeries("tickdur"), "tickdur");
   var ids = ebaFormiIds();
   ids.sort(function(a, b) { return parseInt(a, 10) - parseInt(b, 10); });
   if (!ids.length) {
     page.append("<p>Keine Formicarien-Historie vorhanden (Option <i>Formicarien-Statistik</i> aktivieren).</p>");
+    return;
   }
+  // Formicarien: je Gruppe eingeklappt, Diagramme werden erst beim Aufklappen gezeichnet
+  var open = ebaHistOpenLoad();
+  var hs = "style='cursor:pointer;background:#14391f;color:#e6f5ea;border:1px solid #3CAC56;border-radius:3px;"
+    + "padding:4px 8px;margin:4px 0;user-select:none'";
+  var bar = $("<div style='margin:12px 0 4px'><b>Formicarien</b> "
+    + "<button type='button' class='eba_formi_all' data-open='1'>alle aufklappen</button> "
+    + "<button type='button' class='eba_formi_all' data-open='0'>alle zuklappen</button></div>");
+  page.append(bar);
+  var drawGroup = function(g) {
+    var id = g.attr("data-id"), body = g.find(".eba_formi_body");
+    body.empty();
+    add(body, "Arbeiterinnen", ebaFormiSeries(id, "ants"), "count");
+    add(body, "Punkte", ebaFormiSeries(id, "points"), "points");
+    add(body, "Brut (Eier + Larven + Puppen)", ebaFormiBroodSeries(id), "count");
+    add(body, "Hunger in % (Zucker gr&uuml;n, Protein orange)", ebaFormiSeries(id, "sugar"), "pct",
+      [{ points: ebaFormiSeries(id, "protein"), color: "#E8963C", name: "Protein" }]);
+  };
+  var setGroup = function(g, isOpen) {
+    var id = g.attr("data-id");
+    g.find(".eba_formi_arrow").text(isOpen ? "\u25BE" : "\u25B8");
+    g.find(".eba_formi_body").toggle(isOpen);
+    g.attr("data-open", isOpen ? "1" : "0");
+    if (isOpen) { drawGroup(g); open[id] = 1; } else { g.find(".eba_formi_body").empty(); delete open[id]; }
+    ebaHistOpenSave(open);
+  };
   $.each(ids, function(i, id) {
     var kind = ebaFormiKind(id);
-    page.append("<h4>Formicarium " + id + (kind ? " (" + $("<div>").text(kind).html() + ")" : "") + "</h4>");
-    add("Arbeiterinnen", ebaFormiSeries(id, "ants"), "count");
-    add("Punkte", ebaFormiSeries(id, "points"), "points");
-    add("Brut (Eier + Larven + Puppen)", ebaFormiBroodSeries(id), "count");
-    add("Hunger in % (Zucker gr&uuml;n, Protein orange)", ebaFormiSeries(id, "sugar"), "pct",
-      [{ points: ebaFormiSeries(id, "protein"), color: "#E8963C", name: "Protein" }]);
+    var ants = ebaFormiSeries(id, "ants"), pts = ebaFormiSeries(id, "points");
+    var cur = [];
+    if (ants.length) { cur.push(ebaFmtNum(ants[ants.length - 1][1], 0) + " Arbeiterinnen"); }
+    if (pts.length) { cur.push(ebaFmtNum(pts[pts.length - 1][1], 0) + " Punkte"); }
+    var g = $("<div class='eba_formi_group' data-id='" + id + "' data-open='0'></div>");
+    g.append("<div class='eba_formi_head' " + hs + "><span class='eba_formi_arrow'>\u25B8</span> <b>Formicarium " + id
+      + (kind ? " (" + $("<div>").text(kind).html() + ")" : "") + "</b>"
+      + (cur.length ? " <span style='color:#a8d5b3;font-size:0.9em'>&ndash; " + cur.join(" &middot; ") + "</span>" : "") + "</div>");
+    g.append("<div class='eba_formi_body' style='display:none;padding-left:8px'></div>");
+    page.append(g);
+    if (open[id]) { setGroup(g, true); }
   });
+  page.on("click", ".eba_formi_head", function() {
+    var g = $(this).closest(".eba_formi_group");
+    setGroup(g, g.attr("data-open") !== "1");
+  });
+  page.on("click", ".eba_formi_all", function() {
+    var o = $(this).attr("data-open") === "1";
+    page.find(".eba_formi_group").each(function() { setGroup($(this), o); });
+  });
+}
+
+// Auf/Zu-Zustand der Formi-Gruppen nur für die Sitzung (sessionStorage), nicht dauerhaft
+var EBA_HIST_OPEN_MEM = null;
+function ebaHistOpenLoad() {
+  try {
+    var raw = sessionStorage.getItem("eba_hist_open_" + srvKey());
+    if (raw) { var o = JSON.parse(raw); if (o && typeof o === "object") { return o; } }
+  } catch (e) { /* ohne sessionStorage: nur im Speicher */ }
+  return $.extend({}, EBA_HIST_OPEN_MEM || {});
+}
+function ebaHistOpenSave(o) {
+  EBA_HIST_OPEN_MEM = $.extend({}, o);
+  try { sessionStorage.setItem("eba_hist_open_" + srvKey(), JSON.stringify(o)); } catch (e) { /* egal */ }
 }
 
 $(window).on("hashchange", function() {
