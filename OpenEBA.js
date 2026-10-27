@@ -40,7 +40,7 @@ var EBA_SRV_PREFIXES = [
   "eba_hist_", "eba_statistic_", "eba_food_", "eba_tickdur_",
   "eba_schemaversion_", "eba_points_", "eba_hours_",
   "eba_inventory_", "eba_shop_prices_", "eba_saved_state_",
-  "eba_shop_remember_price_"
+  "eba_shop_remember_price_", "eba_formi_active_"
 ];
 
 const configItems = {
@@ -682,6 +682,14 @@ function updateFormiStatistic() {
   var tk = getTickInfo();
   var tickMin = getTickMinutes();
   var tickHours = tickMin / 60;
+  // Aktuell vorhandene Formicarien merken (nur aus der vollständigen Übersicht).
+  // Kolonien im Lager fehlen hier; die Verlaufsseite zeigt sie als "ehemalig".
+  var activeIds = [];
+  $("div[id='shopitem']:contains('Larven') span[id^='sugarhunger']").each(function() {
+    var aid = $(this).attr("id").substr(11);
+    if (/^\d+$/.test(aid) && $.inArray(aid, activeIds) < 0) { activeIds.push(aid); }
+  });
+  GM_setValue("eba_formi_active_" + srvKey(), new Date().getTime() + "\t" + activeIds.join(","));
   $("div[id='shopitem']:contains('Larven')").each(function(i, e) {
     var div = $(this);
     var long_str = ["Reagenzglas", "Mini Arena", "kleines Formicarium", "mittleres Formicarium", "großes Formicarium", "mittlere Anlage",
@@ -1676,6 +1684,7 @@ function exportHistoryJSON(onlyThisServer) {
   $.each(GM_listValues(), function(i, k) {
     if (k.indexOf("eba_") !== 0) { return; }
     if (davIsOwnKey(k)) { return; } // Zugangsdaten und Zustand des WebDAV-Abgleichs nie exportieren
+    if (k.indexOf("eba_formi_active_") === 0) { return; } // Zustand der Übersicht dieses Geräts, kein Datenbestand
     if (onlyThisServer && !isOwnServerKey(k)) { return; } // Filtermuster wie in ebaFormiIds()
     out.values[k] = GM_getValue(k, null);
   });
@@ -1717,6 +1726,7 @@ function importHistoryJSON(text) {
     // Eine fremde Datei darf weder die Ziel-URL noch die Zugangsdaten des
     // WebDAV-Abgleichs setzen - sonst ließen sich die Historien umleiten.
     if (davIsOwnKey(k)) { return; }
+    if (k.indexOf("eba_formi_active_") === 0) { return; } // Zustand der Übersicht dieses Geräts
     if (isHistoryKey(k) && typeof v === "string") {
       var mine = GM_getValue(k, "");
       var res;
@@ -1793,6 +1803,25 @@ function ebaFormiIds() {
     if (/^\d+$/.test(rest)) { out.push(rest); } // filtert auf dem Normalserver die speed_-Schlüssel
   });
   return out;
+}
+
+// IDs der Formicarien aus der letzten vollständigen Übersicht; null = noch unbekannt
+// (dann gelten alle als aktiv).
+function ebaFormiActiveIds() {
+  var raw = GM_getValue("eba_formi_active_" + srvKey(), "");
+  if (typeof raw !== "string" || raw.indexOf("\t") < 0) { return null; }
+  var list = raw.split("\t")[1];
+  return list ? list.split(",") : [];
+}
+
+// Verlauf einer ehemaligen Kolonie lokal löschen, samt WebDAV-Zustand (ETag/Länge, Fehlerliste).
+// Die Datei auf dem Server bleibt; davKeys() listet nur lokale Schlüssel, daher kommt sie nicht zurück.
+function ebaForgetFormi(id) {
+  $.each(["eba_statistic_" + srvKey() + id, "eba_food_" + srvKey() + id], function(i, key) {
+    GM_deleteValue(key);
+    GM_deleteValue(davStateKey(key));
+    davSetBad(key, false);
+  });
 }
 
 // Art des Formicariums aus der Kopfzeile der Historie
@@ -4030,10 +4059,15 @@ function renderHistoryPage(rangeKey) {
   var open = ebaHistOpenLoad();
   var hs = "style='cursor:pointer;background:#14391f;color:#e6f5ea;border:1px solid #3CAC56;border-radius:3px;"
     + "padding:4px 8px;margin:4px 0;user-select:none'";
+  var act = ebaFormiActiveIds();
+  var activeList = [], formerList = [];
+  $.each(ids, function(i, id) { ((act && $.inArray(id, act) < 0) ? formerList : activeList).push(id); });
   var bar = $("<div style='margin:12px 0 4px'><b>Formicarien</b> "
     + "<button type='button' class='eba_formi_all' data-open='1'>alle aufklappen</button> "
     + "<button type='button' class='eba_formi_all' data-open='0'>alle zuklappen</button></div>");
   page.append(bar);
+  var activeBox = $("<div class='eba_formi_active'></div>");
+  page.append(activeBox);
   var drawGroup = function(g) {
     var id = g.attr("data-id"), body = g.find(".eba_formi_body");
     body.empty();
@@ -4063,27 +4097,71 @@ function renderHistoryPage(rangeKey) {
     if (isOpen) { drawGroup(g); open[id] = 1; } else { g.find(".eba_formi_body").empty(); delete open[id]; }
     ebaHistOpenSave(open);
   };
-  $.each(ids, function(i, id) {
+  var addGroup = function(target, id, former) {
     var kind = ebaFormiKind(id);
     var ants = ebaFormiSeries(id, "ants"), pts = ebaFormiSeries(id, "points");
     var cur = [];
     if (ants.length) { cur.push(ebaFmtNum(ants[ants.length - 1][1], 0) + " Arbeiterinnen"); }
     if (pts.length) { cur.push(ebaFmtNum(pts[pts.length - 1][1], 0) + " Punkte"); }
+    if (former) {
+      var rows = ebaFormiRows(id);
+      if (rows.length) { cur.push("zuletzt erfasst " + formatStatTime(rows[rows.length - 1].t)); }
+    }
     var g = $("<div class='eba_formi_group' data-id='" + id + "' data-open='0'></div>");
     g.append("<div class='eba_formi_head' " + hs + "><span class='eba_formi_arrow'>\u25B8</span> <b>Formicarium " + id
       + (kind ? " (" + $("<div>").text(kind).html() + ")" : "") + "</b>"
-      + (cur.length ? " <span style='color:#a8d5b3;font-size:0.9em'>&ndash; " + cur.join(" &middot; ") + "</span>" : "") + "</div>");
+      + (cur.length ? " <span style='color:#a8d5b3;font-size:0.9em'>&ndash; " + cur.join(" &middot; ") + "</span>" : "")
+      + (former ? " <button type='button' class='eba_formi_forget' data-id='" + id + "' style='float:right'>Vergessen</button>" : "")
+      + "</div>");
     g.append("<div class='eba_formi_body' style='display:none;padding-left:8px'></div>");
-    page.append(g);
-    if (open[id]) { setGroup(g, true); }
-  });
+    target.append(g);
+    if (!former && open[id]) { setGroup(g, true); }
+  };
+  $.each(activeList, function(i, id) { addGroup(activeBox, id, false); });
+  if (formerList.length) {
+    var fs = "style='cursor:pointer;background:#2a2a2a;color:#ddd;border:1px solid #777;border-radius:3px;"
+      + "padding:4px 8px;margin:12px 0 4px;user-select:none'";
+    var fSec = $("<div class='eba_former' data-open='0'></div>");
+    fSec.append("<div class='eba_former_head' " + fs + "><span class='eba_former_arrow'>\u25B8</span> <b>Ehemalige Kolonien ("
+      + formerList.length + ")</b></div>");
+    var fBody = $("<div class='eba_former_body' style='display:none;padding-left:8px'></div>");
+    fSec.append(fBody);
+    page.append(fSec);
+    $.each(formerList, function(i, id) { addGroup(fBody, id, true); });
+  }
   page.on("click", ".eba_formi_head", function() {
     var g = $(this).closest(".eba_formi_group");
     setGroup(g, g.attr("data-open") !== "1");
   });
+  page.on("click", ".eba_former_head", function() {
+    var sec = $(this).closest(".eba_former");
+    var isOpen = sec.attr("data-open") !== "1";
+    sec.attr("data-open", isOpen ? "1" : "0");
+    sec.find(".eba_former_arrow").text(isOpen ? "\u25BE" : "\u25B8");
+    sec.find(".eba_former_body").toggle(isOpen);
+    if (!isOpen) { return; }
+    sec.find(".eba_formi_group").each(function() {
+      var g = $(this);
+      if (open[g.attr("data-id")] && g.attr("data-open") !== "1") { setGroup(g, true); }
+    });
+  });
+  page.on("click", ".eba_formi_forget", function(e) {
+    e.stopPropagation();
+    var id = $(this).attr("data-id");
+    var kind = ebaFormiKind(id) || "unbekannte Art";
+    var n = ebaFormiRows(id).length;
+    if (!window.confirm("Ehemalige Kolonie vergessen?\n\n" + kind + ", Formicarium " + id + " (" + n + " Zeilen)\n\n"
+      + "Verlauf und Futterdaten werden auf diesem Gerät gelöscht. Das lässt sich nicht rückgängig machen.\n\n"
+      + "Eine Datei auf dem WebDAV-Server bleibt bestehen, andere Geräte behalten ihre Kopie. "
+      + "Der Abgleich lädt die Reihe nicht von selbst wieder herunter.")) { return; }
+    ebaForgetFormi(id);
+    delete open[id];
+    ebaHistOpenSave(open);
+    renderHistoryPage(cur);
+  });
   page.on("click", ".eba_formi_all", function() {
     var o = $(this).attr("data-open") === "1";
-    page.find(".eba_formi_group").each(function() { setGroup($(this), o); });
+    activeBox.find(".eba_formi_group").each(function() { setGroup($(this), o); });
   });
 }
 
