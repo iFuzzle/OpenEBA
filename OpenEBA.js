@@ -1816,13 +1816,16 @@ function ebaFormiActiveIds() {
 }
 
 // Verlauf einer ehemaligen Kolonie lokal löschen, samt WebDAV-Zustand (ETag/Länge, Fehlerliste).
-// Die Datei auf dem Server bleibt; davKeys() listet nur lokale Schlüssel, daher kommt sie nicht zurück.
+// Die Datei auf dem Server bleibt; ein Marker in der Ignorierliste (davForget) verhindert, dass sie zurückkommt.
 function ebaForgetFormi(id) {
   $.each(["eba_statistic_" + srvKey() + id, "eba_food_" + srvKey() + id], function(i, key) {
     GM_deleteValue(key);
     GM_deleteValue(davStateKey(key));
     davSetBad(key, false);
   });
+  // Marker in der Ignorierliste (geht per Index-Datei auch an die anderen Geräte);
+  // die Dateien auf dem Server bleiben, werden aber nicht mehr geholt oder hochgeladen.
+  davForget(["eba_statistic_" + srvKey() + id, "eba_food_" + srvKey() + id]);
 }
 
 // Art des Formicariums aus der Kopfzeile der Historie
@@ -2656,11 +2659,12 @@ function ebaColonyMerge(oldId, newId, deleteOld, confirmed) {
   if (deleteOld) {
     $.each([kOldF, kOldFood, davStateKey(kOldF), davStateKey(kOldFood)], function(i, k) { GM_deleteValue(k); });
     davSetBad(kOldF, false); davSetBad(kOldFood, false);
+    davForget([kOldF, kOldFood]); // alte Reihe nicht mehr abgleichen (Datei auf dem Server bleibt)
     delTxt = " Die alte ID " + oldId + " wurde lokal gelöscht.";
   }
   return "Zusammengeführt: " + oldId + " -> " + newId + ", " + ebaFormiRows(newId).length + " Zeilen unter der neuen ID." + foodTxt + delTxt
-    + " Die neue Reihe wird beim nächsten WebDAV-Abgleich hochgeladen. Die Datei der alten ID bleibt auf dem Server; "
-    + "andere Geräte behalten ihre alte Reihe, bis dort ebenfalls zusammengeführt wird.";
+    + " Die neue Reihe wird beim nächsten WebDAV-Abgleich hochgeladen. Die Datei der alten ID bleibt auf dem Server, wird aber "
+    + "von allen Geräten nicht mehr abgeglichen. Andere Geräte behalten ihre lokale alte Reihe, bis sie dort vergessen wird.";
 }
 function colonyConfigHTML() {
   var h = "<br><b>Kolonie umziehen / Historien zusammenf&uuml;hren</b>";
@@ -3314,6 +3318,9 @@ var EBA_DAV_AUTO_IDLE = 2;            // davon unveränderte Reihen im Rundlauf
 var EBA_DAV_WARN_CHARS = 1048576;     // Größenwarnung je Datei (~1 MB)
 var EBA_DAV_BACKOFF = [5, 15, 60];    // Minuten Wartezeit nach Netz- bzw. Serverfehlern
 var EBA_DAV_MAX_412 = 3;              // Wiederholungen bei konkurrierendem Schreiben
+var EBA_DAV_NEW_BUDGET = 40;          // zusätzliche Requests pro Auto-Lauf, solange noch nie abgeglichene Reihen anstehen
+var EBA_DAV_INV_INTERVAL = 1800000;   // ms: so selten fragt der Auto-Lauf das Server-Inventar neu ab
+var EBA_DAV_IDX_MAX = 5000;           // Zeilen der Index-Datei, mehr werden verworfen
 
 // Schlüssel des Abgleichs selbst. Gelten für beide Server (ein Zugang für
 // Normal- und Speedserver) und werden weder exportiert noch importiert:
@@ -3502,25 +3509,266 @@ function davSetBad(key, bad) {
   GM_setValue(davBadKey(), l.join("\n"));
 }
 
-// Abzugleichende Reihen des aktuellen Servers, sortiert.
-function davKeys() {
-  var withFood = GM_getValue("eba_dav_food", true);
-  var out = [];
-  $.each(GM_listValues(), function(i, k) {
-    if (!isHistoryKey(k)) { return; }
-    if (keyServer(k) !== srvKey()) { return; } // Präfix-Falle: eba_hist_ ist auch Präfix von eba_hist_speed_
-    if (!withFood && k.indexOf("eba_food_") === 0) { return; }
-    if (!/^[a-z0-9_]+$/.test(k)) { return; } // wird Dateiname
-    out.push(k);
+// Schlüssel, der als Datei im Ordner liegen darf: Zeitreihe des aktuellen Servers.
+// (Präfix-Falle: eba_hist_ ist auch Präfix von eba_hist_speed_; der Name wird Dateiname.)
+function davKeyValid(k) {
+  return typeof k === "string" && isHistoryKey(k) && keyServer(k) === srvKey() && /^[a-z0-9_]+$/.test(k);
+}
+
+// ---------------------------------------------------------------------------
+// Index-Datei eba_index_<normal|speed>.tsv im Ordner
+//
+// Sie hat zwei Aufgaben:
+//  1. Inventar, falls der Server PROPFIND (Dateiliste) nicht erlaubt: jedes
+//     Gerät trägt seine Schlüssel ein ("announce"), die anderen finden sie dort.
+//  2. Lösch-Marker (Tombstones) für "Vergessen" und "Kolonie umziehen". Die
+//     Datei der Reihe selbst wird NIE gelöscht; der Marker sagt allen Geräten
+//     nur: diese Reihe nicht mehr abgleichen (weder holen noch hochladen).
+// Format: Kopfzeile "eba_index<TAB>1", dann je Zeile "schlüssel<TAB>ms<TAB>a|f".
+//   a = angekündigt/vorhanden, f = vergessen. Je Schlüssel gewinnt der größere
+//   Zeitstempel, bei Gleichstand f. Das ist idempotent, kommutativ, assoziativ
+//   und kanonisch (sortiert) - die Geräte erreichen also einen Fixpunkt.
+//   "Wieder zulassen" schreibt a mit größerem Zeitstempel. Lokale Kopie:
+//   eba_dav_idx_<srv>, Stand des Servers: eba_dav_idxst_<srv> {etag, text}.
+// ---------------------------------------------------------------------------
+function davSrvName() { return srvKey() ? "speed" : "normal"; }
+function davIndexUrl() { return davConf().url + "eba_index_" + davSrvName() + ".tsv"; }
+function davIdxKey() { return "eba_dav_idx_" + srvKey(); }
+function davIdxStateKey() { return "eba_dav_idxst_" + srvKey(); }
+function davIdxPut(map, k, ms, st) {
+  var o = map[k];
+  if (!o || ms > o.ms || (ms === o.ms && st === "f" && o.st === "a")) { map[k] = { ms: ms, st: st }; }
+}
+function davIdxText(map) {
+  var ks = [], out = ["eba_index\t1"];
+  for (var k in map) { if (map.hasOwnProperty(k)) { ks.push(k); } }
+  ks.sort();
+  $.each(ks, function(i, k) { out.push(k + "\t" + map[k].ms + "\t" + map[k].st); });
+  return out.join("\n");
+}
+// Rückgabe {ok, map, dropped, reason}; ungültige Zeilen werden verworfen.
+function davIdxParse(text) {
+  var res = { ok: false, map: {}, dropped: 0, reason: "" };
+  if (typeof text !== "string") { res.reason = "kein Text"; return res; }
+  text = text.replace(/\r/g, "");
+  if (text.replace(/\s/g, "") === "") { res.ok = true; return res; }
+  if (/^\s*</.test(text)) { res.reason = "HTML statt Daten"; return res; }
+  var lines = text.split("\n");
+  if (lines[0] !== "eba_index\t1") { res.reason = "keine Index-Datei oder neueres Format"; return res; }
+  var maxMs = new Date().getTime() + 7 * 86400000, n = 0;
+  for (var i = 1; i < lines.length; i++) {
+    if (!lines[i]) { continue; }
+    var p = lines[i].split("\t");
+    if (p.length !== 3 || !davKeyValid(p[0]) || !/^\d{1,15}$/.test(p[1]) || (p[2] !== "a" && p[2] !== "f")
+        || parseInt(p[1], 10) > maxMs || ++n > EBA_DAV_IDX_MAX) { res.dropped++; continue; }
+    davIdxPut(res.map, p[0], parseInt(p[1], 10), p[2]);
+  }
+  res.ok = true;
+  return res;
+}
+function davIdxMap() { var p = davIdxParse(GM_getValue(davIdxKey(), "")); return p.ok ? p.map : {}; }
+function davIdxSave(map) { GM_setValue(davIdxKey(), davIdxText(map)); }
+function davIdxState() {
+  try { var s = JSON.parse(GM_getValue(davIdxStateKey(), "")); if (s && typeof s === "object") { return s; } } catch (err) {}
+  return { etag: "", text: null };
+}
+function davIdxDirty() {
+  var m = davIdxMap();
+  for (var k in m) { if (m.hasOwnProperty(k)) { return davIdxText(m) !== davIdxState().text; } }
+  return false; // leer: nichts zu melden
+}
+// Vergessene Reihen als Menge. Ein Formicarium, das dieses Gerät noch als aktiv
+// kennt, wird nie ignoriert: ein Fehlgriff auf einem Gerät soll dort keine
+// laufende Erfassung stilllegen.
+function davIgnoreMap() {
+  var m = davIdxMap(), out = {}, active = ebaFormiActiveIds();
+  for (var k in m) {
+    if (!m.hasOwnProperty(k) || m[k].st !== "f") { continue; }
+    if (active) {
+      var pre = k.indexOf("eba_statistic_") === 0 ? "eba_statistic_" : (k.indexOf("eba_food_") === 0 ? "eba_food_" : "");
+      if (pre && $.inArray(k.substr((pre + srvKey()).length), active) >= 0) { continue; }
+    }
+    out[k] = true;
+  }
+  return out;
+}
+function davIgnoredCount() { var n = 0, m = davIgnoreMap(); for (var k in m) { if (m.hasOwnProperty(k)) { n++; } } return n; }
+// Reihen vergessen: lokaler Marker, geht beim nächsten Lauf in die Index-Datei.
+function davForget(keys) {
+  var m = davIdxMap(), now = new Date().getTime();
+  $.each(keys, function(i, k) {
+    if (!davKeyValid(k)) { return; }
+    davIdxPut(m, k, Math.max(now, (m[k] ? m[k].ms : 0) + 1), "f");
   });
+  davIdxSave(m);
+}
+// Alle Marker aufheben; die Reihen werden wieder abgeglichen.
+function davRestoreIgnored() {
+  var m = davIdxMap(), now = new Date().getTime(), n = 0;
+  for (var k in m) {
+    if (m.hasOwnProperty(k) && m[k].st === "f") { davIdxPut(m, k, Math.max(now, m[k].ms + 1), "a"); n++; }
+  }
+  davIdxSave(m);
+  return n;
+}
+
+// Abzugleichende Reihen des aktuellen Servers, sortiert, ohne vergessene.
+// Ohne Argument nur die lokal vorhandenen; mit true auch die, die laut
+// Server-Inventar (eba_dav_inv_<srv>) dort liegen und lokal fehlen.
+function davKeys(withRemote) {
+  var withFood = GM_getValue("eba_dav_food", true);
+  var ign = davIgnoreMap(), seen = {}, out = [];
+  var add = function(k) {
+    if (seen[k] || ign[k] || !davKeyValid(k)) { return; }
+    if (!withFood && k.indexOf("eba_food_") === 0) { return; }
+    seen[k] = true; out.push(k);
+  };
+  $.each(GM_listValues(), function(i, k) { add(k); });
+  if (withRemote) { $.each(davInvList(), function(i, k) { add(k); }); }
   out.sort();
   return out;
+}
+function davAllKeys() { return davKeys(true); }
+function davInvKey() { return "eba_dav_inv_" + srvKey(); }
+function davInvList() { return $.grep(("" + GM_getValue(davInvKey(), "")).split("\n"), function(k) { return !!k; }); }
+function davHasState(key) { return GM_getValue(davStateKey(key), "") !== ""; }
+// Fortschritt: wie viele der bekannten Reihen sind abgeglichen?
+function davProgress() {
+  var all = davAllKeys(), done = 0;
+  $.each(all, function(i, k) { if (davHasState(k) && !davDirty(k)) { done++; } });
+  return { done: done, total: all.length };
 }
 
 // Gleiche Zeilenmenge? Erkennt einen PUT, der nur die Reihenfolge ändert.
 function davSameLines(a, b) {
   if (typeof a !== "string" || typeof b !== "string") { return false; }
   return a.split("\n").sort().join("\n") === b.split("\n").sort().join("\n");
+}
+
+// Index-Datei abgleichen: GET -> verschmelzen (+ eigene Schlüssel ankündigen)
+// -> ggf. bedingtes PUT. Angekündigt wird erst NACH dem Verschmelzen mit dem
+// Server-Stand, sonst könnte ein frischer a-Eintrag einen f-Marker überstimmen.
+function davIdxSync(announce, stats, cb, attempt) {
+  attempt = attempt || 0;
+  var st = davIdxState();
+  var local = davIdxMap();
+  var gh = {};
+  var dirty = davIdxText(local) !== st.text;
+  if (attempt === 0 && !dirty && st.etag) { gh["If-None-Match"] = st.etag; }
+  stats.requests++;
+  davRequest("GET", davIndexUrl(), undefined, gh, function(g) {
+    var remoteText, etag = g.etag;
+    if (g.status === 304) { remoteText = st.text; etag = st.etag; }
+    else if (g.status === 200) { remoteText = g.body.replace(/\r/g, ""); }
+    else if (g.status === 404) { remoteText = null; }
+    else { return cb(davFailure(g, "eba_index_" + davSrvName())); }
+    var rp = davIdxParse(remoteText === null ? "" : remoteText);
+    if (!rp.ok) { stats.skipped.push("Index-Datei: " + rp.reason); return cb(null); } // fremder Inhalt: nicht anfassen
+    var merged = local, k;
+    for (k in rp.map) { if (rp.map.hasOwnProperty(k)) { davIdxPut(merged, k, rp.map[k].ms, rp.map[k].st); } }
+    var now = new Date().getTime();
+    $.each(announce, function(i, key) { if (davKeyValid(key) && !merged[key]) { merged[key] = { ms: now, st: "a" }; } });
+    var text = davIdxText(merged);
+    davIdxSave(merged);
+    stats.idxOk = true;
+    var empty = true;
+    for (k in merged) { if (merged.hasOwnProperty(k)) { empty = false; } }
+    if (remoteText === null && empty) { return cb(null); }
+    if (remoteText !== null && text === remoteText) {
+      GM_setValue(davIdxStateKey(), JSON.stringify({ etag: etag, text: text }));
+      return cb(null);
+    }
+    var ph = (remoteText === null) ? { "If-None-Match": "*" } : (etag ? { "If-Match": etag } : {});
+    stats.requests++;
+    davRequest("PUT", davIndexUrl(), text, ph, function(p) {
+      stats.status = p.status;
+      if (p.ok) { GM_setValue(davIdxStateKey(), JSON.stringify({ etag: p.etag, text: text })); return cb(null); }
+      if (p.status === 412) {
+        stats.conflicts++;
+        if (attempt + 1 < EBA_DAV_MAX_412) { return davIdxSync(announce, stats, cb, attempt + 1); }
+        return cb({ kind: "other", msg: "Index-Datei lässt sich gerade nicht bedingt schreiben (412), neuer Versuch beim nächsten Lauf." });
+      }
+      if ((p.status === 404 || p.status === 409) && remoteText === null) {
+        return cb({ kind: "folder", msg: "Zielordner existiert nicht (HTTP " + p.status + "). Bitte im Webinterface anlegen: " + davConf().url });
+      }
+      return cb(davFailure(p, "eba_index_" + davSrvName()));
+    });
+  });
+}
+
+// Dateiliste per PROPFIND (Depth 1) aus der Multi-Status-Antwort lesen.
+// Namespace-unabhängig (d:, D:, ohne Präfix), href url-kodiert, absolut oder
+// nur als Pfad (Nextcloud: /remote.php/dav/files/<nutzer>/<ordner>/... bzw.
+// /public.php/webdav/...). Rückgabe: Dateinamen (ohne Ordner) oder null bei Parsefehler.
+function davParseList(xml) {
+  var doc;
+  try { doc = new DOMParser().parseFromString(xml, "application/xml"); } catch (err) { return null; }
+  if (!doc || !doc.documentElement || doc.getElementsByTagName("parsererror").length) { return null; }
+  var resp = doc.getElementsByTagNameNS("*", "response"), out = [];
+  for (var i = 0; i < resp.length; i++) {
+    if (resp[i].getElementsByTagNameNS("*", "collection").length) { continue; }
+    var hrefs = resp[i].getElementsByTagNameNS("*", "href");
+    if (!hrefs.length) { continue; }
+    var h = $.trim(hrefs[0].textContent || "").replace(/[?#].*$/, "").replace(/^[a-z][a-z0-9+.-]*:\/\/[^\/]*/i, "");
+    var seg = h.split("/").pop();
+    try { seg = decodeURIComponent(seg); } catch (err2) {}
+    if (seg) { out.push(seg); }
+  }
+  return out;
+}
+// cb({keys, status, fatal}); keys null = PROPFIND nicht nutzbar (dann Index-Datei).
+function davList(cb) {
+  var body = '<?xml version="1.0" encoding="utf-8"?><d:propfind xmlns:d="DAV:"><d:prop><d:resourcetype/></d:prop></d:propfind>';
+  davRequest("PROPFIND", davConf().url, body, { "Depth": "1", "Content-Type": "application/xml; charset=utf-8" }, function(r) {
+    var flag = "eba_dav_pf_" + srvKey();
+    // 401 und Netzfehler sind kein "PROPFIND geht nicht", sondern echte Fehler
+    if (r.status === 401 || r.status === 0 || r.status === 429) { return cb({ keys: null, status: r.status, fatal: davFailure(r, "") }); }
+    var names = (r.status === 207 || r.status === 200) ? davParseList(r.body) : null;
+    if (names === null) { GM_setValue(flag, "no"); return cb({ keys: null, status: r.status, fatal: null }); }
+    var keys = [];
+    $.each(names, function(i, n) {
+      if (/\.tsv$/.test(n) && davKeyValid(n.slice(0, -4))) { keys.push(n.slice(0, -4)); }
+    });
+    GM_setValue(flag, "ok");
+    cb({ keys: keys, status: r.status, fatal: null });
+  });
+}
+
+// Server-Inventar: PROPFIND (falls erlaubt) und Index-Datei. Ergebnis ist die
+// Liste eba_dav_inv_<srv>; vergessene Reihen filtert davKeys() heraus.
+function davInvDue(manual) {
+  if (manual) { return true; }
+  var t = GM_getValue("eba_dav_inv_ms_" + srvKey(), 0);
+  return !t || new Date().getTime() - t > EBA_DAV_INV_INTERVAL || davIdxDirty();
+}
+function davInventory(manual, stats, cb) {
+  var tryPf = manual || GM_getValue("eba_dav_pf_" + srvKey(), "") !== "no";
+  var afterList = function(l) {
+    if (l.fatal) { return cb(l.fatal); }
+    var listed = l.keys;
+    var announce = davKeys().concat(listed || []);
+    stats.idxOk = false;
+    davIdxSync(announce, stats, function(fail) {
+      if (fail && fail.kind !== "other") { return cb(fail); }
+      if (fail) { stats.skipped.push(fail.msg); }
+      var inv = {}, m = davIdxMap();
+      $.each(listed || [], function(i, k) { inv[k] = true; });
+      for (var k in m) { if (m.hasOwnProperty(k) && m[k].st === "a") { inv[k] = true; } }
+      var arr = [];
+      for (var k2 in inv) { if (inv.hasOwnProperty(k2)) { arr.push(k2); } }
+      arr.sort();
+      if (listed || stats.idxOk) {
+        GM_setValue(davInvKey(), arr.join("\n"));
+        GM_setValue("eba_dav_inv_ms_" + srvKey(), new Date().getTime());
+      }
+      stats.inv = (listed ? "PROPFIND ok (" + listed.length + " Dateien)" : (tryPf ? "PROPFIND nicht möglich (HTTP " + l.status + ")" : "PROPFIND aus"))
+        + ", Index-Datei " + (stats.idxOk ? "ok" : "nicht lesbar") + ", " + arr.length + " Reihen bekannt";
+      cb(null);
+    });
+  };
+  if (!tryPf) { return afterList({ keys: null, status: 0, fatal: null }); }
+  stats.requests++;
+  davList(afterList);
 }
 
 // Eine Reihe abgleichen: GET -> prüfen -> verschmelzen -> ggf. bedingtes PUT.
@@ -3550,7 +3798,11 @@ function davSyncKey(key, stats, cb, attempt) {
     davSetBad(key, false);
     if (r.changed) { stats.pulled++; }
     if (r.body.length > EBA_DAV_WARN_CHARS) { stats.big.push(key); }
-    if (remote === null && r.body === "") { stats.equal++; return cb(null); } // nichts anzulegen
+    if (remote === null && r.body === "") { // nichts anzulegen; als abgeglichen merken
+      davSetState(key, "", r.local.length);
+      stats.equal++;
+      return cb(null);
+    }
     if (remote !== null && r.body === remote.replace(/\r/g, "")) {
       davSetState(key, g.etag, r.local.length);
       stats.equal++;
@@ -3628,24 +3880,30 @@ function davStatusText() {
     out.push("Kompaktierung ist eingeschaltet - der Abgleich ist deshalb gesperrt.");
   }
   if (!s) { out.push("Noch kein Abgleich auf dem " + srvName(srvKey()) + "."); return out.join("\n"); }
+  var pg = davProgress();
+  out.push("Fortschritt: " + pg.done + " von " + pg.total + " Reihen abgeglichen"
+    + (davIgnoredCount() ? " (" + davIgnoredCount() + " vergessene Reihen werden ignoriert)" : ""));
   out.push("Letzter Abgleich (" + (s.manual ? "manuell" : "automatisch") + ", " + srvName(srvKey()) + "): "
     + formatStatTime(s.time) + ", HTTP " + s.status + ", " + s.keys + " Reihen, " + s.requests + " Requests");
+  if (s.inv) { out.push("Server-Inventar: " + s.inv); }
   out.push("unverändert " + s.unchanged + " · gleich " + s.equal + " · geholt " + s.pulled + " · hochgeladen "
     + s.pushed + " · Konflikte " + s.conflicts + " · verworfene Zeilen " + s.dropped
     + " · PUTs ohne inhaltliche Änderung " + GM_getValue("eba_dav_nochange", 0));
   if (s.big && s.big.length) { out.push("Größer als 1 MB: " + s.big.join(", ")); }
   if (s.skipped && s.skipped.length) { out.push("Übersprungen: " + s.skipped.join("; ")); }
   if (s.error) { out.push("Fehler: " + s.error); }
-  if (s.left) { out.push(s.left + " Reihen kommen beim nächsten Lauf dran."); }
+  if (s.left) { out.push(s.left + " Reihen kommen beim nächsten Lauf dran (automatisch je Tick, oder sofort mit Jetzt abgleichen)."); }
   return out.join("\n");
 }
 
 // Mehrere Reihen nacheinander abgleichen (300 ms Abstand, Muster runFoodQueue()).
-// budget begrenzt die Requests; ein schwerer Fehler bricht den Lauf ab.
-function davRun(keys, budget, manual, done) {
+// keys und budget dürfen Funktionen sein, die erst nach dem Vorlauf pre (Server-
+// Inventar) ausgewertet werden: keys(), budget(keys, stats). budget begrenzt die
+// Requests; ein schwerer Fehler bricht den Lauf ab. progress(stats) nach jeder Reihe.
+function davRun(keysArg, budgetArg, manual, done, progress, pre) {
   var stats = { keys: 0, requests: 0, status: 0, unchanged: 0, equal: 0, pulled: 0, pushed: 0,
-                conflicts: 0, dropped: 0, noChange: 0, skipped: [], big: [], error: "", left: 0, manual: !!manual };
-  var i = 0;
+                conflicts: 0, dropped: 0, noChange: 0, skipped: [], big: [], error: "", left: 0, manual: !!manual, inv: "" };
+  var i = 0, keys = [], budget = 0;
   var finish = function(fail) {
     if (fail) {
       stats.error = fail.msg;
@@ -3662,6 +3920,7 @@ function davRun(keys, budget, manual, done) {
       if (manual) { GM_setValue("eba_dav_halt", ""); }
     }
     stats.left = keys.length - i;
+    if (manual && !fail && stats.left === 0) { GM_setValue("eba_dav_full_" + srvKey(), new Date().getTime()); }
     davSaveStatus(stats);
     GM_setValue("eba_dav_busy", 0);
     if (done) { done(stats); }
@@ -3672,21 +3931,33 @@ function davRun(keys, budget, manual, done) {
     var key = keys[i++];
     stats.keys++;
     davSyncKey(key, stats, function(fail) {
+      if (progress) { try { progress(stats); } catch (err) {} }
       if (fail && fail.kind !== "other") { return finish(fail); }
       if (fail) { stats.skipped.push(fail.msg); }
       setTimeout(step, 300);
     });
   };
   GM_setValue("eba_dav_busy", new Date().getTime());
-  step();
+  var start = function(fail) {
+    if (fail && fail.kind !== "other") { return finish(fail); }
+    if (fail) { stats.skipped.push(fail.msg); }
+    keys = typeof keysArg === "function" ? keysArg() : keysArg;
+    budget = typeof budgetArg === "function" ? budgetArg(keys, stats) : budgetArg;
+    step();
+  };
+  if (pre) { pre(stats, start); } else { start(null); }
 }
 
-// Reihen für einen automatischen Lauf: zuerst alle mit lokalen Änderungen,
-// dann ein paar unveränderte im Rundlauf, damit auch Daten der anderen Geräte
-// irgendwann ankommen.
-function davAutoKeys() {
-  var all = davKeys(), dirty = [], idle = [];
-  $.each(all, function(i, k) { (davDirty(k) ? dirty : idle).push(k); });
+// Reihen für einen automatischen Lauf: zuerst alle mit lokalen Änderungen, dann
+// Reihen, die noch nie abgeglichen wurden (neu vom Server oder neu lokal; ein
+// neues Gerät holt so seine Reihen über mehrere Läufe), dann ein paar
+// unveränderte im Rundlauf, damit auch Daten der anderen Geräte irgendwann
+// ankommen. info.fresh meldet die Zahl der noch nie abgeglichenen.
+function davAutoKeys(info) {
+  var all = davAllKeys(), dirty = [], fresh = [], idle = [];
+  $.each(all, function(i, k) { (!davHasState(k) ? fresh : (davDirty(k) ? dirty : idle)).push(k); });
+  if (info) { info.fresh = fresh.length; }
+  dirty = dirty.concat(fresh);
   if (idle.length) {
     var rrKey = "eba_dav_rr_" + srvKey();
     var rr = GM_getValue(rrKey, 0) % idle.length;
@@ -3695,6 +3966,19 @@ function davAutoKeys() {
     GM_setValue(rrKey, (rr + n) % idle.length);
   }
   return dirty;
+}
+
+// Ein Lauf mit Server-Inventar. manual: alle Reihen, ohne Budget. Sonst das
+// Auto-Budget, bei noch nie abgeglichenen Reihen um EBA_DAV_NEW_BUDGET höher
+// (diese kosten meist nur einen GET); der Rest kommt beim nächsten Lauf.
+function davStart(manual, done, progress) {
+  var info = { fresh: 0 };
+  davRun(function() { return manual ? davAllKeys() : davAutoKeys(info); },
+    function(keys, stats) {
+      return manual ? Infinity : stats.requests + EBA_DAV_AUTO_BUDGET + (info.fresh ? EBA_DAV_NEW_BUDGET : 0);
+    },
+    manual, done, progress,
+    function(stats, next) { if (davInvDue(manual)) { davInventory(manual, stats, next); } else { next(null); } });
 }
 
 // Automatischer Abgleich: höchstens einmal pro Tick, nach Ende des Ticks,
@@ -3715,7 +3999,7 @@ function davAutoRun() {
   // Marker VOR dem Request setzen, sonst starten mehrere Tabs denselben Lauf
   GM_setValue(tickKey, tk.nowTick);
   GM_setValue("eba_dav_last_ms", now);
-  davRun(davAutoKeys(), EBA_DAV_AUTO_BUDGET, false, null);
+  davStart(false, null, null);
 }
 
 // Option "Historien per WebDAV abgleichen". Die Init-Schleife hat kein
@@ -3745,8 +4029,18 @@ function davTest(cb) {
       if (g.status === 200 && /^\s*</.test(g.body)) { return cb("Der Server liefert HTML statt Daten - leitet er auf eine Login-Seite um? URL prüfen."); }
       GM_setValue("eba_dav_ok_ms", new Date().getTime());
       GM_setValue("eba_dav_halt", "");
-      cb("Verbindung ok (Ordner HTTP " + f.status + ", " + probe + ".tsv HTTP " + g.status
-        + (g.etag ? ", ETag " + g.etag : (g.status === 200 ? ", OHNE ETag - konkurrierendes Schreiben ist nicht abgesichert" : "")) + ").");
+      var msg = "Verbindung ok (Ordner HTTP " + f.status + ", " + probe + ".tsv HTTP " + g.status
+        + (g.etag ? ", ETag " + g.etag : (g.status === 200 ? ", OHNE ETag - konkurrierendes Schreiben ist nicht abgesichert" : "")) + ").";
+      // Dateiliste prüfen: damit findet ein neues Gerät die Reihen der anderen
+      davList(function(l) {
+        if (l.fatal) { return cb(msg + " Dateiliste: " + l.fatal.msg); }
+        msg += l.keys ? " Dateiliste (PROPFIND) ok: " + l.keys.length + " Reihen dieses Servers im Ordner."
+                      : " PROPFIND nicht möglich (HTTP " + l.status + ") - die Index-Datei im Ordner ersetzt die Dateiliste.";
+        if (!GM_getValue("eba_dav_full_" + srvKey(), 0)) {
+          msg += " Noch kein vollständiger Abgleich auf diesem Gerät: Jetzt abgleichen holt alle Reihen des Servers.";
+        }
+        cb(msg);
+      });
     });
   });
 }
@@ -3789,6 +4083,7 @@ function davConfigHTML() {
   h += "<label><input type='checkbox' id='eba_dav_food'>Futter-Snapshots mit abgleichen (größter Anteil der Daten)</label>";
   h += "<div><button id='eba_dav_test' type='button'>Verbindung testen</button> ";
   h += "<button id='eba_dav_sync' type='button'>Jetzt abgleichen</button> ";
+  h += "<button id='eba_dav_restore' type='button'>Vergessene Reihen wieder zulassen</button> ";
   h += "<button id='eba_dav_overwrite' type='button'>Ungültige Remote-Dateien überschreiben</button> ";
   h += "<button id='eba_dav_clear' type='button'>Zugangsdaten löschen</button></div>";
   h += "<div id='eba_dav_info'></div><div id='eba_dav_status' style='font-size:0.9em;white-space:pre-wrap'></div>";
@@ -3799,6 +4094,11 @@ function davConfigBind() {
     $("#eba_dav_pass").val("").attr("placeholder", GM_getValue("eba_dav_pass", "") ? "gespeichert - leer lassen, um es zu behalten" : "");
   };
   var showStatus = function() { $("#eba_dav_status").text(davStatusText()); };
+  var showIgnored = function() {
+    var n = davIgnoredCount();
+    $("#eba_dav_restore").text("Vergessene Reihen wieder zulassen (" + n + ")").prop("disabled", !n);
+  };
+  showIgnored();
   $("#eba_dav_url").val(GM_getValue("eba_dav_url", "")).on("change", function() {
     GM_setValue("eba_dav_url", $.trim($(this).val()));
     GM_setValue("eba_dav_ok_ms", 0); // neue Adresse: erst wieder testen
@@ -3833,10 +4133,21 @@ function davConfigBind() {
       return;
     }
     $("#eba_dav_info").text("Gleiche ab ...");
-    davRun(davKeys(), Infinity, true, function(s) {
+    davStart(true, function(s) {
       $("#eba_dav_info").text(s.error ? "Abgebrochen: " + s.error : "Fertig.");
       showStatus();
+      showIgnored();
+    }, function() {
+      var pg = davProgress();
+      $("#eba_dav_info").text("Gleiche ab ... " + pg.done + " von " + pg.total + " Reihen");
     });
+  });
+  $("#eba_dav_restore").on("click", function() {
+    if (!window.confirm("Alle vergessenen Reihen (ehemalige Kolonien, die hier oder auf einem anderen Gerät vergessen bzw. umgezogen wurden) wieder in den Abgleich aufnehmen? Ihre Dateien liegen noch im Ordner und kommen beim nächsten Abgleich zurück.")) { return; }
+    var n = davRestoreIgnored();
+    GM_setValue("eba_dav_inv_ms_" + srvKey(), 0);
+    showIgnored();
+    $("#eba_dav_info").text(n + " Reihen wieder zugelassen.");
   });
   $("#eba_dav_overwrite").on("click", function() {
     var bad = davBadList();
