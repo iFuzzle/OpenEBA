@@ -952,7 +952,8 @@ function isDraussenCat3() {
   if (location.pathname !== "/draussen.php") { return false; }
   // Ohne cat-Parameter zeigt das Spiel automatisch cat=3 (Ergebnisse).
   if (!/[?&]cat=/.test(location.search)) { return true; }
-  return /[?&]cat=3(&|#|$)/.test(location.search);
+  // Nach Aktionsende leitet das Spiel auf ?cat=&id= weiter (cat leer): wie cat=3.
+  return /[?&]cat=(3)?(&|#|$)/.test(location.search);
 }
 function searchPageKindBase() {
   var h = $("h3").text();
