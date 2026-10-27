@@ -2534,6 +2534,152 @@ function resetStoredValues(onlyThisServer) {
   });
   return removed;
 }
+// ---------------------------------------------------------------------------
+// Kolonie umziehen: Historie einer alten Spiel-ID in die neue ID übernehmen
+//
+// Wer eine Kolonie ins Lager räumt, verliert die Brut (Eier/Larven/Puppen = 0),
+// und beim Wiederaufstellen vergibt das Spiel eine neue ID. Arbeiterinnen und
+// Königinnen bleiben gleich. Die Historie der alten ID wird hier mit den
+// normalen Merge-Funktionen in die neue ID verschmolzen.
+// ---------------------------------------------------------------------------
+function ebaColonyFmtTime(ms) {
+  var d = new Date(ms), p = function(n) { return (n < 10 ? "0" : "") + n; };
+  return p(d.getDate()) + "." + p(d.getMonth() + 1) + "." + d.getFullYear() + " " + p(d.getHours()) + ":" + p(d.getMinutes());
+}
+// Kurzbeschreibung einer Historie für Auswahllisten
+function ebaColonyDescribe(id) {
+  var rows = ebaFormiRows(id);
+  var s = "ID " + id + " (" + (ebaFormiKind(id) || "?") + ")";
+  if (!rows.length) { return s + ", keine Zeilen"; }
+  var last = rows[0];
+  $.each(rows, function(i, r) { if (r.t > last.t) { last = r; } });
+  return s + ", " + rows.length + " Zeilen, letzter Stand " + ebaColonyFmtTime(last.t)
+    + ": " + (last.queens == null ? "?" : last.queens) + " Kön., " + (last.ants == null ? "?" : last.ants) + " Arb.";
+}
+// Prüfung ohne Schreibzugriff.
+// Rückgabe {errors:[], warnings:[], infos:[], canMerge, needConfirm}
+function ebaColonyCheck(oldId, newId) {
+  var res = { errors: [], warnings: [], infos: [], canMerge: false, needConfirm: false };
+  oldId = $.trim("" + oldId); newId = $.trim("" + newId);
+  if (!/^\d+$/.test(oldId) || !/^\d+$/.test(newId)) { res.errors.push("Bitte zwei numerische IDs angeben."); return res; }
+  if (oldId === newId) { res.errors.push("Alte und neue ID sind gleich."); return res; }
+  var ro = ebaFormiRows(oldId), rn = ebaFormiRows(newId);
+  if (!ro.length) { res.errors.push("Zur alten ID " + oldId + " gibt es auf diesem Server keine Historie."); }
+  if (!rn.length) { res.errors.push("Zur neuen ID " + newId + " gibt es auf diesem Server keine Historie."); }
+  if (res.errors.length) { return res; }
+  var ko = ebaFormiKind(oldId), kn = ebaFormiKind(newId);
+  if (ko !== kn) {
+    res.errors.push("Verschiedene Art: alte ID \"" + ko + "\", neue ID \"" + kn + "\". Das ist keine Umstellung derselben Kolonie, Zusammenführen nicht möglich.");
+    return res;
+  }
+  var oldFirst = ro[0], oldLast = ro[0], newFirst = rn[0], newLast = rn[0];
+  $.each(ro, function(i, r) { if (r.t > oldLast.t) { oldLast = r; } if (r.t < oldFirst.t) { oldFirst = r; } });
+  $.each(rn, function(i, r) { if (r.t > newLast.t) { newLast = r; } if (r.t < newFirst.t) { newFirst = r; } });
+  var brood = function(r) { return (r.eggs || 0) + "/" + (r.larvae || 0) + "/" + (r.cocoons || 0); };
+  res.infos.push("Art: " + ko + " (gleich).");
+  res.infos.push("Alt: " + ro.length + " Zeilen, letzter Stand " + ebaColonyFmtTime(oldLast.t) + ": "
+    + oldLast.queens + " Königinnen, " + oldLast.ants + " Arbeiterinnen, Brut " + brood(oldLast) + ".");
+  res.infos.push("Neu: " + rn.length + " Zeilen, erster Stand " + ebaColonyFmtTime(newFirst.t) + ": "
+    + newFirst.queens + " Königinnen, " + newFirst.ants + " Arbeiterinnen, Brut " + brood(newFirst) + ".");
+  if (oldLast.ants !== newFirst.ants) {
+    res.warnings.push("Arbeiterinnenzahl weicht ab: alt " + oldLast.ants + ", neu " + newFirst.ants + ". Möglicherweise nicht dieselbe Kolonie!");
+  }
+  if (oldLast.queens !== newFirst.queens) {
+    res.warnings.push("Königinnenzahl weicht ab: alt " + oldLast.queens + ", neu " + newFirst.queens + ". Möglicherweise nicht dieselbe Kolonie!");
+  }
+  if (oldLast.t >= newFirst.t) {
+    res.warnings.push("Zeitliche Überlappung: die alte Historie endet (" + ebaColonyFmtTime(oldLast.t) + ") nicht vor dem Beginn der neuen ("
+      + ebaColonyFmtTime(newFirst.t) + "). Je Tick bleibt nur eine Zeile.");
+  }
+  res.infos.push("Hinweis: Beim Einlagern wird die Brut auf 0 gesetzt, ein Sprung der Brut auf 0 am Übergang ist normal.");
+  res.infos.push("Ergebnis: höchstens " + (ro.length + rn.length) + " Zeilen von " + ebaColonyFmtTime(Math.min(oldFirst.t, newFirst.t))
+    + " bis " + ebaColonyFmtTime(Math.max(oldLast.t, newLast.t)) + ".");
+  res.canMerge = true;
+  res.needConfirm = res.warnings.length > 0;
+  return res;
+}
+// Zusammenführen. Rückgabe Text fürs Ergebnisfeld. Wirft bei Prüffehlern.
+function ebaColonyMerge(oldId, newId, deleteOld, confirmed) {
+  oldId = $.trim("" + oldId); newId = $.trim("" + newId);
+  var chk = ebaColonyCheck(oldId, newId);
+  if (!chk.canMerge) { throw new Error(chk.errors.join(" ")); }
+  if (chk.needConfirm && !confirmed) { throw new Error("Warnungen müssen bestätigt werden (\"trotzdem zusammenführen\")."); }
+  var sk = srvKey();
+  var kOldF = "eba_statistic_" + sk + oldId, kNewF = "eba_statistic_" + sk + newId;
+  var kOldFood = "eba_food_" + sk + oldId, kNewFood = "eba_food_" + sk + newId;
+  var mergedF = mergeFormiHistory(GM_getValue(kOldF, ""), GM_getValue(kNewF, ""));
+  if (!mergedF) { throw new Error("Verschmelzen ergab eine leere Reihe, nichts geändert."); }
+  GM_setValue(kNewF, mergedF);
+  var oldFood = GM_getValue(kOldFood, ""), newFood = GM_getValue(kNewFood, "");
+  var foodTxt = "";
+  var keys = [kNewF];
+  if (oldFood || newFood) {
+    var mergedFood = mergeFoodHistory(oldFood, newFood);
+    GM_setValue(kNewFood, mergedFood);
+    keys.push(kNewFood);
+    foodTxt = " Futter-Historie: " + (mergedFood ? mergedFood.split("\n").length : 0) + " Zeilen.";
+  }
+  // Die neue Reihe muss beim nächsten WebDAV-Lauf hoch: die Länge im Merkzustand
+  // ungültig machen (davDirty() vergleicht gegen die gespeicherte Länge).
+  $.each(keys, function(i, k) { davSetState(k, davState(k).etag, -1); });
+  var delTxt = " Die alte ID wurde behalten.";
+  if (deleteOld) {
+    $.each([kOldF, kOldFood, davStateKey(kOldF), davStateKey(kOldFood)], function(i, k) { GM_deleteValue(k); });
+    davSetBad(kOldF, false); davSetBad(kOldFood, false);
+    delTxt = " Die alte ID " + oldId + " wurde lokal gelöscht.";
+  }
+  return "Zusammengeführt: " + oldId + " -> " + newId + ", " + ebaFormiRows(newId).length + " Zeilen unter der neuen ID." + foodTxt + delTxt
+    + " Die neue Reihe wird beim nächsten WebDAV-Abgleich hochgeladen. Die Datei der alten ID bleibt auf dem Server; "
+    + "andere Geräte behalten ihre alte Reihe, bis dort ebenfalls zusammengeführt wird.";
+}
+function colonyConfigHTML() {
+  var h = "<br><b>Kolonie umziehen / Historien zusammenf&uuml;hren</b>";
+  h += "<div style='font-size:0.9em'>Nach dem Einlagern und Wiederaufstellen einer Kolonie vergibt das Spiel eine neue ID. "
+     + "Hier wird die Historie der alten ID in die neue &uuml;bernommen.</div>";
+  h += "Alte ID <input type='text' id='eba_colony_old' size='8'> <select id='eba_colony_oldsel'></select><br>";
+  h += "Neue ID <input type='text' id='eba_colony_new' size='8'> <select id='eba_colony_newsel'></select><br>";
+  h += "<label><input type='checkbox' id='eba_colony_del' checked>alte ID nach dem Zusammenf&uuml;hren l&ouml;schen</label><br>";
+  h += "<div><button id='eba_colony_check' type='button'>Pr&uuml;fen</button> ";
+  h += "<button id='eba_colony_go' type='button' disabled>Zusammenf&uuml;hren</button></div>";
+  h += "<div id='eba_colony_confirmbox' style='display:none;color:#a00'><label><input type='checkbox' id='eba_colony_force'>trotzdem zusammenf&uuml;hren</label></div>";
+  h += "<div id='eba_colony_out' style='font-size:0.9em;white-space:pre-wrap'></div>";
+  return h;
+}
+function colonyConfigBind() {
+  var reset = function() {
+    $("#eba_colony_go").prop("disabled", true);
+    $("#eba_colony_confirmbox").hide();
+    $("#eba_colony_force").prop("checked", false);
+  };
+  var fill = function(sel, input) {
+    sel.empty().append($("<option>").val("").text("(Auswahl)"));
+    $.each(ebaFormiIds(), function(i, id) { sel.append($("<option>").val(id).text(ebaColonyDescribe(id))); });
+    sel.on("change", function() { if ($(this).val()) { input.val($(this).val()); } reset(); });
+  };
+  fill($("#eba_colony_oldsel"), $("#eba_colony_old"));
+  fill($("#eba_colony_newsel"), $("#eba_colony_new"));
+  $("#eba_colony_old, #eba_colony_new").on("input", reset);
+  $("#eba_colony_check").on("click", function() {
+    var c = ebaColonyCheck($("#eba_colony_old").val(), $("#eba_colony_new").val());
+    var t = [];
+    $.each(c.errors, function(i, s) { t.push("FEHLER: " + s); });
+    $.each(c.warnings, function(i, s) { t.push("WARNUNG: " + s); });
+    $.each(c.infos, function(i, s) { t.push(s); });
+    $("#eba_colony_out").text(t.join("\n"));
+    reset();
+    $("#eba_colony_go").prop("disabled", !c.canMerge);
+    if (c.canMerge && c.needConfirm) { $("#eba_colony_confirmbox").show(); }
+  });
+  $("#eba_colony_go").on("click", function() {
+    try {
+      $("#eba_colony_out").text(ebaColonyMerge($("#eba_colony_old").val(), $("#eba_colony_new").val(),
+        $("#eba_colony_del").prop("checked"), $("#eba_colony_force").prop("checked")));
+      reset();
+    } catch (err) {
+      $("#eba_colony_out").text("Fehler: " + err.message);
+    }
+  });
+}
 function enableConfig() {
   if (!$("#shopmenu:contains('Statistik')").length) {return}
   //$("#shopmenucats").append("<a href='/stats.php?limitplayers=14'>14-Tage-Statistik</a>");
@@ -2564,6 +2710,7 @@ function enableConfig() {
     configHTML += "<span id='eba_io_info'></span></div>";
     configHTML += "<div id='eba_io_usage' style='font-size:0.9em'></div>";
     configHTML += davConfigHTML();
+    configHTML += colonyConfigHTML();
     configHTML += "<div style='text-align:right;'><button id='eba_config_reset_srv' type='button'>Nur die Daten dieses Servers l&ouml;schen</button> ";
     configHTML += "<button id='eba_config_reset' type='button'>Alle gespeicherten Daten l&ouml;schen</button></div>";
     configHTML += "</div>";
@@ -2611,6 +2758,7 @@ function enableConfig() {
       }
     });
     davConfigBind();
+    colonyConfigBind();
     //Reset: beide Varianten fragen vorher nach, weil hier Monate an Historie hängen
     $("#eba_config_reset").on("click", function(e) {
       if (!window.confirm("ALLE gespeicherten openEBA-Daten werden unwiderruflich gelöscht - "
