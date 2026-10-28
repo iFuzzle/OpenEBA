@@ -7,7 +7,7 @@
 // @include        https://eatenbyants.de/*
 // @include        https://*.eatenbyants.de/*
 // @exclude        http://forum.eatenbyants.de/*
-// @version        32.3
+// @version        32.4
 // @require        http://ajax.googleapis.com/ajax/libs/jquery/1/jquery.min.js
 // @grant          GM_getValue
 // @grant          GM_setValue
