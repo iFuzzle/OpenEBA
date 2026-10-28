@@ -3317,6 +3317,7 @@ var EBA_DAV_AUTO_BUDGET = 6;          // höchstens so viele Requests pro automa
 var EBA_DAV_AUTO_IDLE = 2;            // davon unveränderte Reihen im Rundlauf
 var EBA_DAV_WARN_CHARS = 1048576;     // Größenwarnung je Datei (~1 MB)
 var EBA_DAV_BACKOFF = [5, 15, 60];    // Minuten Wartezeit nach Netz- bzw. Serverfehlern
+var EBA_DAV_STUCK_PAUSE = 900000;     // ms: so lange lässt der Auto-Lauf eine dauerhaft mit 412 scheiternde Reihe in Ruhe
 var EBA_DAV_MAX_412 = 3;              // Wiederholungen bei konkurrierendem Schreiben
 var EBA_DAV_NEW_BUDGET = 40;          // zusätzliche Requests pro Auto-Lauf, solange noch nie abgeglichene Reihen anstehen
 var EBA_DAV_INV_INTERVAL = 1800000;   // ms: so selten fragt der Auto-Lauf das Server-Inventar neu ab
@@ -3340,20 +3341,35 @@ function davFileUrl(key) { return davConf().url + key + ".tsv"; }
 // Basic-Auth, UTF-8-sicher (btoa() allein scheitert an Umlauten).
 function davAuth(user, pass) { return "Basic " + btoa(unescape(encodeURIComponent(user + ":" + pass))); }
 
-// ETag aus den rohen Antwort-Headern; das letzte Vorkommen gewinnt.
-// Apache mit mod_deflate hängt bei komprimierter Auslieferung "-gzip" an,
-// vergleicht If-Match aber gegen den ETag ohne Zusatz. Daher wird der Zusatz
-// abgeschnitten, sonst scheitert jedes bedingte PUT dauerhaft mit 412.
-function davParseEtag(raw) {
-  var re = /^etag:[ \t]*(.*?)[ \t]*$/gim, m, e = "";
+// ETag aus den rohen Antwort-Headern. Header-Namen sind unabhaengig von der
+// Schreibweise; das letzte Vorkommen gewinnt. Nextcloud liefert zusaetzlich
+// OC-ETag mit dem unveraenderten Wert; den veraendern Proxys nicht (nginx macht
+// beim Komprimieren aus dem ETag einen schwachen W/"...", Apache mod_deflate
+// haengt "-gzip" an). Der Server vergleicht If-Match aber gegen den
+// urspruenglichen Wert. Deshalb gilt OC-ETag, falls vorhanden, und jeder ETag
+// wird auf den Kern ohne W/, Anfuehrungszeichen und -gzip reduziert und
+// einheitlich in Anfuehrungszeichen gesetzt.
+function davEtagCore(e) {
+  return ("" + (e || "")).replace(/^\s+|\s+$/g, "").replace(/^W\//i, "").replace(/^"(.*)"$/, "$1").replace(/-gzip$/, "");
+}
+function davEtagNorm(e) { var c = davEtagCore(e); return c === "" ? "" : '"' + c + '"'; }
+function davHdr(raw, name) {
+  var re = new RegExp("^" + name + ":[ \\t]*(.*?)[ \\t]*$", "gim"), m, e = "";
   while ((m = re.exec(raw || "")) !== null) { e = m[1]; }
-  return e.replace(/-gzip(")?$/, "$1");
+  return e;
+}
+function davParseEtag(raw) {
+  var oc = davHdr(raw, "oc-etag");
+  return davEtagNorm(oc !== "" ? oc : davHdr(raw, "etag"));
 }
 
 // Ein Request mit einheitlichem Ergebnis {ok, status, body, etag, err}.
 function davRequest(method, url, body, headers, cb) {
   var c = davConf();
-  var h = { "Authorization": davAuth(c.user, c.pass), "Accept-Encoding": "identity" };
+  // Cache-Control/nocache: eine zwischengespeicherte Antwort (samt altem ETag)
+  // darf nie an die Stelle der aktuellen Datei treten.
+  var h = { "Authorization": davAuth(c.user, c.pass), "Accept-Encoding": "identity",
+            "Cache-Control": "no-cache", "Pragma": "no-cache" };
   for (var k in headers) { if (headers.hasOwnProperty(k)) { h[k] = headers[k]; } }
   if (method === "PUT") { h["Content-Type"] = "text/plain; charset=utf-8"; }
   var called = false;
@@ -3368,11 +3384,13 @@ function davRequest(method, url, body, headers, cb) {
       // Browsersitzung statt über die Basic-Auth, und der Fehler tritt nur
       // auf einem Gerät auf
       anonymous: true,
+      nocache: true,
       timeout: EBA_DAV_TIMEOUT,
       overrideMimeType: "text/plain; charset=utf-8",
       onload: function(r) {
         done({ ok: r.status >= 200 && r.status < 300, status: r.status,
-               body: r.responseText || "", etag: davParseEtag(r.responseHeaders), err: "" });
+               body: r.responseText || "", etag: davParseEtag(r.responseHeaders), err: "",
+               rawEtag: davHdr(r.responseHeaders, "etag"), rawOc: davHdr(r.responseHeaders, "oc-etag") });
       },
       onerror: function(r) { done({ ok: false, status: (r && r.status) || 0, body: "", etag: "", err: "network" }); },
       ontimeout: function() { done({ ok: false, status: 0, body: "", etag: "", err: "timeout" }); }
@@ -3648,15 +3666,17 @@ function davSameLines(a, b) {
 // Index-Datei abgleichen: GET -> verschmelzen (+ eigene Schlüssel ankündigen)
 // -> ggf. bedingtes PUT. Angekündigt wird erst NACH dem Verschmelzen mit dem
 // Server-Stand, sonst könnte ein frischer a-Eintrag einen f-Marker überstimmen.
-function davIdxSync(announce, stats, cb, attempt) {
+function davIdxSync(announce, stats, cb, attempt, trail) {
   attempt = attempt || 0;
+  trail = trail || [];
+  var uncond = attempt > EBA_DAV_MAX_412 - 1; // wie bei den Reihen (siehe davSyncKey)
   var st = davIdxState();
   var local = davIdxMap();
   var gh = {};
   var dirty = davIdxText(local) !== st.text;
-  if (attempt === 0 && !dirty && st.etag) { gh["If-None-Match"] = st.etag; }
+  if (attempt === 0 && !dirty && st.etag) { gh["If-None-Match"] = davEtagNorm(st.etag); }
   stats.requests++;
-  davRequest("GET", davIndexUrl(), undefined, gh, function(g) {
+  davRequest("GET", davIndexUrl() + (attempt > 0 ? davBust() : ""), undefined, gh, function(g) {
     var remoteText, etag = g.etag;
     if (g.status === 304) { remoteText = st.text; etag = st.etag; }
     else if (g.status === 200) { remoteText = g.body.replace(/\r/g, ""); }
@@ -3678,15 +3698,22 @@ function davIdxSync(announce, stats, cb, attempt) {
       GM_setValue(davIdxStateKey(), JSON.stringify({ etag: etag, text: text }));
       return cb(null);
     }
-    var ph = (remoteText === null) ? { "If-None-Match": "*" } : (etag ? { "If-Match": etag } : {});
+    var ph = (remoteText === null) ? { "If-None-Match": "*" } : (etag && !uncond ? { "If-Match": etag } : {});
     stats.requests++;
     davRequest("PUT", davIndexUrl(), text, ph, function(p) {
       stats.status = p.status;
       if (p.ok) { GM_setValue(davIdxStateKey(), JSON.stringify({ etag: p.etag, text: text })); return cb(null); }
       if (p.status === 412) {
         stats.conflicts++;
-        if (attempt + 1 < EBA_DAV_MAX_412) { return davIdxSync(announce, stats, cb, attempt + 1); }
-        return cb({ kind: "other", msg: "Index-Datei lässt sich gerade nicht bedingt schreiben (412), neuer Versuch beim nächsten Lauf." });
+        trail.push(etag);
+        var same = true;
+        for (var t = 1; t < trail.length; t++) { if (davEtagCore(trail[t]) !== davEtagCore(trail[0])) { same = false; } }
+        // Der Index ist eine reine Vereinigung (Einträge kommen bei jedem Gerät wieder vor):
+        // bei dauerhaft abgelehntem, unverändertem ETag einmal ohne If-Match schreiben.
+        var stuck = same && trail.length >= EBA_DAV_MAX_412 && remoteText !== null && !!etag;
+        if (!uncond && (attempt + 1 < EBA_DAV_MAX_412 || stuck)) { return davIdxSync(announce, stats, cb, attempt + 1, trail); }
+        return cb({ kind: "other", msg: "Index-Datei lässt sich gerade nicht bedingt schreiben (412; gesendet If-Match " + (etag || "-")
+          + ", Server ETag " + (g.rawEtag || "-") + ", OC-ETag " + (g.rawOc || "-") + "), neuer Versuch beim nächsten Lauf." });
       }
       if ((p.status === 404 || p.status === 409) && remoteText === null) {
         return cb({ kind: "folder", msg: "Zielordner existiert nicht (HTTP " + p.status + "). Bitte im Webinterface anlegen: " + davConf().url });
@@ -3774,16 +3801,39 @@ function davInventory(manual, stats, cb) {
 // Eine Reihe abgleichen: GET -> prüfen -> verschmelzen -> ggf. bedingtes PUT.
 // stats sammelt die Zahlen für die Statuszeile, cb(fatal) meldet einen Fehler,
 // nach dem der Lauf abgebrochen werden soll (Anmeldung, Netz, Server).
-function davSyncKey(key, stats, cb, attempt) {
+// 412-Strategie (Precondition Failed bei If-Match):
+//  - Wiederholung = frischer, unbedingter GET (kein If-None-Match, Cache-Buster
+//    in der URL), dann neu verschmelzen. Nie einfach nochmal PUTen.
+//  - Liefert der Server bei allen Wiederholungen denselben ETag und lehnt ihn
+//    trotzdem ab, schreibt er nicht konkurrierend, sondern kaputt (ETag wird
+//    auf dem Weg verändert, Cache, Proxy). Dann folgt eine letzte Runde: noch
+//    ein frischer GET, der denselben Inhalt liefern muss, danach EIN PUT ohne
+//    If-Match. Risiko: schreibt in der Lücke zwischen diesem GET und dem PUT
+//    ein anderes Gerät, fehlt dessen Fassung kurz auf dem Server. Verloren geht
+//    nichts: dieses Gerät hat seine Daten lokal, holt die Datei beim nächsten
+//    Lauf wegen des geänderten ETags neu und lädt sie verschmolzen wieder hoch.
+//  - Echte Rennen (ETag ändert sich zwischen den Versuchen) werden nie
+//    unbedingt überschrieben.
+function davBust() { return "?eba=" + new Date().getTime() + Math.floor(Math.random() * 1000); }
+function davSyncKey(key, stats, cb, attempt, trail) {
   attempt = attempt || 0;
+  trail = trail || [];
+  var uncond = attempt > EBA_DAV_MAX_412 - 1; // letzte Runde: unbedingtes Schreiben (siehe oben)
   var st = davState(key);
   var dirty = davDirty(key);
   var gh = {};
+  // Auto-Läufe lassen eine Reihe, die gerade dauerhaft 412 liefert, eine Weile in Ruhe
+  var stuckAt = parseInt(GM_getValue("eba_dav_stuck_" + key, 0), 10) || 0;
+  if (attempt === 0 && !stats.manual && stuckAt && new Date().getTime() - stuckAt < EBA_DAV_STUCK_PAUSE) {
+    stats.skipped.push(key + ": pausiert nach 412");
+    return cb(null);
+  }
   // Unverändert auf beiden Seiten kostet genau ein 304. Ist lokal etwas dazu-
-  // gekommen, wird der Inhalt in jedem Fall gebraucht.
-  if (!dirty && st.etag) { gh["If-None-Match"] = st.etag; }
+  // gekommen, wird der Inhalt in jedem Fall gebraucht. Nach einem 412 gibt es
+  // das nie: ein 304 brächte keine neue Fassung und der alte ETag bliebe.
+  if (attempt === 0 && !dirty && st.etag) { gh["If-None-Match"] = davEtagNorm(st.etag); }
   stats.requests++;
-  davRequest("GET", davFileUrl(key), undefined, gh, function(g) {
+  davRequest("GET", davFileUrl(key) + (attempt > 0 ? davBust() : ""), undefined, gh, function(g) {
     stats.status = g.status;
     if (g.status === 304) { stats.unchanged++; return cb(null); }
     if (g.status !== 200 && g.status !== 404) { return cb(davFailure(g, key)); }
@@ -3813,10 +3863,13 @@ function davSyncKey(key, stats, cb, attempt) {
     // Liefert der Server keinen ETag, ist konkurrierendes Schreiben nicht
     // abzusichern; der Verbindungstest weist darauf hin.
     var ph = (remote === null) ? { "If-None-Match": "*" } : (g.etag ? { "If-Match": g.etag } : {});
+    var doPut = function() {
     stats.requests++;
     davRequest("PUT", davFileUrl(key), r.body, ph, function(p) {
       stats.status = p.status;
       if (p.ok) {
+        GM_setValue("eba_dav_stuck_" + key, 0);
+        if (uncond) { stats.uncond.push(key); }
         // ETag der neuen Fassung, falls der Server ihn mitliefert. Sonst holt
         // der nächste Lauf die Datei einmal vollständig.
         davSetState(key, p.etag, r.local.length);
@@ -3831,15 +3884,36 @@ function davSyncKey(key, stats, cb, attempt) {
         // Ein anderes Gerät war schneller: neu holen und neu verschmelzen,
         // niemals einfach erneut PUTen.
         stats.conflicts++;
-        if (attempt + 1 < EBA_DAV_MAX_412) { return davSyncKey(key, stats, cb, attempt + 1); }
-        return cb({ kind: "412", msg: "Datei " + key + ".tsv lässt sich dauerhaft nicht bedingt schreiben (412). "
-          + "Häufigste Ursache: ein Webserver, der den ETag verändert (Apache mod_deflate hängt \"-gzip\" an). "
-          + "Letzter ETag: " + (g.etag || "keiner") });
+        trail.push(g.etag);
+        var same = true;
+        for (var t = 1; t < trail.length; t++) { if (davEtagCore(trail[t]) !== davEtagCore(trail[0])) { same = false; } }
+        var stuck = same && trail.length >= EBA_DAV_MAX_412 && remote !== null && g.etag !== "";
+        if (!uncond && (attempt + 1 < EBA_DAV_MAX_412 || stuck)) { return davSyncKey(key, stats, cb, attempt + 1, trail); }
+        GM_setValue("eba_dav_stuck_" + key, new Date().getTime());
+        return cb({ kind: "412", msg: "Datei " + key + ".tsv lässt sich nicht bedingt schreiben (412) "
+          + (same && remote !== null ? "- der Server lehnt seinen eigenen ETag ab. " : "- andere Geräte schreiben gleichzeitig, neuer Versuch beim nächsten Lauf. ")
+          + "Gesendet: If-Match " + (ph["If-Match"] || ph["If-None-Match"] || "-") + "; Server lieferte ETag "
+          + (g.rawEtag || "-") + ", OC-ETag " + (g.rawOc || "-") + "; Versuche: " + (attempt + 1) + "." });
       }
       if ((p.status === 404 || p.status === 409) && remote === null) {
         return cb({ kind: "folder", msg: "Zielordner existiert nicht (HTTP " + p.status + "). Bitte im Webinterface anlegen: " + davConf().url });
       }
       return cb(davFailure(p, key));
+    });
+    };
+    if (!uncond) { return doPut(); }
+    // Letzte Runde: ohne If-Match, aber nur, wenn ein zweiter frischer GET
+    // dieselbe Fassung liefert, gegen die gerade verschmolzen wurde.
+    delete ph["If-Match"];
+    stats.requests++;
+    davRequest("GET", davFileUrl(key) + davBust(), undefined, {}, function(v) {
+      if (v.status !== 200 || v.body.replace(/\r/g, "") !== remote.replace(/\r/g, "")) {
+        GM_setValue("eba_dav_stuck_" + key, new Date().getTime());
+        stats.status = v.status;
+        return cb({ kind: "412", msg: "Datei " + key + ".tsv lässt sich nicht bedingt schreiben (412) und ändert sich zugleich "
+          + "laufend (oder wird zwischengespeichert); nichts überschrieben, neuer Versuch später." });
+      }
+      doPut();
     });
   });
 }
@@ -3889,6 +3963,10 @@ function davStatusText() {
   out.push("unverändert " + s.unchanged + " · gleich " + s.equal + " · geholt " + s.pulled + " · hochgeladen "
     + s.pushed + " · Konflikte " + s.conflicts + " · verworfene Zeilen " + s.dropped
     + " · PUTs ohne inhaltliche Änderung " + GM_getValue("eba_dav_nochange", 0));
+  if (s.uncond && s.uncond.length) {
+    out.push("Ohne ETag-Prüfung geschrieben (Server lehnte seinen eigenen ETag ab, Inhalt vorher doppelt geprüft): " + s.uncond.join(", "));
+  }
+  if (s.failed) { out.push(s.failed + " Reihe(n) nicht abgeglichen, die übrigen sind durchgelaufen (siehe Übersprungen)."); }
   if (s.big && s.big.length) { out.push("Größer als 1 MB: " + s.big.join(", ")); }
   if (s.skipped && s.skipped.length) { out.push("Übersprungen: " + s.skipped.join("; ")); }
   if (s.error) { out.push("Fehler: " + s.error); }
@@ -3902,7 +3980,7 @@ function davStatusText() {
 // Requests; ein schwerer Fehler bricht den Lauf ab. progress(stats) nach jeder Reihe.
 function davRun(keysArg, budgetArg, manual, done, progress, pre) {
   var stats = { keys: 0, requests: 0, status: 0, unchanged: 0, equal: 0, pulled: 0, pushed: 0,
-                conflicts: 0, dropped: 0, noChange: 0, skipped: [], big: [], error: "", left: 0, manual: !!manual, inv: "" };
+                conflicts: 0, failed: 0, dropped: 0, noChange: 0, skipped: [], big: [], uncond: [], error: "", left: 0, manual: !!manual, inv: "" };
   var i = 0, keys = [], budget = 0;
   var finish = function(fail) {
     if (fail) {
@@ -3932,8 +4010,9 @@ function davRun(keysArg, budgetArg, manual, done, progress, pre) {
     stats.keys++;
     davSyncKey(key, stats, function(fail) {
       if (progress) { try { progress(stats); } catch (err) {} }
-      if (fail && fail.kind !== "other") { return finish(fail); }
-      if (fail) { stats.skipped.push(fail.msg); }
+      // 412 und "other" betreffen nur diese Reihe: melden, mit den anderen weitermachen
+      if (fail && fail.kind !== "other" && fail.kind !== "412") { return finish(fail); }
+      if (fail) { stats.skipped.push(fail.msg); stats.failed++; }
       setTimeout(step, 300);
     });
   };
