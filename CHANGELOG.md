@@ -15,6 +15,26 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
 
 > **Hinweis vor dem Update:** Mehrere Versionen (31.1, 31.7, 31.9) wandeln gespeicherte Daten beim ersten Start automatisch um. Empfehlung: vorher in der openEBA-Konfiguration die Daten über *Exportieren* sichern.
 
+## 33.0 (Entwurf)
+
+> **Entwurf:** bitte vor der Freigabe finalisieren (Datum, Highlights, Hinweise). Die Einzelheiten stehen in den Einträgen 31.1 bis 32.8 darunter.
+
+### Neu
+- Vollständige Historien für Formicarien, Geld, Punkte, Ticklänge sowie Futter- und Ameisensuchen, mit Verlaufsgrafiken (Seite *openEBA-Verlauf*), Auswachszustand in Prozent, maximaler Punktzahl und Nestwarnung.
+- Abgleich der Historien per WebDAV/Nextcloud in beide Richtungen, mit Index-Dateien und Markierungen für vergessene Reihen.
+- Kolonienpflege: *Vergessen* für ehemalige Kolonien und *Kolonie umziehen* für neue Spiel-IDs.
+- Export und Import der Daten, Normal- und Speedserver getrennt.
+
+### Verbessert
+- Datum und Uhrzeit kommen aus der Serverzeit des Spiels (32.8).
+- Futterbestand wird zu Tickbeginn erfasst, nicht erst nach dem Füttern (32.6).
+- Skriptkopf: Beschreibung ergänzt, Forum auch unter `https` ausgenommen. Korrekturen an Optionsbeschreibungen (Tippfehler).
+
+### Behoben
+- Zahlreiche Korrekturen an Statistik, Suchhistorie und Datenabgleich (u.a. doppelte Zeilen je Tick, vermischte Suchen, WebDAV-Fehler 412).
+
+> **Hinweis vor dem Update:** Mehrere Versionen wandeln gespeicherte Daten beim ersten Start automatisch um. Vorher in der openEBA-Konfiguration über *Exportieren* sichern.
+
 ## 32.8
 
 ### Behoben
@@ -22,6 +42,7 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
 
 ## 32.7
 
+### Verbessert
 - Nur Dokumentation: Changelog um Version 32.6 ergänzt. Keine Funktionsänderung.
 
 ## 32.6
@@ -67,6 +88,7 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
 
 ## 32.0
 
+### Verbessert
 - Versionssprung ohne eigene Funktionsänderung. Der Funktionsumfang entspricht 31.11.
 
 ## 31.11
