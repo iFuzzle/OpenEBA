@@ -437,8 +437,44 @@ function formatStatTime(ms) {
   return p(d.getDate()) + "." + p(d.getMonth() + 1) + "." + d.getFullYear() + " " + p(d.getHours()) + ":" + p(d.getMinutes());
 }
 
-// Serveruhr: Offset zwischen #servertime (Footer) und PC-Uhr
+// Serveruhr. Rückgabe ist ein "Wanduhr-Epoch": die Epoch-ms, bei denen die LOKALE
+// Wanduhr des Browsers (getHours() usw.) der Server-Wanduhr entspricht. Alle
+// Zeitschlüssel, Ticks und Formatierungen bauen darauf auf.
+// Quellen in dieser Reihenfolge:
+// 1. Inline-Skript des Spiels (Variable currenttime, Format "Month DD, YYYY HH:MM:SS",
+//    Server-Ortszeit): liefert Datum UND Uhrzeit. Wird beim Skriptstart einmal aus dem
+//    Seitenquelltext gelesen (nicht über window, wegen Tampermonkey-Sandbox) und als fester
+//    Offset zur PC-Uhr gemerkt; er gilt auch nach AJAX-Neuaufbauten weiter.
+//    Das Element #servertime ist im Quelltext leer und wird erst in window.onload gefüllt.
+// 2. #servertime (nur Uhrzeit, ±12 h zur PC-Uhr; das Datum kommt von der PC-Uhr)
+// 3. PC-Uhr
+// Zeitzonen: Die Server-Wanduhr wird als lokale Wanduhr des Browsers aufgebaut (wie bisher
+// bei #servertime), die Werte sind also unabhängig von der PC-Zeitzone Server-Wanduhrzeit.
+// Randfälle: Liegt die Server-Wanduhrzeit in einer Sommerzeit-Lücke der PC-Zeitzone, rückt
+// der Browser sie um eine Stunde vor (wie schon bisher). Wechselt die PC-Zeitzone zwischen
+// Skriptstart und Aufruf die Sommerzeit, bleibt der Offset fest (Abweichung höchstens 1 h bis
+// zum nächsten Seitenladen).
+var EBA_MONTHS = ["january","february","march","april","may","june","july","august","september","october","november","december"];
+function readServerOffset() {
+  var scripts = document.getElementsByTagName("script");
+  var re = /\bcurrenttime\s*=\s*(['"])\s*([A-Za-z]+)\s+(\d{1,2})\s*,\s*(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})\s*\1/;
+  for (var i = 0; i < scripts.length; i++) {
+    var m = re.exec(scripts[i].text || scripts[i].textContent || "");
+    if (!m) { continue; }
+    var mon = EBA_MONTHS.indexOf(m[2].toLowerCase());
+    var y = parseInt(m[4], 10), day = parseInt(m[3], 10);
+    var h = parseInt(m[5], 10), mi = parseInt(m[6], 10), sec = parseInt(m[7], 10);
+    if (mon < 0 || day < 1 || day > 31 || h > 23 || mi > 59 || sec > 59) { continue; } // nicht eindeutig
+    var d = new Date(y, mon, day, h, mi, sec);
+    if (d.getMonth() !== mon || d.getDate() !== day) { continue; } // z.B. 31. Februar
+    return d.getTime() - Date.now();
+  }
+  return null;
+}
+var EBA_SERVER_OFFSET = readServerOffset();
+
 function getServerNow() {
+  if (EBA_SERVER_OFFSET !== null) { return Date.now() + EBA_SERVER_OFFSET; }
   var t = /(\d+):(\d+):(\d+)/.exec($("#servertime").text());
   var d = new Date();
   if (!t) { return d.getTime(); } // Fallback: PC-Uhr
