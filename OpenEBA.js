@@ -2572,8 +2572,8 @@ function resetStoredValues(onlyThisServer) {
 //
 // Wer eine Kolonie ins Lager räumt, verliert die Brut (Eier/Larven/Puppen = 0),
 // und beim Wiederaufstellen vergibt das Spiel eine neue ID. Arbeiterinnen und
-// Königinnen bleiben gleich. Die Historie der alten ID wird hier mit den
-// normalen Merge-Funktionen in die neue ID verschmolzen.
+// Königinnen bleiben gleich. Die Historie der kleineren (alten) ID wird hier mit den
+// normalen Merge-Funktionen in die größere (neue) ID verschmolzen; die kleinere ID wird vergessen.
 // ---------------------------------------------------------------------------
 function ebaColonyFmtTime(ms) {
   var d = new Date(ms), p = function(n) { return (n < 10 ? "0" : "") + n; };
@@ -2589,20 +2589,29 @@ function ebaColonyDescribe(id) {
   return s + ", " + rows.length + " Zeilen, letzter Stand " + ebaColonyFmtTime(last.t)
     + ": " + (last.queens == null ? "?" : last.queens) + " Kön., " + (last.ants == null ? "?" : last.ants) + " Arb.";
 }
-// Prüfung ohne Schreibzugriff.
+// Reihenfolge: Es wird immer die kleinere (ältere) ID vergessen und die größere (neuere) behalten,
+// gleich in welcher Reihenfolge die IDs eingegeben werden. Rückgabe {oldId, newId} oder null.
+function ebaColonyOrder(a, b) {
+  a = $.trim("" + a); b = $.trim("" + b);
+  if (!/^\d+$/.test(a) || !/^\d+$/.test(b) || a === b) { return null; }
+  return parseInt(a, 10) < parseInt(b, 10) ? { oldId: a, newId: b } : { oldId: b, newId: a };
+}
+// Prüfung ohne Schreibzugriff. Die Eingaben dürfen vertauscht sein: alt = kleinere ID, neu = größere ID.
 // Rückgabe {errors:[], warnings:[], infos:[], canMerge, needConfirm}
-function ebaColonyCheck(oldId, newId) {
+function ebaColonyCheck(idA, idB) {
   var res = { errors: [], warnings: [], infos: [], canMerge: false, needConfirm: false };
-  oldId = $.trim("" + oldId); newId = $.trim("" + newId);
-  if (!/^\d+$/.test(oldId) || !/^\d+$/.test(newId)) { res.errors.push("Bitte zwei numerische IDs angeben."); return res; }
-  if (oldId === newId) { res.errors.push("Alte und neue ID sind gleich."); return res; }
+  var ord = ebaColonyOrder(idA, idB);
+  if (!/^\d+$/.test($.trim("" + idA)) || !/^\d+$/.test($.trim("" + idB))) { res.errors.push("Bitte zwei numerische IDs angeben."); return res; }
+  if (!ord) { res.errors.push("Die beiden IDs sind gleich."); return res; }
+  var oldId = ord.oldId, newId = ord.newId;
+  res.infos.push("Behalten: " + newId + " (neu, größere ID). Vergessen: " + oldId + " (alt, kleinere ID).");
   var ro = ebaFormiRows(oldId), rn = ebaFormiRows(newId);
-  if (!ro.length) { res.errors.push("Zur alten ID " + oldId + " gibt es auf diesem Server keine Historie."); }
-  if (!rn.length) { res.errors.push("Zur neuen ID " + newId + " gibt es auf diesem Server keine Historie."); }
+  if (!ro.length) { res.errors.push("Zur kleineren ID " + oldId + " gibt es auf diesem Server keine Historie."); }
+  if (!rn.length) { res.errors.push("Zur größeren ID " + newId + " gibt es auf diesem Server keine Historie."); }
   if (res.errors.length) { return res; }
   var ko = ebaFormiKind(oldId), kn = ebaFormiKind(newId);
   if (ko !== kn) {
-    res.errors.push("Verschiedene Art: alte ID \"" + ko + "\", neue ID \"" + kn + "\". Das ist keine Umstellung derselben Kolonie, Zusammenführen nicht möglich.");
+    res.errors.push("Verschiedene Art: kleinere ID \"" + ko + "\", größere ID \"" + kn + "\". Das ist keine Umstellung derselben Kolonie, Zusammenführen nicht möglich.");
     return res;
   }
   var oldFirst = ro[0], oldLast = ro[0], newFirst = rn[0], newLast = rn[0];
@@ -2632,10 +2641,11 @@ function ebaColonyCheck(oldId, newId) {
   return res;
 }
 // Zusammenführen. Rückgabe Text fürs Ergebnisfeld. Wirft bei Prüffehlern.
-function ebaColonyMerge(oldId, newId, deleteOld, confirmed) {
-  oldId = $.trim("" + oldId); newId = $.trim("" + newId);
-  var chk = ebaColonyCheck(oldId, newId);
+// Die kleinere ID wird danach immer vergessen (wie der "Vergessen"-Knopf), die größere behalten.
+function ebaColonyMerge(idA, idB, confirmed) {
+  var chk = ebaColonyCheck(idA, idB);
   if (!chk.canMerge) { throw new Error(chk.errors.join(" ")); }
+  var ord = ebaColonyOrder(idA, idB), oldId = ord.oldId, newId = ord.newId;
   if (chk.needConfirm && !confirmed) { throw new Error("Warnungen müssen bestätigt werden (\"trotzdem zusammenführen\")."); }
   var sk = srvKey();
   var kOldF = "eba_statistic_" + sk + oldId, kNewF = "eba_statistic_" + sk + newId;
@@ -2655,24 +2665,19 @@ function ebaColonyMerge(oldId, newId, deleteOld, confirmed) {
   // Die neue Reihe muss beim nächsten WebDAV-Lauf hoch: die Länge im Merkzustand
   // ungültig machen (davDirty() vergleicht gegen die gespeicherte Länge).
   $.each(keys, function(i, k) { davSetState(k, davState(k).etag, -1); });
-  var delTxt = " Die alte ID wurde behalten.";
-  if (deleteOld) {
-    $.each([kOldF, kOldFood, davStateKey(kOldF), davStateKey(kOldFood)], function(i, k) { GM_deleteValue(k); });
-    davSetBad(kOldF, false); davSetBad(kOldFood, false);
-    davForget([kOldF, kOldFood]); // alte Reihe nicht mehr abgleichen (Datei auf dem Server bleibt)
-    delTxt = " Die alte ID " + oldId + " wurde lokal gelöscht.";
-  }
-  return "Zusammengeführt: " + oldId + " -> " + newId + ", " + ebaFormiRows(newId).length + " Zeilen unter der neuen ID." + foodTxt + delTxt
-    + " Die neue Reihe wird beim nächsten WebDAV-Abgleich hochgeladen. Die Datei der alten ID bleibt auf dem Server, wird aber "
-    + "von allen Geräten nicht mehr abgeglichen. Andere Geräte behalten ihre lokale alte Reihe, bis sie dort vergessen wird.";
+  ebaForgetFormi(oldId); // lokal löschen, WebDAV-Zustand und Lösch-Marker im Index wie beim Vergessen-Knopf
+  var delTxt = " Die kleinere ID " + oldId + " wurde vergessen.";
+  return "Zusammengeführt: " + oldId + " (vergessen) -> " + newId + " (behalten), " + ebaFormiRows(newId).length + " Zeilen unter der größeren ID." + foodTxt + delTxt
+    + " Die behaltene Reihe wird beim nächsten WebDAV-Abgleich hochgeladen. Die Datei der vergessenen ID bleibt auf dem Server, wird aber "
+    + "von allen Geräten nicht mehr abgeglichen. Andere Geräte behalten ihre lokale Reihe der kleineren ID, bis sie dort vergessen wird.";
 }
 function colonyConfigHTML() {
   var h = "<br><b>Kolonie umziehen / Historien zusammenf&uuml;hren</b>";
-  h += "<div style='font-size:0.9em'>Nach dem Einlagern und Wiederaufstellen einer Kolonie vergibt das Spiel eine neue ID. "
-     + "Hier wird die Historie der alten ID in die neue &uuml;bernommen.</div>";
-  h += "Alte ID <input type='text' id='eba_colony_old' size='8'> <select id='eba_colony_oldsel'></select><br>";
-  h += "Neue ID <input type='text' id='eba_colony_new' size='8'> <select id='eba_colony_newsel'></select><br>";
-  h += "<label><input type='checkbox' id='eba_colony_del' checked>alte ID nach dem Zusammenf&uuml;hren l&ouml;schen</label><br>";
+  h += "<div style='font-size:0.9em'>Nach dem Einlagern und Wiederaufstellen einer Kolonie vergibt das Spiel eine neue, h&ouml;here ID. "
+     + "Hier werden zwei Historien zusammengef&uuml;hrt: die <b>gr&ouml;&szlig;ere ID wird behalten</b>, "
+     + "die <b>kleinere ID wird danach vergessen</b> (wie mit dem Vergessen-Knopf). Die Reihenfolge der Eingabe ist egal.</div>";
+  h += "Kolonie A <input type='text' id='eba_colony_old' size='8'> <select id='eba_colony_oldsel'></select><br>";
+  h += "Kolonie B <input type='text' id='eba_colony_new' size='8'> <select id='eba_colony_newsel'></select><br>";
   h += "<div><button id='eba_colony_check' type='button'>Pr&uuml;fen</button> ";
   h += "<button id='eba_colony_go' type='button' disabled>Zusammenf&uuml;hren</button></div>";
   h += "<div id='eba_colony_confirmbox' style='display:none;color:#a00'><label><input type='checkbox' id='eba_colony_force'>trotzdem zusammenf&uuml;hren</label></div>";
@@ -2707,7 +2712,7 @@ function colonyConfigBind() {
   $("#eba_colony_go").on("click", function() {
     try {
       $("#eba_colony_out").text(ebaColonyMerge($("#eba_colony_old").val(), $("#eba_colony_new").val(),
-        $("#eba_colony_del").prop("checked"), $("#eba_colony_force").prop("checked")));
+        $("#eba_colony_force").prop("checked")));
       reset();
     } catch (err) {
       $("#eba_colony_out").text("Fehler: " + err.message);
