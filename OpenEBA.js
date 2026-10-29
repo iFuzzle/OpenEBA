@@ -8,7 +8,7 @@
 // @include        https://*.eatenbyants.de/*
 // @exclude        http://forum.eatenbyants.de/*
 // @exclude        https://forum.eatenbyants.de/*
-// @version        32.8
+// @version        32.9
 // @require        http://ajax.googleapis.com/ajax/libs/jquery/1/jquery.min.js
 // @grant          GM_getValue
 // @grant          GM_setValue
@@ -1615,7 +1615,7 @@ function mergeSeries(a, b, hasHeader, byContent) {
       // Jeder wartende Marker bekommt den Zeitschlüssel SEINER Folgezeile und
       // wird regulär einsortiert. Rang 0 hält ihn vor der Datenzeile.
       for (var p = 0; p < pending.length; p++) {
-        var mid = "H " + t + " " + pending[p];
+        var mid = "H\u0000" + t + "\u0000" + pending[p];
         if (seen[mid] === true) { continue; }
         seen[mid] = true;
         data.push([t, 0, pending[p]]);
@@ -1623,7 +1623,7 @@ function mergeSeries(a, b, hasHeader, byContent) {
       pending = [];
       // Präfix vor dem Schlüssel, damit kein Inhalt je einen Namen aus
       // Object.prototype (z.B. "constructor") treffen kann.
-      var id = (byContent ? "C " : "L ") + (byContent ? content : line);
+      var id = (byContent ? "C\u0000" : "L\u0000") + (byContent ? content : line);
       if (typeof seen[id] === "number") {
         // Das Minimum ist von der Reihenfolge unabhängig und damit kommutativ.
         if (byContent && t < data[seen[id]][0]) { data[seen[id]][0] = t; }
@@ -1634,7 +1634,7 @@ function mergeSeries(a, b, hasHeader, byContent) {
     }
     // Marker ohne Folgezeile gehören an das Ende der Reihe.
     for (var q = 0; q < pending.length; q++) {
-      var eid = "E " + pending[q];
+      var eid = "E\u0000" + pending[q];
       if (seen[eid] === true) { continue; }
       seen[eid] = true;
       data.push([Infinity, 0, pending[q]]);

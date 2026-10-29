@@ -35,6 +35,11 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
 
 > **Hinweis vor dem Update:** Mehrere Versionen wandeln gespeicherte Daten beim ersten Start automatisch um. Vorher in der openEBA-Konfiguration über *Exportieren* sichern.
 
+## 32.9
+
+### Verbessert
+- Vorbereitung auf 33: README neu gegliedert (Installation, Funktionsübersicht, Daten und Datenschutz), Tippfehler in Optionstexten korrigiert, Skriptbeschreibung ergänzt, Forum auch unter https ausgeschlossen. Keine Funktionsänderung.
+
 ## 32.8
 
 ### Behoben
