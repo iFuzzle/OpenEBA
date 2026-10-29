@@ -15,6 +15,16 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
 
 > **Hinweis vor dem Update:** Mehrere Versionen (31.1, 31.7, 31.9) wandeln gespeicherte Daten beim ersten Start automatisch um. Empfehlung: vorher in der openEBA-Konfiguration die Daten über *Exportieren* sichern.
 
+## 32.6
+
+### Neu
+- Diagramm *Punkte pro Tick* auf der Seite *openEBA-Verlauf* (zwischen *Punkte* und *Ticklänge*). Bei Lücken in den Daten wird der Durchschnitt über mehrere Ticks gezeigt, markiert mit einem Ring und dem Tooltip „Ø über N Ticks“.
+- Dieses Änderungsprotokoll (`CHANGELOG.md`).
+
+### Verbessert
+- Futter zu Tickbeginn: Der Futterbestand eines Ticks wird jetzt beim Öffnen der Detailseite bzw. unmittelbar vor dem Füttern (Button, AJAX, Hotkey z/p) erfasst, sofern für den Tick noch kein Wert vorliegt. Der erste Stand gewinnt. Vorher konnte nach dem Füttern der Zustand „nachher“ gespeichert werden. Die Erfassung aus der Übersicht bleibt als Ersatz.
+- Grenze: Wird auf einem Gerät ohne Skript gefüttert, kann weiterhin der Nachher-Zustand erfasst werden.
+
 ## 32.5
 
 ### Verbessert
