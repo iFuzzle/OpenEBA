@@ -65,7 +65,7 @@ const configItems = {
   "eba_enable_stat_beautify"                 : [statBeautify, "Statistik verbessern", "Einf&uuml;gen von 1.000er-Trennzeichen und Tooltips, die die Differenz zu den eigenen Punkten anzeigen. Das Avatar-Bild oben rechts bekommt als Tooltip die eigene Punkte-Entwicklung pro Stunde."],
   "eba_enable_process_jobs"                  : [processJobOffers, "Jobs/Forschungen mit Informationen anreichern", "Stundenlohn und Dauer (nach Abschluss der aktuellen Aktion) anzeigen."],
   "eba_enable_formi_statistic"               : [updateFormiStatistic, "Formicarien-Statistik", "Wird aktualisiert bei jedem Aufruf der Formicarien-&Uuml;bersicht. Aufzurufen dort mit dem Link <i>Statistik</i> bei jedem Formicarium. Optimiert zum Kopieren und Einf&uuml;gen in Excel und Co. Die Werte werden auch genutzt, um die Entwicklung von Eiern, Larven, Puppen, Ameisen und Punkten pro Stunde als jeweiligen Tooltip anzuzeigen."],
-  "eba_enable_food_snapshot"                 : [function(){}, "Futterbestand und Ausbruchschutz pro Tick festhalten", "Beim ersten Aufruf der Formicarien-&Uuml;bersicht nach einem Tick wird die Futtertabelle jedes Formicariums samt Ausbruchschutz (Typ und Prozent, z.B. <i>PTFE 97,4</i>) im Hintergrund aus der Detailansicht geholt und in der Formicarien-Statistik erg&auml;nzt. Funktioniert nur zusammen mit der Formicarien-Statistik."],
+  "eba_enable_food_snapshot"                 : [ebaFoodSnapshotDetail, "Futterbestand und Ausbruchschutz pro Tick festhalten", "Beim ersten Aufruf der Formicarien-&Uuml;bersicht nach einem Tick wird die Futtertabelle jedes Formicariums samt Ausbruchschutz (Typ und Prozent, z.B. <i>PTFE 97,4</i>) im Hintergrund aus der Detailansicht geholt und in der Formicarien-Statistik erg&auml;nzt. Wird die Detailansicht des Formicariums vorher aufgerufen, wird der Bestand direkt beim Laden bzw. unmittelbar vor dem F&uuml;ttern erfasst (Zustand vor dem F&uuml;ttern). Funktioniert nur zusammen mit der Formicarien-Statistik."],
   "eba_enable_mark_shop_messages"            : [enableMarkShopMessages, "Option zum Markieren von Kleinanzeigen-Nachrichten einblenden"],
   "eba_enable_sum_multiple_messages"         : [sumMultipleMessages, "Gleichartige Nachrichten zusammenfassen", "Nachrichten desselben Benutzers mit demselben Betreff werden zusamengefasst. Der Haken zum L&ouml;schen bezieht sich auf alle zusammengefassten Nachrichten!"],
   "eba_enable_message_filter"                : [enableMessageFilter, "Nachrichten nach Absendern filtern", "Pflege der Suchbegriffe in der Liste unten. In den Nachrichten wird der Absender gepr&uuml;ft, ob er einen der Suchbegriffe enth&auml;llt. Falls ja, wird die Zeile ausgeblendet.<br>Z.B. blendet der Eintrag <i>Pepper</i> alle Nachrichten von Pepper aus, aber auch die Nachrichten eines Spielers namens \"Pepperoni\"."],
@@ -609,6 +609,58 @@ function ebaParseEscape(html) {
   return $.trim((t ? t[1] + " " : "") + val.toString().replace(".", ","));
 }
 
+// Zeile der Futter-Historie aus dem Futter-Block (div[data-formi='food']) und dem
+// HTML der Seite (für den Ausbruchschutz). Format unverändert: tickMin\t\tFutter\tAusbruch
+function ebaFoodLine(tickMin, box, html) {
+  var entries = [];
+  box.find("table.liste tr").slice(1).each(function() {
+    var td = $(this).children("td");
+    var name = $.trim(td.eq(0).text());
+    if (!name) { return; }
+    var gram = $.trim(td.eq(1).text()).replace(".", ",");
+    var cond = $.trim(td.eq(3).text());
+    entries.push(name + " " + gram + "g " + cond);
+  });
+  return tickMin + "\t\t" + (entries.length ? entries.join(" | ") : "leer") + "\t" + ebaParseEscape(html);
+}
+
+// Snapshot direkt aus der geöffneten Detailseite (ameisenzimmer.php?cat=9&id=...).
+// Läuft beim Laden der Seite und vor jedem Füttern (Button, AJAX, Hotkey z/p), also
+// bevor das Futter verändert wird. Nur nach Tickende und genau einmal je Tick:
+// ist schon eine Zeile für den Tick da, passiert nichts (erster Stand gewinnt).
+function ebaCaptureFoodFromPage() {
+  try {
+    if (!GM_getValue("eba_enable_food_snapshot", false)) { return; }
+    if (!/\/ameisenzimmer\.php/.test(location.pathname)) { return; }
+    var box = $("div[data-formi='food']").first();
+    if (!box.length) { return; }
+    var m = /[?&]id=(\d+)/.exec(location.search);
+    var id = m ? m[1] : box.find("input[name='id']").first().val();
+    if (!id) { return; }
+    var tk = getTickInfo();
+    if (!tk.done) { return; }
+    var tickMin = tk.nowTick / 60000;
+    if (hasFoodSnapshot(id, tickMin)) { return; }
+    var key = "eba_food_" + srvKey() + id;
+    GM_setValue(key, mergeFoodHistory(GM_getValue(key, ""), ebaFoodLine(tickMin, box, document.documentElement.outerHTML)));
+  } catch (err) {}
+}
+function ebaFoodSnapshotDetail() {
+  ebaCaptureFoodFromPage();
+  // Capture-Phase: läuft vor den Handlern des Spiels (auch vor dem AJAX-Absenden)
+  var guard = function(e) {
+    var f = e.target && e.target.closest ? e.target.closest("form") : null;
+    if (!f) { return; }
+    if (e.type === "click" && !(e.target.type === "submit" || e.target.type === "image")) { return; }
+    var act = $(f).find("input[name='action']").val();
+    if (act === "addfood" || act === "newescapeprotection" || $(f).find("select[name='foodid']").length) {
+      ebaCaptureFoodFromPage();
+    }
+  };
+  document.addEventListener("click", guard, true);
+  document.addEventListener("submit", guard, true);
+}
+
 // Futter-Snapshots im Hintergrund holen (sequentiell, um den Server zu schonen)
 function queueFoodSnapshot(id, url, tickMin) {
   var k = srvKey() + id + "_" + tickMin;
@@ -633,17 +685,8 @@ function runFoodQueue() {
         var box = $(doc).find("div[data-formi='food']");
         if (!box.length) { fail(); return; } // z.B. ausgeloggt
         if (!hasFoodSnapshot(job.id, job.tickMin)) {
-          var entries = [];
-          box.find("table.liste tr").slice(1).each(function() {
-            var td = $(this).children("td");
-            var name = $.trim(td.eq(0).text());
-            if (!name) { return; }
-            var gram = $.trim(td.eq(1).text()).replace(".", ",");
-            var cond = $.trim(td.eq(3).text());
-            entries.push(name + " " + gram + "g " + cond);
-          });
           var key = "eba_food_" + srvKey() + job.id;
-          var line = job.tickMin + "\t\t" + (entries.length ? entries.join(" | ") : "leer") + "\t" + ebaParseEscape(response.responseText);
+          var line = ebaFoodLine(job.tickMin, box, response.responseText);
           GM_setValue(key, mergeFoodHistory(GM_getValue(key, ""), line));
         }
         next();
@@ -2005,8 +2048,10 @@ function enableKeyNavi() {
     } else if (e.which==118 || e.which==113) { //prev
       link = $("a:contains('voriges')").attr('href');
     } else if (e.which==122) { //feed sugar
+      ebaCaptureFoodFromPage();
       $("select[name='foodid']").eq(0).parent().submit();
     } else if (e.which==112) { //feed protein
+      ebaCaptureFoodFromPage();
       $("select[name='foodid']").eq(1).parent().submit();
     }
     if (link!=null) window.location.href = link;
