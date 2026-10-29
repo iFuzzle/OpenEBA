@@ -15,6 +15,10 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
 
 > **Hinweis vor dem Update:** Mehrere Versionen (31.1, 31.7, 31.9) wandeln gespeicherte Daten beim ersten Start automatisch um. Empfehlung: vorher in der openEBA-Konfiguration die Daten über *Exportieren* sichern.
 
+## 32.7
+
+- Nur Dokumentation: Changelog um Version 32.6 ergänzt. Keine Funktionsänderung.
+
 ## 32.6
 
 ### Neu
