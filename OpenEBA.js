@@ -1794,6 +1794,28 @@ function ebaGlobalSeries(metric) {
   return out;
 }
 
+// Punkte pro Tick, abgeleitet aus der globalen Punkte-Reihe.
+// Je Messpunkt: (Punkte - vorherige Punkte) / Ticks seit der vorherigen Messung.
+// Mehrere Werte im selben Tick: der jeweils letzte zählt. Rückgabe: [[tMs, wert, ticks], ...];
+// ticks > 1 bedeutet Lücke, der Wert ist dann ein Durchschnitt.
+function ebaPointsPerTickSeries() {
+  var tickMs = getTickMinutes() * 60000;
+  var keys = [], byTick = {};
+  $.each(ebaGlobalSeries("points"), function(i, p) {
+    var k = Math.floor(p[0] / tickMs);
+    if (byTick[k] === undefined) { keys.push(k); }
+    byTick[k] = p; // später gespeicherter Wert im selben Tick überschreibt
+  });
+  keys.sort(function(a, b) { return a - b; });
+  var out = [];
+  for (var i = 1; i < keys.length; i++) {
+    var n = keys[i] - keys[i - 1];
+    var cur = byTick[keys[i]], prev = byTick[keys[i - 1]];
+    out.push([cur[0], (cur[1] - prev[1]) / n, n]);
+  }
+  return out;
+}
+
 // IDs aller Formicarien mit Historie auf dem aktuellen Server
 function ebaFormiIds() {
   var pre = "eba_statistic_" + srvKey();
@@ -4294,7 +4316,8 @@ function ebaNiceScale(min, max, n) {
 //   opts:      width, height, color, fmt(wert)->Text, compact (ohne Achsen),
 //              tooltip (bool), unit, extra: [{points, color, name}] weitere Linien,
 //              yMin/yMax (feste Achsengrenzen), multiTip (Tooltip zeigt alle Linien
-//              zum Zeitpunkt; exactTip: nur exakt gleicher Zeitpunkt, sonst Strich), tipText(punkt)->Text (Zusatz im Tooltip)
+//              zum Zeitpunkt; exactTip: nur exakt gleicher Zeitpunkt, sonst Strich), tipText(punkt)->Text (Zusatz im Tooltip),
+//              markFn(punkt)->bool (Punkt als Ring markieren)
 // Rückgabe: {min, max, last, first, count, from, to} oder null bei <2 Punkten.
 function ebaDrawLineChart(container, points, opts) {
   opts = opts || {};
@@ -4343,6 +4366,14 @@ function ebaDrawLineChart(container, points, opts) {
     $.each(l.points, function(i, p) { d += (i ? "L" : "M") + X(p[0]).toFixed(1) + " " + Y(p[1]).toFixed(1); });
     svg += '<path d="' + d + '" fill="none" stroke="' + l.color + '" stroke-width="' + (compact ? 1.5 : 2) + '" stroke-linejoin="round"/>';
   });
+  if (opts.markFn) {
+    $.each(points, function(i, p) {
+      if (opts.markFn(p)) {
+        svg += '<circle cx="' + X(p[0]).toFixed(1) + '" cy="' + Y(p[1]).toFixed(1) + '" r="3" fill="#0f2a17" stroke="'
+          + (opts.color || "#3CAC56") + '" stroke-width="1.5"/>';
+      }
+    });
+  }
   svg += '<circle class="eba_chart_marker" r="4" cx="-10" cy="-10" fill="#fff" stroke="#3CAC56" stroke-width="2"/>';
   svg += '</svg>';
   var wrap = $('<div class="eba_chart_wrap" style="position:relative;display:inline-block;max-width:100%"></div>');
@@ -4592,6 +4623,10 @@ function renderHistoryPage(rangeKey) {
   };
   add(page, "Geld (&euro;)", ebaGlobalSeries("money"), "money");
   add(page, "Punkte", ebaGlobalSeries("points"), "points");
+  add(page, "Punkte pro Tick", ebaPointsPerTickSeries(), "points", null, { color: "#E8963C",
+    fmt: function(v) { return ebaFmtNum(v, 1); },
+    chart: { markFn: function(p) { return p[2] > 1; },
+             tipText: function(p) { return p[2] > 1 ? "\u00D8 \u00FCber " + p[2] + " Ticks:" : ""; } } });
   add(page, "Tickl&auml;nge (Sekunden)", ebaGlobalSeries("tickdur"), "tickdur");
   var ids = ebaFormiIds();
   ids.sort(function(a, b) { return parseInt(a, 10) - parseInt(b, 10); });
