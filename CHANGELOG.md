@@ -15,6 +15,12 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
 
 > **Hinweis vor dem Update:** Mehrere Versionen (31.1, 31.7, 31.9) wandeln gespeicherte Daten beim ersten Start automatisch um. Empfehlung: vorher in der openEBA-Konfiguration die Daten über *Exportieren* sichern.
 
+## 33.9
+
+### Verbessert
+- Endzeit beim Suchen: wird immer ab dem Seitenaufruf gerechnet, nicht mehr ab dem Ende einer laufenden Aktion. Im Spiel läuft ohnehin nur eine Aktion gleichzeitig.
+- Ausbruchschutz in der Übersicht: sichtbar nur noch der Wert, z. B. `97,4 %`. Die Art steht im Tooltip. Läuft für die Kolonie noch ein Abruf, steht ein ⏳ hinter dem Wert statt des Textes „wird aktualisiert …“.
+
 ## 33.8
 
 ### Verbessert
