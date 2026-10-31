@@ -77,6 +77,7 @@ Die Konfiguration steht auf der Statistik-Seite des Spiels unter *openEBA*. Die 
 
 - Alle Daten liegen lokal im Speicher von Tampermonkey. Ohne WebDAV-Abgleich verlassen sie den Browser nicht.
 - Normalserver und Speedserver sind vollständig getrennt (Historien, Preise, Auswahlen).
+- Zeiten richten sich nach der Uhr des Spielservers (deutsche Zeit), nicht nach Uhr oder Zeitzone des PCs. Alle Zeitangaben erscheinen in deutscher Zeit, auch wenn der PC z.B. im Urlaub auf eine andere Zeitzone gestellt ist; Daten verschiedener Geräte passen so zusammen.
 - *Exportieren* / *Importieren* sichert und überträgt die Daten (optional nur für den aktuellen Server). Die WebDAV-Zugangsdaten sind nicht enthalten.
 - *Nur die Daten dieses Servers löschen* und *Alle gespeicherten Daten löschen* setzen zurück, jeweils mit Rückfrage.
 
