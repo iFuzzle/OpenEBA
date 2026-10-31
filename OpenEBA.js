@@ -5068,7 +5068,7 @@ function renderHistoryPage(rangeKey) {
     target.append(box);
     var ex = [];
     $.each(extra || [], function(i, e) { ex.push({ points: ebaSeriesSince(e.points, since), color: e.color, name: e.name }); });
-    var fmt = o.fmt || ebaMetricFmt(metric), unit = ebaMetricUnit(metric);
+    var fmt = o.fmt || ebaMetricFmt(metric), unit = o.unit != null ? o.unit : ebaMetricUnit(metric);
     if (o.emptyHint && !series.length) {
       holder.text(o.emptyHint);
       return;
@@ -5077,7 +5077,7 @@ function renderHistoryPage(rangeKey) {
       color: o.color || "#3CAC56", fmt: fmt, unit: unit, tooltip: true, extra: ex }, o.chart || {}));
     if (!info) {
       holder.text("Im gewählten Zeitraum noch keine (ausreichenden) Daten.");
-    } else {
+    } else if (!o.noStats) {
       var u = unit ? " " + unit : "";
       box.append("<div style='font-size:0.9em'>Min " + fmt(info.min) + u + " &middot; Max " + fmt(info.max) + u
         + " &middot; Aktuell " + fmt(info.last) + u + " (" + info.count + " Messwerte)</div>");
@@ -5090,6 +5090,10 @@ function renderHistoryPage(rangeKey) {
     chart: { markFn: function(p) { return p[2] > 1; },
              tipText: function(p) { return p[2] > 1 ? "\u00D8 \u00FCber " + p[2] + " Ticks:" : ""; } } });
   add(page, "Tickl&auml;nge (Sekunden)", ebaGlobalSeries("tickdur"), "tickdur");
+  var open = ebaHistOpenLoad();
+  var hs = "style='cursor:pointer;background:#14391f;color:#e6f5ea;border:1px solid #3CAC56;border-radius:3px;"
+    + "padding:4px 8px;margin:4px 0;user-select:none'";
+  ebaHistStockSection(page, add, since, open, hs);
   var ids = ebaFormiIds();
   ids.sort(function(a, b) { return parseInt(a, 10) - parseInt(b, 10); });
   if (!ids.length) {
@@ -5097,9 +5101,6 @@ function renderHistoryPage(rangeKey) {
     return;
   }
   // Formicarien: je Gruppe eingeklappt, Diagramme werden erst beim Aufklappen gezeichnet
-  var open = ebaHistOpenLoad();
-  var hs = "style='cursor:pointer;background:#14391f;color:#e6f5ea;border:1px solid #3CAC56;border-radius:3px;"
-    + "padding:4px 8px;margin:4px 0;user-select:none'";
   var act = ebaFormiActiveIds();
   var activeList = [], formerList = [];
   $.each(ids, function(i, id) { ((act && $.inArray(id, act) < 0) ? formerList : activeList).push(id); });
@@ -5204,6 +5205,146 @@ function renderHistoryPage(rangeKey) {
     var o = $(this).attr("data-open") === "1";
     activeBox.find(".eba_formi_group").each(function() { setGroup($(this), o); });
   });
+}
+
+// Futtergruppen der Lager-Grafiken. Zuordnung nach Name; alles, was in keiner
+// Liste steht, zählt zum Protein (rest:true). Neue Sorten hier eintragen.
+function ebaStockFoodGroups() {
+  return [
+    { key: "sugar", name: "Zucker", color: "#F2D14B", items: ["gemixtes Zuckerwasser", "Zuckerwasser", "Honig"] },
+    { key: "protein", name: "Protein", color: "#E8963C", rest: true },
+    { key: "grain", name: "Körner", color: "#C77DFF", items: ["Löwenzahnsamen", "Grassamen"] },
+    { key: "leaf", name: "Blätter", color: "#3CAC56", items: ["Brombeerblätter"] }
+  ];
+}
+// Gruppenschlüssel zu einem Futternamen
+function ebaStockFoodGroupOf(name) {
+  var gs = ebaStockFoodGroups(), rest = null;
+  for (var i = 0; i < gs.length; i++) {
+    if (gs[i].rest) { rest = gs[i].key; }
+    else if ($.inArray(name, gs[i].items) >= 0) { return gs[i].key; }
+  }
+  return rest;
+}
+// Summe je Gruppe für eine Zeile aus ebaStockSeries("food"): {Gruppenschlüssel: Gramm}
+function ebaStockGroupSums(row) {
+  var sums = {};
+  $.each(ebaStockFoodGroups(), function(i, g) { sums[g.key] = 0; });
+  $.each(row.values, function(n, v) { sums[ebaStockFoodGroupOf(n)] += v; });
+  return sums;
+}
+// Einheit für Gramm-Diagramme: ab 5 kg im Maximum in kg, sonst Gramm.
+function ebaStockUnit(maxGram) {
+  if (maxGram >= 5000) { return { div: 1000, unit: "kg", fmt: function(v) { return ebaFmtNum(v, 1); } }; }
+  return { div: 1, unit: "g", fmt: function(v) { return ebaFmtNum(v, 0); } };
+}
+// Alle Namen einer Lagerreihe, alphabetisch
+function ebaStockNames(rows) {
+  var seen = {}, out = [];
+  $.each(rows, function(i, r) { $.each(r.values, function(n) { if (!seen[n]) { seen[n] = 1; out.push(n); } }); });
+  return out.sort();
+}
+
+// Bereich "Lager" der Verlaufsseite: Futter nach Art, Einzelsorten je Gruppe, Zubehör.
+// add = Zeichenfunktion aus renderHistoryPage, since = Zeitraum-Beginn (ms),
+// open = Auf/Zu-Zustand der Sitzung, hs = Stil der Kopfzeilen.
+function ebaHistStockSection(page, add, since, open, hs) {
+  var food = ebaStockSeries("food"), acc = ebaStockSeries("acc");
+  var sec = $("<div class='eba_lager' data-open='0' style='margin:12px 0'></div>");
+  page.append(sec);
+  if (!food.length && !acc.length) {
+    sec.append("<b>Lager</b><p>Noch keine Lagerdaten &ndash; Option &bdquo;Lagerbestand je Tick festhalten&ldquo; "
+      + "aktivieren und einmal die Lagerseite &ouml;ffnen.</p>");
+    return;
+  }
+  var groups = ebaStockFoodGroups();
+  var esc = function(t) { return $("<div>").text(t).html(); };
+  var sum = [];
+  if (food.length) {
+    var ls = ebaStockGroupSums(food[food.length - 1]);
+    $.each(groups, function(i, g) { sum.push(g.name + " " + ebaFmtNum(ls[g.key] / 1000, 1) + " kg"); });
+  }
+  var palette = ["#3CAC56", "#E8963C", "#5BC0EB", "#F2D14B", "#C77DFF", "#FF6B6B", "#4FC3F7", "#A5D6A7", "#FFB74D", "#BA68C8", "#90A4AE", "#F06292"];
+  // Mehrlinien-Diagramm der Werte einer Namensliste (nur Namen mit Bestand > 0 im Zeitraum)
+  var multi = function(target, title, rows, names, gram) {
+    var inR = $.grep(rows, function(r) { return r.t >= since; });
+    var list = [];
+    $.each(names, function(i, n) {
+      var mx = 0;
+      $.each(inR, function(j, r) { if ((r.values[n] || 0) > mx) { mx = r.values[n]; } });
+      if (mx > 0) { list.push({ name: n, max: mx }); }
+    });
+    list.sort(function(a, b) { return b.max - a.max; });
+    if (!list.length) { target.append("<p style='font-size:0.9em'>Im gew&auml;hlten Zeitraum kein Bestand.</p>"); return; }
+    var u = gram ? ebaStockUnit(list[0].max) : { div: 1, unit: "", fmt: function(v) { return ebaFmtNum(v, 0); } };
+    var lines = $.map(list, function(l, i) {
+      return { name: l.name, color: palette[i % palette.length], points: $.map(rows, function(r) { return [[r.t, (r.values[l.name] || 0) / u.div]]; }) };
+    });
+    var legend = $.map(lines, function(l) { return [[esc(l.name), l.color]]; });
+    add(target, title + (u.unit ? " (" + u.unit + ")" : ""), lines[0].points, "", lines.slice(1),
+      { color: lines[0].color, fmt: u.fmt, unit: u.unit, legend: legend, noStats: true, chart: { multiTip: true, name: lines[0].name } });
+  };
+  var drawSub = function(sub) {
+    var key = sub.attr("data-key"), body = sub.find(".eba_lager_sub_body");
+    body.empty();
+    if (key === "acc") { multi(body, "Zubeh&ouml;r (St&uuml;ck)", acc, ebaStockNames(acc), false); return; }
+    var names = [];
+    $.each(food, function(i, r) { $.each(r.values, function(n) { if (ebaStockFoodGroupOf(n) === key && $.inArray(n, names) < 0) { names.push(n); } }); });
+    var g = $.grep(groups, function(x) { return x.key === key; })[0];
+    multi(body, g.name + " nach Sorte", food, names, true);
+  };
+  var setSub = function(sub, isOpen) {
+    var key = sub.attr("data-key");
+    sub.find(".eba_lager_sub_arrow").text(isOpen ? "▾" : "▸");
+    sub.find(".eba_lager_sub_body").toggle(isOpen);
+    sub.attr("data-open", isOpen ? "1" : "0");
+    if (isOpen) { drawSub(sub); open["lager_" + key] = 1; } else { sub.find(".eba_lager_sub_body").empty(); delete open["lager_" + key]; }
+    ebaHistOpenSave(open);
+  };
+  var addSub = function(body, key, title) {
+    var sub = $("<div class='eba_lager_sub' data-key='" + key + "' data-open='0'></div>");
+    sub.append("<div class='eba_lager_sub_head' " + hs + "><span class='eba_lager_sub_arrow'>▸</span> <b>" + title + "</b></div>");
+    sub.append("<div class='eba_lager_sub_body' style='display:none;padding-left:8px'></div>");
+    body.append(sub);
+    if (open["lager_" + key]) { setSub(sub, true); }
+  };
+  var drawMain = function() {
+    var body = sec.find(".eba_lager_body").empty();
+    if (food.length) {
+      var rows = $.grep(food, function(r) { return r.t >= since; });
+      var mx = 0, per = {};
+      $.each(groups, function(i, g) { per[g.key] = []; });
+      $.each(rows, function(i, r) {
+        var sm = ebaStockGroupSums(r);
+        $.each(groups, function(j, g) { per[g.key].push([r.t, sm[g.key]]); if (sm[g.key] > mx) { mx = sm[g.key]; } });
+      });
+      var u = ebaStockUnit(mx);
+      var sc = function(pts) { return $.map(pts, function(p) { return [[p[0], p[1] / u.div]]; }); };
+      add(body, "Futtervorrat nach Art (" + u.unit + ")", sc(per[groups[0].key]), "", $.map(groups.slice(1), function(g) {
+        return { points: sc(per[g.key]), color: g.color, name: g.name };
+      }), { color: groups[0].color, fmt: u.fmt, unit: u.unit, noStats: true,
+            legend: $.map(groups, function(g) { return [[g.name, g.color]]; }),
+            chart: { multiTip: true, name: groups[0].name } });
+      $.each(groups, function(i, g) { addSub(body, g.key, g.name + " nach Sorte"); });
+    }
+    if (acc.length) { addSub(body, "acc", "Zubeh&ouml;r"); }
+  };
+  sec.append("<div class='eba_lager_head' " + hs + "><span class='eba_lager_arrow'>▸</span> <b>Lager</b>"
+    + (sum.length ? " <span style='color:#a8d5b3;font-size:0.9em'>&ndash; " + sum.join(" &middot; ") + "</span>" : "") + "</div>");
+  sec.append("<div class='eba_lager_body' style='display:none;padding-left:8px'></div>");
+  var setMain = function(isOpen) {
+    sec.attr("data-open", isOpen ? "1" : "0");
+    sec.find(".eba_lager_arrow").text(isOpen ? "▾" : "▸");
+    sec.find(".eba_lager_body").toggle(isOpen);
+    if (isOpen) { drawMain(); open.lager = 1; } else { sec.find(".eba_lager_body").empty(); delete open.lager; }
+    ebaHistOpenSave(open);
+  };
+  sec.on("click", ".eba_lager_head", function() { setMain(sec.attr("data-open") !== "1"); });
+  sec.on("click", ".eba_lager_sub_head", function() {
+    var sub = $(this).closest(".eba_lager_sub");
+    setSub(sub, sub.attr("data-open") !== "1");
+  });
+  if (open.lager) { setMain(true); }
 }
 
 // Auf/Zu-Zustand der Formi-Gruppen nur für die Sitzung (sessionStorage), nicht dauerhaft
