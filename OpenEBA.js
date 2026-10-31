@@ -86,7 +86,8 @@ const configItems = {
   "eba_enable_webdav_sync"                   : [enableWebdavSync, "Historien per WebDAV/Nextcloud zwischen Ger&auml;ten abgleichen", "Jede Zeitreihe (Formicarien, Futter, Geld, Punkte, Tickl&auml;nge, Suchen) liegt als eigene Datei in einem WebDAV-Ordner und wird mit den lokalen Daten verschmolzen, h&ouml;chstens einmal pro Tick und nur f&uuml;r den aktuellen Server. Lokal geht dabei nie etwas verloren. Einrichtung unten unter <i>Abgleich der Historien per WebDAV</i>; der automatische Abgleich startet erst nach einem erfolgreichen <i>Verbindung testen</i> auf diesem Ger&auml;t. Tampermonkey fragt dabei einmal, ob das Skript den Host erreichen darf. Ein Skriptmanager, der stattdessen hart blockt, braucht im Skriptkopf eine Zeile <i>// @connect &lt;host&gt;</i>. Optionen, Filter und Notizen werden nie abgeglichen. Vertr&auml;gt sich nicht mit der Kompaktierung."],
   "eba_enable_search_history_view"          : [showSearchHistory, "Alle gespeicherten Ergebnisse unter draussen.php?cat=3 anzeigen", "Zeigt unter jeder der beiden Ergebnistabellen des Spiels (Ameisensuche, Futtertiersuche; nur die letzten 10) eine einklappbare Tabelle mit den &auml;lteren gespeicherten Ergebnissen, neueste oben, samt kurzen Summen. Die Erfassung wird auf dieser Seite selbst angesto&szlig;en (Option <i>Futter- und Ameisensuchen vollst&auml;ndig historisieren</i> ist nicht n&ouml;tig, aber die Historie w&auml;chst nur, wenn die Seite aufgerufen wird). Wird keine Tabelle erkannt, erscheint ein kleiner Hinweis."],
   "eba_enable_growth_percent"                : [showGrowthPercent, "Auswachszustand der Kolonien in Prozent anzeigen", "Hinter den Punkten (bei aktivierter maximaler Punktzahl dahinter) steht in Klammern der Auswachszustand, z.B. <i>4998 / 5000 +37 (99,9 %)</i> (ohne maximale Punktzahl <i>4998 +37 (99,9 %)</i>; der Zuwachs im letzten Tick kommt aus der Formicarien-Statistik) in Formicarien-&Uuml;bersicht und Einzelansicht: Arbeiterinnen geteilt durch die maximalen Arbeiterinnen der Art (bei polygynen Arten mit dem Zuwachs je K&ouml;nigin laut Polygynierechner wie bei der maximalen Punktzahl, bei unbekanntem Zuwachs ein <i>?</i>). Die Prozentzahl wird abgeschnitten, nicht gerundet. Die Farbe zeigt die Wachstumsphase: unter 24 % Anlaufphase (blau), 24&ndash;94 % Hauptwachstumsphase (gr&uuml;n), ab 94 % Endphase (gelb), 100 % ausgewachsen (hell, fett). Ist das Nest zu mehr als 75 % belegt, erscheint ein oranges <i>&#9888;</i>, denn das bremst das Wachstum (in der Einzelansicht mit der Belegung des Spiels, in der &Uuml;bersicht nur, wenn schon die Arbeiterinnen allein dar&uuml;ber liegen). Der Tooltip zeigt Phase, ob Nest oder Formicarium zuerst voll ist (z.B. <i>Nest voll bei ca. 5.000 Arbeiterinnen</i>) und die Belegung. Der Platzbedarf der Brut ist nicht eingerechnet."],
-  "eba_enable_history_charts"                : [enableHistoryCharts, "Verlaufsgrafiken f&uuml;r Geld, Punkte und Formicarien", "Beim &Uuml;berfahren von <i>Geld</i> und <i>Punkte</i> in der Kopfzeile erscheint eine kleine Kurve aus den gespeicherten Werten. Ein Klick darauf &ouml;ffnet unter <i>Statistik</i> die Seite <i>openEBA-Verlauf</i> mit gro&szlig;en Diagrammen (Geld, Punkte, Tickl&auml;nge, je Formicarium Arbeiterinnen, Punkte, Brut und Hunger). Die Kurven brauchen die Optionen <i>Geld, Punkte und Tickl&auml;nge historisieren</i> bzw. <i>Formicarien-Statistik</i>."]
+  "eba_enable_history_charts"                : [enableHistoryCharts, "Verlaufsgrafiken f&uuml;r Geld, Punkte und Formicarien", "Beim &Uuml;berfahren von <i>Geld</i> und <i>Punkte</i> in der Kopfzeile erscheint eine kleine Kurve aus den gespeicherten Werten. Ein Klick darauf &ouml;ffnet unter <i>Statistik</i> die Seite <i>openEBA-Verlauf</i> mit gro&szlig;en Diagrammen (Geld, Punkte, Tickl&auml;nge, je Formicarium Arbeiterinnen, Punkte, Brut und Hunger). Die Kurven brauchen die Optionen <i>Geld, Punkte und Tickl&auml;nge historisieren</i> bzw. <i>Formicarien-Statistik</i>."],
+  "eba_enable_overview_escape"               : [showOverviewEscape, "Ausbruchschutz in der Formicarien-&Uuml;bersicht anzeigen", "Unter dem Hunger (Proteine) bzw. dem Pilzstatus jeder Kolonie erscheint eine Zeile <i>Ausbruchschutz</i> mit Balken, Prozentwert und Typ (z.B. <i>97,4 % PTFE</i>). Das Spiel zeigt ihn in der &Uuml;bersicht nicht; der Wert stammt aus der zuletzt festgehaltenen Futter-Historie (daf&uuml;r muss die Option <i>Futterbestand und Ausbruchschutz pro Tick festhalten</i> aktiv sein). Ist der Wert &auml;lter als der aktuelle Tick, erscheint er blasser, der Tooltip nennt den Zeitpunkt. Unter 20 % orange, unter 10 % rot."]
 }
 const shopPriceLimits = {
   "Camponotus ligniperda": 6.34,
@@ -2400,6 +2401,58 @@ function enableSoundOnJobEnd() {
       a.play();
     }
   });
+}
+// Ausbruchschutz in der Formicarien-Übersicht. Die Übersicht des Spiels zeigt ihn
+// nicht; er stammt aus der Futter-Historie (4. Feld, siehe ebaFoodSeries()), die
+// beim Hintergrundabruf bzw. beim Öffnen der Detailseite je Tick gefüllt wird.
+// Die Zeile wird direkt unter der Zeile mit span[id^=proteinhunger] eingefügt (heißt
+// je nach Art "Hunger (Proteine)" oder "Pilzstatus"). Idempotent über .eba_escape_row.
+// Der Balken nutzt die Spiel-Grafiken wie jsProgressBar: 100 x 9 px, Hintergrund-
+// position -120 + Wert; "100 % = gut" -> Farbreihenfolge back4 (0-25) bis back1 (75-100).
+function showOverviewEscape() {
+  if (!$("h3:contains('Deine Formicarien')").length) { return; }
+  var apply = function() {
+    try {
+      var tk = getTickInfo();
+      var optTip = "noch kein Wert erfasst (Option 'Futterbestand und Ausbruchschutz pro Tick festhalten')";
+      $("div[id='shopitem']:contains('Larven')").each(function() {
+        try {
+          var div = $(this);
+          if (div.find("tr.eba_escape_row").length) { return; }
+          var span = div.find("div[id='group'] table.inner span[id^='proteinhunger']").first();
+          if (!span.length) { return; }
+          var id = (span.attr("id") || "").substr(13);
+          if (!/^\d+$/.test(id)) { return; }
+          var tr = span.closest("tr");
+          if (!tr.length) { return; }
+          var series = ebaFoodSeries(id);
+          var last = series.length ? series[series.length - 1] : null;
+          var html;
+          if (!last || (last.escape && last.escapePct == null)) {
+            html = "<span class='eba_escape_txt' title=\"" + optTip + "\">&ndash;</span>";
+          } else if (!last.escape) {
+            html = "<span class='eba_escape_txt' title='Stand: " + ebaFmtDate(last.t, "short") + " " + ebaFmtDate(last.t, "time") + "'>keiner</span>";
+          } else {
+            var v = Math.max(0, Math.min(100, last.escapePct));
+            var img = v < 25 ? 4 : v < 50 ? 3 : v < 75 ? 2 : 1;
+            var stale = last.t < tk.nowTick;
+            var col = v < 10 ? "#ff5a5a" : v < 20 ? "#ff9a5c" : "";
+            var txt = ebaFmtPct(last.escapePct) + " %" + (last.escapeType ? " " + $("<div>").text(last.escapeType).html() : "");
+            var tip = "Stand: " + ebaFmtDate(last.t, "short") + " " + ebaFmtDate(last.t, "time") + (stale ? " (älter als der aktuelle Tick)" : "");
+            html = "<img class='percentImage' src='img/percentbar/percentImage.png' title='" + ebaFmtPct(last.escapePct) + "%'"
+                 + " style='width:100px;height:9px;background-position:" + (-120 + v) + "px 50%;background-image:url(img/percentbar/percentImage_back" + img + ".png)'>"
+                 + "<span class='eba_escape_txt' title='" + tip + "' style='"
+                 + (col ? "color:" + col + ";" : "") + (stale ? "opacity:0.6;font-style:italic;" : "") + "'> " + txt + "</span>";
+          }
+          tr.after("<tr class='eba_escape_row'><td style='vertical-align:middle;'>Ausbruchschutz: </td>"
+                 + "<td style='vertical-align:middle;'>" + html + "</td></tr>");
+        } catch (err) {}
+      });
+    } catch (err) {}
+  };
+  apply();
+  // Die Übersicht wird nach dem Füttern teils per AJAX neu aufgebaut; apply() ist idempotent.
+  new MutationObserver(apply).observe(document.body, {childList: true, subtree: true});
 }
 function copyHungerPercentages() {
   if (!($("h3:contains('Formicarium')").length || $("h3:contains('Deine Formicarien')").length) || ($("h3:contains('einrichten')").length)) {return;}
