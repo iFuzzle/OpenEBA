@@ -15,6 +15,14 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
 
 > **Hinweis vor dem Update:** Mehrere Versionen (31.1, 31.7, 31.9) wandeln gespeicherte Daten beim ersten Start automatisch um. Empfehlung: vorher in der openEBA-Konfiguration die Daten über *Exportieren* sichern.
 
+## 33.1
+
+### Neu
+- Formicarien-Übersicht und Detailansicht: Hinter Punkten und Maximum steht der Punktezuwachs im letzten Tick, z. B. `4817 / 5000 +37 (96,3 %)`. Grün bei Zuwachs, grau bei ±0, orange bei Rückgang. Fehlen dazwischen Ticks, wird der Durchschnitt je Tick gezeigt und mit ⌀ markiert. Quelle ist die Formicarien-Statistik.
+
+### Verbessert
+- Punkte und Maximum in der Punkte-Zelle ohne Tausenderpunkt.
+
 ## 33.0 (Entwurf)
 
 > **Entwurf:** bitte vor der Freigabe finalisieren (Datum, Highlights, Hinweise). Die Einzelheiten stehen in den Einträgen 31.1 bis 32.8 darunter.
