@@ -15,6 +15,14 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
 
 > **Hinweis vor dem Update:** Mehrere Versionen (31.1, 31.7, 31.9) wandeln gespeicherte Daten beim ersten Start automatisch um. Empfehlung: vorher in der openEBA-Konfiguration die Daten über *Exportieren* sichern.
 
+## 33.2
+
+### Neu
+- Option *Lagerbestand je Tick festhalten*: Einmal pro Tick werden die Bestände aus dem Lager gespeichert, getrennt nach Futter (Gramm je Sorte), Zubehör, Formicarien und Nester, Möbel sowie Ameisen im Lager (je Art). Erfasst wird beim Besuch der Lagerseite, sonst mit einem einzigen Hintergrundabruf pro Tick. Die Reihen laufen mit WebDAV, Export und Import.
+
+### Behoben
+- *Inventar in der Seitenleiste anzeigen*: aktualisiert sich jetzt pro Tick statt pro Stunde. Begriffe mit Sonderzeichen wie `(` oder `[` lassen die Anzeige nicht mehr ausfallen. Mehrdeutige Begriffe wie „Nest“ werden aufsummiert, ein exakter Name hat Vorrang. Unsichtbare Zeilenenden in der Itemliste stören nicht mehr. Fehlerseiten werden nicht mehr zwischengespeichert. Ameisen im Lager lassen sich mit `@Art` anzeigen.
+
 ## 33.1
 
 ### Neu
