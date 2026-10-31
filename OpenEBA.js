@@ -876,43 +876,86 @@ function updateFormiStatistic() {
       }
     }
 
-    // Statistik anzeigen
-    div.find("div[id='group'] center").append("<br><a id='eba_statistic_show_"+id+"' href='javascript:void(0)'>Statistik</a>");
+    // Statistik anzeigen: Verlauf (Detailseite), CSV-Download, Tabelle zum Kopieren
+    var links = "";
+    if (GM_getValue("eba_enable_history_charts", false)) {
+      links += "<a id='eba_statistic_hist_"+id+"' href='/stats.php#eba-verlauf-"+id+"'>Verlauf</a> | ";
+    }
+    links += "<a id='eba_statistic_csv_"+id+"' href='javascript:void(0)'>CSV</a> | "
+      + "<a id='eba_statistic_show_"+id+"' href='javascript:void(0)'>Tabelle</a>";
+    div.find("div[id='group'] center").append("<br>" + links);
+    $("#eba_statistic_csv_"+id).on("click", function(e) {
+      e.preventDefault();
+      ebaDownloadFormiCsv(id);
+    });
     $("#eba_statistic_show_"+id).on("click", function(e) {
       var mainArea = $("td[width='700px']");
       mainArea.empty();
       var statisticHTML = "<div id='shopitem'><textarea id='eba_statistic_area' style='height:300px;width:100%;padding:0;border:1px solid #3aab54;font-family:monospace;'></textarea>";
       statisticHTML += "<button id='eba_statistic_ok' type='button'>OK</button></div>";
       mainArea.append(statisticHTML);
-
-      // Futter und Ausbruchschutz nach Tick (Minuten seit Epoch) indexieren
-      var foodMap = {};
-      $.each(mergeFoodHistory(GM_getValue("eba_food_" + srvKey() + id, ""), "").split("\n"), function(k, line) {
-        if (!line) { return; }
-        var ff = line.split("\t");
-        foodMap[ff[0]] = [ff[2] || "", ff[3] || ""];
-      });
-
-      var headLines = savedData.substring(0, savedData.indexOf("\n"))+"\nZeit(h)\tKön.\tArb.\tEier\tLarven\tPuppen\tPunkte\tNest       \tFormicarium\tZu(%)\tPr(%)\tUhrzeit\tFutter\tAusbruchschutz\n";
-      var rows = savedData.substr(savedData.indexOf("\n")+1).split("\n");
-      var body = $.map(rows, function(line) {
-        var r = line.split("\t");
-        var elapsed = parseFloat(r[0]);
-        if (r.length < 12) { // alte Zeile ohne Uhrzeit
-          r.push(formatStatTime((baseHour + elapsed) * 3600000));
-        }
-        var tickKey = Math.round((baseHour * 60 + elapsed * 60) / tickMin) * tickMin;
-        var fd = foodMap[tickKey];
-        r.push(fd ? fd[0] : "", fd ? fd[1] : "");
-        r[0] = r[0].replace(".", ",");
-        return r.join("\t");
-      }).join("\n");
+      var t = ebaFormiStatTable(id, savedData);
+      var headLines = savedData.substring(0, savedData.indexOf("\n"))+"\n"+t.head.join("\t")+"\n";
+      var body = $.map(t.rows, function(r) { return r.join("\t"); }).join("\n");
       $("#eba_statistic_area").val(headLines+body).select();
       $("#eba_statistic_ok").on("click", function(e) {
         window.location.href = window.location.href.replace(/\?.*/, '');
       });
     });
   });
+}
+
+// Statistik-Tabelle einer Kolonie: {head: [Spalten], rows: [[Felder]]}.
+// Zeiten in Serverzeit-Darstellung, Dezimalkomma bei der Zeit(h)-Spalte.
+function ebaFormiStatTable(id, savedData) {
+  var tickMin = getTickMinutes();
+  // Futter und Ausbruchschutz nach Tick (Minuten seit Epoch) indexieren
+  var foodMap = {};
+  $.each(mergeFoodHistory(GM_getValue("eba_food_" + srvKey() + id, ""), "").split("\n"), function(k, line) {
+    if (!line) { return; }
+    var ff = line.split("\t");
+    foodMap[ff[0]] = [ff[2] || "", ff[3] || ""];
+  });
+  var baseHour = parseInt(savedData.substring(0, savedData.indexOf("\t")));
+  var head = ["Zeit(h)", "Kön.", "Arb.", "Eier", "Larven", "Puppen", "Punkte", "Nest       ", "Formicarium", "Zu(%)", "Pr(%)", "Uhrzeit", "Futter", "Ausbruchschutz"];
+  var rows = [];
+  $.each(savedData.substr(savedData.indexOf("\n")+1).split("\n"), function(k, line) {
+    var r = line.split("\t");
+    var elapsed = parseFloat(r[0]);
+    if (r.length < 12) { // alte Zeile ohne Uhrzeit
+      r.push(formatStatTime((baseHour + elapsed) * 3600000));
+    }
+    var tickKey = Math.round((baseHour * 60 + elapsed * 60) / tickMin) * tickMin;
+    var fd = foodMap[tickKey];
+    r.push(fd ? fd[0] : "", fd ? fd[1] : "");
+    r[0] = r[0].replace(".", ",");
+    rows.push(r);
+  });
+  return { head: head, rows: rows };
+}
+
+// Statistik einer Kolonie als CSV laden (Semikolon, UTF-8 mit BOM für Excel)
+function ebaDownloadFormiCsv(id) {
+  var saved = GM_getValue("eba_statistic_" + srvKey() + id, "");
+  if (!saved) { return false; }
+  var t = ebaFormiStatTable(id, saved);
+  var cell = function(v) {
+    v = String(v == null ? "" : v);
+    return /[;"\r\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+  };
+  var lines = [$.map(t.head, function(h) { return cell($.trim(h)); }).join(";")];
+  $.each(t.rows, function(i, r) { lines.push($.map(r, cell).join(";")); });
+  var kind = (ebaFormiKind(id) || "Kolonie").replace(/[^A-Za-z0-9\u00C4\u00D6\u00DC\u00E4\u00F6\u00FC\u00DF_-]+/g, "_").replace(/^_+|_+$/g, "");
+  var d = new Date(), p = function(n) { return (n < 10 ? "0" : "") + n; };
+  var name = "openEBA_" + kind + "_" + id + "_" + d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) + ".csv";
+  var blob = new Blob(["\uFEFF" + lines.join("\r\n") + "\r\n"], { type: "text/csv;charset=utf-8" });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement("a");
+  a.href = url; a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(function() { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
+  return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -3219,6 +3262,7 @@ function enableConfig() {
   if (!$("#shopmenu:contains('Statistik')").length) {return}
   //$("#shopmenucats").append("<a href='/stats.php?limitplayers=14'>14-Tage-Statistik</a>");
   $("#shopmenucats").append("<hr><a id='eba_config_start' href='javascript:void(0)'>openEBA</a>");
+  ebaPlaceVerlaufLink();
   $("#eba_config_start").on("click", function(e) {
     if($("#eba_config_cancel").length) {
       return;
@@ -5095,6 +5139,7 @@ function enableHistoryPage() {
   if (!$("#eba_verlauf_start").length) {
     $("#shopmenucats").append("<a id='eba_verlauf_start' href='/stats.php#eba-verlauf'>openEBA-Verlauf</a>");
   }
+  ebaPlaceVerlaufLink();
   $("#eba_verlauf_start").on("click", function(e) {
     if (ebaIsStatsPage()) {
       e.preventDefault();
@@ -5102,7 +5147,25 @@ function enableHistoryPage() {
       renderHistoryPage();
     }
   });
-  if (location.hash === "#eba-verlauf" && ebaIsStatsPage()) { renderHistoryPage(); }
+  if (ebaHistHash() && ebaIsStatsPage()) { renderHistoryPage(); }
+}
+
+// "openEBA-Verlauf" gehört direkt unter "openEBA" (vor das <hr> der Bookmarks),
+// egal in welcher Reihenfolge die Menüpunkte eingefügt werden.
+function ebaPlaceVerlaufLink() {
+  var cfg = $("#eba_config_start"), v = $("#eba_verlauf_start");
+  if (!cfg.length || !v.length) { return; }
+  if (cfg.next().is("br.eba_verlauf_br") && cfg.next().next().is(v)) { return; }
+  v.prev("br.eba_verlauf_br").remove();
+  v.detach();
+  v.insertAfter(cfg);
+  $("<br class='eba_verlauf_br'>").insertBefore(v);
+}
+
+// Hash der Verlaufsseite: null oder {id} (id = Formicarium zum Aufklappen oder "")
+function ebaHistHash() {
+  var m = /^#eba-verlauf(?:-(\d+))?$/.exec(location.hash);
+  return m ? { id: m[1] || "" } : null;
 }
 
 function renderHistoryPage(rangeKey) {
@@ -5162,6 +5225,8 @@ function renderHistoryPage(rangeKey) {
              tipText: function(p) { return p[2] > 1 ? "\u00D8 \u00FCber " + p[2] + " Ticks:" : ""; } } });
   add(page, "Tickl&auml;nge (Sekunden)", ebaGlobalSeries("tickdur"), "tickdur");
   var open = ebaHistOpenLoad();
+  var jumpId = (ebaHistHash() || {}).id || "";
+  if (jumpId) { open[jumpId] = 1; ebaHistOpenSave(open); }
   var hs = "style='cursor:pointer;background:#14391f;color:#e6f5ea;border:1px solid #3CAC56;border-radius:3px;"
     + "padding:4px 8px;margin:4px 0;user-select:none'";
   ebaHistStockSection(page, add, since, open, hs);
@@ -5225,10 +5290,11 @@ function renderHistoryPage(rangeKey) {
       + (kind ? " (" + $("<div>").text(kind).html() + ")" : "") + "</b>"
       + (cur.length ? " <span style='color:#a8d5b3;font-size:0.9em'>&ndash; " + cur.join(" &middot; ") + "</span>" : "")
       + (former ? " <button type='button' class='eba_formi_forget' data-id='" + id + "' style='float:right'>Vergessen</button>" : "")
+      + " <a href='javascript:void(0)' class='eba_formi_csv' data-id='" + id + "' style='float:right;margin-right:8px;color:inherit;font-size:0.9em'>CSV</a>"
       + "</div>");
     g.append("<div class='eba_formi_body' style='display:none;padding-left:8px'></div>");
     target.append(g);
-    if (!former && open[id]) { setGroup(g, true); }
+    if (open[id] && (!former || id === jumpId)) { setGroup(g, true); }
   };
   $.each(activeList, function(i, id) { addGroup(activeBox, id, false); });
   if (formerList.length) {
@@ -5272,6 +5338,20 @@ function renderHistoryPage(rangeKey) {
     ebaHistOpenSave(open);
     renderHistoryPage(cur);
   });
+  page.on("click", ".eba_formi_csv", function(e) {
+    e.stopPropagation();
+    e.preventDefault();
+    ebaDownloadFormiCsv($(this).attr("data-id"));
+  });
+  if (jumpId) {
+    var jg = page.find(".eba_formi_group[data-id='" + jumpId + "']").first();
+    if (jg.length) {
+      var fh = jg.closest(".eba_former");
+      if (fh.length && fh.attr("data-open") !== "1") { fh.find(".eba_former_head").first().click(); }
+      if (jg.attr("data-open") !== "1") { setGroup(jg, true); }
+      if (jg[0].scrollIntoView) { jg[0].scrollIntoView(); }
+    }
+  }
   page.on("click", ".eba_formi_all", function() {
     var o = $(this).attr("data-open") === "1";
     activeBox.find(".eba_formi_group").each(function() { setGroup($(this), o); });
@@ -5433,7 +5513,7 @@ function ebaHistOpenSave(o) {
 }
 
 $(window).on("hashchange", function() {
-  if (location.hash === "#eba-verlauf" && ebaIsStatsPage() && GM_getValue("eba_enable_history_charts", false)) {
+  if (ebaHistHash() && ebaIsStatsPage() && GM_getValue("eba_enable_history_charts", false)) {
     renderHistoryPage();
   }
 });
