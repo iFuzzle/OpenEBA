@@ -64,7 +64,7 @@ const configItems = {
   "eba_enable_always_show_shop_prices"       : [alwaysShowShopPrices, "Ameisenshop-Preise immer zeigen", "Links neben dem Ameisenshop-Men&uuml;eintrag. Kann sein, dass nicht jeder Browser das richtig (verkleinert) darstellt."],
   "eba_enable_highlight_shop_prices"         : [highlightShopPrices, "Ameisenshop-Preise f&auml;rben", "Preise ab 95 % des H&ouml;chstpreises gelb, ab 98 % sanft rot, bei 100 % dunkelrot mit wei&szlig;er Schrift."],
   "eba_enable_stat_beautify"                 : [statBeautify, "Statistik verbessern", "Einf&uuml;gen von 1.000er-Trennzeichen und Tooltips, die die Differenz zu den eigenen Punkten anzeigen. Das Avatar-Bild oben rechts bekommt als Tooltip die eigene Punkte-Entwicklung pro Stunde."],
-  "eba_enable_process_jobs"                  : [processJobOffers, "Jobs/Forschungen mit Informationen anreichern", "Stundenlohn und Dauer (nach Abschluss der aktuellen Aktion) anzeigen."],
+  "eba_enable_process_jobs"                  : [processJobOffers, "Jobs/Forschungen mit Informationen anreichern", "Stundenlohn und Dauer (nach Abschluss der aktuellen Aktion) anzeigen und bei den Suchen die Endzeit in der Auswahl der Dauer."],
   "eba_enable_formi_statistic"               : [updateFormiStatistic, "Formicarien-Statistik", "Wird aktualisiert bei jedem Aufruf der Formicarien-&Uuml;bersicht. Aufzurufen dort mit dem Link <i>Statistik</i> bei jedem Formicarium. Optimiert zum Kopieren und Einf&uuml;gen in Excel und Co. Die Werte werden auch genutzt, um die Entwicklung von Eiern, Larven, Puppen, Ameisen und Punkten pro Stunde als jeweiligen Tooltip anzuzeigen."],
   "eba_enable_food_snapshot"                 : [ebaFoodSnapshotDetail, "Futterbestand und Ausbruchschutz pro Tick festhalten", "Beim ersten Aufruf der Formicarien-&Uuml;bersicht nach einem Tick wird die Futtertabelle jedes Formicariums samt Ausbruchschutz (Typ und Prozent, z.B. <i>PTFE 97,4</i>) im Hintergrund aus der Detailansicht geholt und in der Formicarien-Statistik erg&auml;nzt. Wird die Detailansicht des Formicariums vorher aufgerufen, wird der Bestand direkt beim Laden bzw. unmittelbar vor dem F&uuml;ttern erfasst (Zustand vor dem F&uuml;ttern). Funktioniert nur zusammen mit der Formicarien-Statistik."],
   "eba_enable_mark_shop_messages"            : [enableMarkShopMessages, "Option zum Markieren von Kleinanzeigen-Nachrichten einblenden"],
@@ -3010,18 +3010,53 @@ function insertNote() {
     GM_setValue("eba_note", $(this).val());
   }).val(GM_getValue("eba_note", ""));
 }
-function processJobOffers() {
-  if(!($("h3:contains('Aktionen')").length || $("h3:contains('Forschung')").length || $("h3:contains('Arbeitsamt')").length)) {return}
-  const weekday = new Array("Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag");
-  //start from now
-  var starttime = getServerNow(); // Serverzeit; der Countdown unten ist ebenfalls Server-Wanduhr
-  //start from end of current if any
+// Basiszeit für Endzeit-Anzeigen: Serverzeit, bzw. Ende der laufenden Aktion (Header-Countdown), falls vorhanden.
+function ebaActionBaseTime() {
+  var starttime = getServerNow(); // Serverzeit; der Countdown ist ebenfalls Server-Wanduhr
   var to = $("#headercountdown span").text();
   if (to!="") {
     var result = /(\d+).(\d+).(\d+) (\d+):(\d+):(\d+)/.exec(to.substring(4));
     var runTo = new Date(result[3], result[2]-1, result[1], result[4], result[5], result[6]);
     starttime = runTo.getTime();
   }
+  return starttime;
+}
+// Suchseiten (draussen.php cat=1/2): Endzeit hinter jede Dauer-Option schreiben ("8:00:00 → morgen 07:53").
+function ebaSearchEndTimes() {
+  var sels = $("form select[name=dauer]");
+  if (!sels.length) { return; }
+  var wd = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
+  var apply = function() {
+    var base = ebaActionBaseTime();
+    var nowD = new Date(getServerNow());
+    var today = new Date(nowD.getFullYear(), nowD.getMonth(), nowD.getDate()).getTime();
+    sels.find("option").each(function() {
+      var opt = $(this);
+      var min = parseInt(opt.val(), 10);
+      if (isNaN(min)) { return; }
+      var orig = opt.attr("data-eba-orig");
+      if (orig === undefined) { orig = opt.text(); opt.attr("data-eba-orig", orig); }
+      var end = new Date(base + min * 60000);
+      var days = Math.round((new Date(end.getFullYear(), end.getMonth(), end.getDate()).getTime() - today) / 86400000);
+      var day = days === 0 ? "heute" : days === 1 ? "morgen" : days === 2 ? "\u00fcbermorgen" : wd[end.getDay()];
+      opt.text(orig + " \u2192 " + day + " " + ("0" + end.getHours()).slice(-2) + ":" + ("0" + end.getMinutes()).slice(-2));
+    });
+  };
+  apply();
+  // Basis ist nur ohne laufende Aktion beweglich (Serverzeit); sonst fix.
+  if ($("#headercountdown span").text() === "") {
+    window.setInterval(function() {
+      if ($("#headercountdown span").text() === "") { apply(); }
+    }, 60000);
+  }
+}
+function processJobOffers() {
+  ebaSearchEndTimes();
+  if(!($("h3:contains('Aktionen')").length || $("h3:contains('Forschung')").length || $("h3:contains('Arbeitsamt')").length)) {return}
+  const weekday = new Array("Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag");
+  //start from now
+  //start from end of current if any, else from now
+  var starttime = ebaActionBaseTime();
   $("form:contains('Dauer')").each(function() {
     var form = $(this);
     var nodes = form.contents().filter(function() {
