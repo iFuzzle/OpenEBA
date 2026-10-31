@@ -87,7 +87,8 @@ const configItems = {
   "eba_enable_search_history_view"          : [showSearchHistory, "Alle gespeicherten Ergebnisse unter draussen.php?cat=3 anzeigen", "Zeigt unter jeder der beiden Ergebnistabellen des Spiels (Ameisensuche, Futtertiersuche; nur die letzten 10) eine einklappbare Tabelle mit den &auml;lteren gespeicherten Ergebnissen, neueste oben, samt kurzen Summen. Die Erfassung wird auf dieser Seite selbst angesto&szlig;en (Option <i>Futter- und Ameisensuchen vollst&auml;ndig historisieren</i> ist nicht n&ouml;tig, aber die Historie w&auml;chst nur, wenn die Seite aufgerufen wird). Wird keine Tabelle erkannt, erscheint ein kleiner Hinweis."],
   "eba_enable_growth_percent"                : [showGrowthPercent, "Auswachszustand der Kolonien in Prozent anzeigen", "Hinter den Punkten (bei aktivierter maximaler Punktzahl dahinter) steht in Klammern der Auswachszustand, z.B. <i>4998 / 5000 +37 (99,9 %)</i> (ohne maximale Punktzahl <i>4998 +37 (99,9 %)</i>; der Zuwachs im letzten Tick kommt aus der Formicarien-Statistik) in Formicarien-&Uuml;bersicht und Einzelansicht: Arbeiterinnen geteilt durch die maximalen Arbeiterinnen der Art (bei polygynen Arten mit dem Zuwachs je K&ouml;nigin laut Polygynierechner wie bei der maximalen Punktzahl, bei unbekanntem Zuwachs ein <i>?</i>). Die Prozentzahl wird abgeschnitten, nicht gerundet. Die Farbe zeigt die Wachstumsphase: unter 24 % Anlaufphase (blau), 24&ndash;94 % Hauptwachstumsphase (gr&uuml;n), ab 94 % Endphase (gelb), 100 % ausgewachsen (hell, fett). Ist das Nest zu mehr als 75 % belegt, erscheint ein oranges <i>&#9888;</i>, denn das bremst das Wachstum (in der Einzelansicht mit der Belegung des Spiels, in der &Uuml;bersicht nur, wenn schon die Arbeiterinnen allein dar&uuml;ber liegen). Der Tooltip zeigt Phase, ob Nest oder Formicarium zuerst voll ist (z.B. <i>Nest voll bei ca. 5.000 Arbeiterinnen</i>) und die Belegung. Der Platzbedarf der Brut ist nicht eingerechnet."],
   "eba_enable_history_charts"                : [enableHistoryCharts, "Verlaufsgrafiken f&uuml;r Geld, Punkte und Formicarien", "Beim &Uuml;berfahren von <i>Geld</i> und <i>Punkte</i> in der Kopfzeile erscheint eine kleine Kurve aus den gespeicherten Werten. Ein Klick darauf &ouml;ffnet unter <i>Statistik</i> die Seite <i>openEBA-Verlauf</i> mit gro&szlig;en Diagrammen (Geld, Punkte, Tickl&auml;nge, je Formicarium Arbeiterinnen, Punkte, Brut und Hunger). Die Kurven brauchen die Optionen <i>Geld, Punkte und Tickl&auml;nge historisieren</i> bzw. <i>Formicarien-Statistik</i>."],
-  "eba_enable_overview_escape"               : [showOverviewEscape, "Ausbruchschutz in der Formicarien-&Uuml;bersicht anzeigen", "Unter dem Hunger (Proteine) bzw. dem Pilzstatus jeder Kolonie erscheint eine Zeile <i>Ausbruchschutz</i> mit Balken, Prozentwert und Typ (z.B. <i>97,4 % PTFE</i>). Das Spiel zeigt ihn in der &Uuml;bersicht nicht; der Wert stammt aus der zuletzt festgehaltenen Futter-Historie (daf&uuml;r muss die Option <i>Futterbestand und Ausbruchschutz pro Tick festhalten</i> aktiv sein). Ist der Wert &auml;lter als der aktuelle Tick, erscheint er blasser, der Tooltip nennt den Zeitpunkt. Unter 20 % orange, unter 10 % rot."]
+  "eba_enable_overview_escape_bar"           : [ebaNoop, "Ausbruchschutz in der &Uuml;bersicht mit Prozentbalken", "Zeigt in der Zeile <i>Ausbruchschutz</i> zus&auml;tzlich einen Prozentbalken vor dem Text. Wirkt nur, wenn die Option <i>Ausbruchschutz in der Formicarien-&Uuml;bersicht anzeigen</i> aktiv ist; ohne diese Option erscheint nur der Text (z.B. <i>97,4 % PTFE</i>)."],
+  "eba_enable_overview_escape"               : [showOverviewEscape, "Ausbruchschutz in der Formicarien-&Uuml;bersicht anzeigen", "Unter dem Hunger (Proteine) bzw. dem Pilzstatus jeder Kolonie erscheint eine Zeile <i>Ausbruchschutz</i> mit Balken, Prozentwert und Typ (z.B. <i>97,4 % PTFE</i>). Das Spiel zeigt ihn in der &Uuml;bersicht nicht; der Wert stammt aus der zuletzt festgehaltenen Futter-Historie (daf&uuml;r muss die Option <i>Futterbestand und Ausbruchschutz pro Tick festhalten</i> aktiv sein). Ist der Wert &auml;lter als der aktuelle Tick und kein Abruf mehr offen, erscheint er blasser und kursiv, der Tooltip nennt den Zeitpunkt; solange der Hintergrundabruf noch l&auml;uft, wird die Zeile neutral dargestellt und danach automatisch aktualisiert. Den Prozentbalken schaltet die separate Option <i>mit Prozentbalken</i> zu. Unter 20 % orange, unter 10 % rot."]
 }
 const shopPriceLimits = {
   "Camponotus ligniperda": 6.34,
@@ -212,6 +213,9 @@ const formiCapacity = {
 var foodQueue = [];
 var foodQueueRunning = false;
 var foodQueued = {};
+var foodPending = {}; // Abrufe dieses Seitenaufrufs, die noch ausstehen (Schlüssel wie foodQueued)
+// Meldet der Übersicht (showOverviewEscape), dass sich Snapshot oder Abrufstatus geändert haben.
+function ebaFoodChanged() { try { $(document).trigger("eba_food_changed"); } catch (err) {} }
 
 // Seitenleiste: Werte der Begriffe aus eba_stock_items (ein Begriff pro Zeile).
 // Der Lagerstand kommt aus ebaParseStock() und dem Tick-Abruf ebaStockRun().
@@ -715,14 +719,16 @@ function queueFoodSnapshot(id, url, tickMin) {
   var k = srvKey() + id + "_" + tickMin;
   if (foodQueued[k] || hasFoodSnapshot(id, tickMin)) { return; }
   foodQueued[k] = true;
+  foodPending[k] = true;
   foodQueue.push({id: id, url: url, tickMin: tickMin, qk: k});
+  ebaFoodChanged();
   if (!foodQueueRunning) { runFoodQueue(); }
 }
 function runFoodQueue() {
   var job = foodQueue.shift();
   if (!job) { foodQueueRunning = false; return; }
   foodQueueRunning = true;
-  var next = function() { setTimeout(runFoodQueue, 300); };
+  var next = function() { delete foodPending[job.qk]; ebaFoodChanged(); setTimeout(runFoodQueue, 300); };
   var fail = function() { delete foodQueued[job.qk]; next(); }; // Retry beim nächsten Aufruf erlauben
   GM_xmlhttpRequest({
     method: "GET",
@@ -742,7 +748,8 @@ function runFoodQueue() {
       } catch (err) { fail(); }
     },
     onerror: fail,
-    ontimeout: fail
+    ontimeout: fail,
+    timeout: 20000 // sonst blockiert ein hängender Abruf die ganze Warteschlange
   });
 }
 
@@ -2472,16 +2479,17 @@ function enableSoundOnJobEnd() {
 // je nach Art "Hunger (Proteine)" oder "Pilzstatus"). Idempotent über .eba_escape_row.
 // Der Balken nutzt die Spiel-Grafiken wie jsProgressBar: 100 x 9 px, Hintergrund-
 // position -120 + Wert; "100 % = gut" -> Farbreihenfolge back4 (0-25) bis back1 (75-100).
+function ebaNoop() {}
 function showOverviewEscape() {
   if (!$("h3:contains('Deine Formicarien')").length) { return; }
   var apply = function() {
     try {
       var tk = getTickInfo();
+      var bar = GM_getValue("eba_enable_overview_escape_bar", false);
       var optTip = "noch kein Wert erfasst (Option 'Futterbestand und Ausbruchschutz pro Tick festhalten')";
       $("div[id='shopitem']:contains('Larven')").each(function() {
         try {
           var div = $(this);
-          if (div.find("tr.eba_escape_row").length) { return; }
           var span = div.find("div[id='group'] table.inner span[id^='proteinhunger']").first();
           if (!span.length) { return; }
           var id = (span.attr("id") || "").substr(13);
@@ -2490,30 +2498,40 @@ function showOverviewEscape() {
           if (!tr.length) { return; }
           var series = ebaFoodSeries(id);
           var last = series.length ? series[series.length - 1] : null;
+          var pending = !!foodPending[srvKey() + id + "_" + (tk.nowTick / 60000)];
+          var wait = " – wird aktualisiert …";
           var html;
           if (!last || (last.escape && last.escapePct == null)) {
-            html = "<span class='eba_escape_txt' title=\"" + optTip + "\">&ndash;</span>";
+            html = "<span class='eba_escape_txt' title=\"" + (pending ? "wird aktualisiert …" : optTip) + "\">&ndash;</span>";
           } else if (!last.escape) {
-            html = "<span class='eba_escape_txt' title='Stand: " + ebaFmtDate(last.t, "short") + " " + ebaFmtDate(last.t, "time") + "'>keiner</span>";
+            html = "<span class='eba_escape_txt' title='Stand: " + ebaFmtDate(last.t, "short") + " " + ebaFmtDate(last.t, "time") + (last.t < tk.nowTick && pending ? wait : "") + "'>keiner</span>";
           } else {
             var v = Math.max(0, Math.min(100, last.escapePct));
             var img = v < 25 ? 4 : v < 50 ? 3 : v < 75 ? 2 : 1;
-            var stale = last.t < tk.nowTick;
+            var old = last.t < tk.nowTick;
+            var stale = old && !pending; // nur veraltet, wenn kein Abruf mehr aussteht
             var col = v < 10 ? "#ff5a5a" : v < 20 ? "#ff9a5c" : "";
             var txt = ebaFmtPct(last.escapePct) + " %" + (last.escapeType ? " " + $("<div>").text(last.escapeType).html() : "");
-            var tip = "Stand: " + ebaFmtDate(last.t, "short") + " " + ebaFmtDate(last.t, "time") + (stale ? " (älter als der aktuelle Tick)" : "");
-            html = "<img class='percentImage' src='img/percentbar/percentImage.png' title='" + ebaFmtPct(last.escapePct) + "%'"
-                 + " style='width:100px;height:9px;background-position:" + (-120 + v) + "px 50%;background-image:url(img/percentbar/percentImage_back" + img + ".png)'>"
+            var tip = "Stand: " + ebaFmtDate(last.t, "short") + " " + ebaFmtDate(last.t, "time") + (stale ? " (älter als der aktuelle Tick)" : (old ? wait : ""));
+            html = (bar ? "<img class='percentImage' src='img/percentbar/percentImage.png' title='" + ebaFmtPct(last.escapePct) + "%'"
+                 + " style='width:100px;height:9px;background-position:" + (-120 + v) + "px 50%;background-image:url(img/percentbar/percentImage_back" + img + ".png)'>" : "")
                  + "<span class='eba_escape_txt' title='" + tip + "' style='"
-                 + (col ? "color:" + col + ";" : "") + (stale ? "opacity:0.6;font-style:italic;" : "") + "'> " + txt + "</span>";
+                 + (col ? "color:" + col + ";" : "") + (stale ? "opacity:0.6;font-style:italic;" : "") + "'>" + (bar ? " " : "") + txt + "</span>";
           }
-          tr.after("<tr class='eba_escape_row'><td style='vertical-align:middle;'>Ausbruchschutz: </td>"
-                 + "<td style='vertical-align:middle;'>" + html + "</td></tr>");
+          var sig = html;
+          var oldRow = div.find("tr.eba_escape_row");
+          if (oldRow.length && oldRow.attr("data-sig") === sig) { return; }
+          oldRow.remove();
+          var row = $("<tr class='eba_escape_row'><td style='vertical-align:middle;white-space:nowrap;'>Ausbruchschutz: </td>"
+                    + "<td style='vertical-align:middle;white-space:nowrap;'>" + html + "</td></tr>");
+          row.attr("data-sig", sig);
+          tr.after(row);
         } catch (err) {}
       });
     } catch (err) {}
   };
   apply();
+  $(document).on("eba_food_changed", apply); // neuer Snapshot bzw. Abruf beendet
   // Die Übersicht wird nach dem Füttern teils per AJAX neu aufgebaut; apply() ist idempotent.
   new MutationObserver(apply).observe(document.body, {childList: true, subtree: true});
 }
