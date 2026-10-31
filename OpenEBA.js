@@ -77,7 +77,8 @@ const configItems = {
   "eba_enable_food_move_form"                : [foodMoveForm, "Dialog 'Futtertierzucht einrichten' an den Anfang der Seite schieben"],
   "eba_enable_form_move_form"                : [formiMoveForm, "Dialog 'Formicarium einrichten' an den Anfang der Seite schieben"],
   "eba_enable_stock_sort"                    : [sortStock, "Nester und Formicarien im Lager nach Größe statt alphabetisch ordnen"],
-  "eba_enable_show_inventory"                : [showInventory, "Inventar in der Seitenleiste anzeigen", "Bestimmte Items aus dem Lager in der linken Seitenleiste anzeigen. Begriffe werden in der unteren Liste gepflegt."],
+  "eba_enable_show_inventory"                : [showInventory, "Inventar in der Seitenleiste anzeigen", "Bestimmte Items aus dem Lager in der linken Seitenleiste anzeigen. Begriffe werden in der unteren Liste gepflegt. Ein Begriff z&auml;hlt zun&auml;chst als exakter Name, sonst als Teilstring mit der Summe aller Treffer (z.B. <i>Nest</i> = alle Nester). Ameisen mit <i>@Lasius niger</i> (K&ouml;niginnen/Arbeiterinnen). Der Lagerstand wird h&ouml;chstens einmal pro Tick im Hintergrund geholt."],
+  "eba_enable_stock_history"                 : [ebaStockHistory, "Lagerbestand je Tick festhalten", "Je Tick wird einmal das Lager (Futter, Zubeh&ouml;r, Formicarien und Nester, M&ouml;bel, Ameisen) mit Zeitstempel festgehalten. Auf der Lagerseite direkt aus der Seite, sonst durch einen einzigen Hintergrundabruf der Lagerseite nach Ende des Ticks."],
   "eba_enable_global_statistic"              : [updateGlobalStatistic, "Geld, Punkte und Tickl&auml;nge historisieren", "Je Tick wird einmal der Geldbestand, die Punktzahl und die Dauer des letzten Ticks mit Zeitstempel festgehalten. Die Erfassung l&auml;uft auf jeder Spielseite (die Werte stehen in der Statusbox oben), aber immer nur einmal pro Tick."],
   "eba_enable_search_statistic"              : [updateSearchStatistic, "Futter- und Ameisensuchen vollst&auml;ndig historisieren", "Das Spiel zeigt nur die letzten Ergebnisse einer Futtersuche bzw. K&ouml;niginnensuche. Beim Aufruf der jeweiligen Seite wird die angezeigte Tabelle mit der gespeicherten Historie verschmolzen, sodass auch &auml;ltere Treffer erhalten bleiben."],
   "eba_enable_history_compaction"            : [function(){}, "Historien ausd&uuml;nnen, wenn sie zu gro&szlig; werden", "Ohne diese Option wachsen die Historien unbegrenzt (bisheriges Verhalten). Mit der Option wird in einer Reihe ab " + EBA_HIST_MAX_LINES + " Zeilen aus der <b>&auml;lteren H&auml;lfte</b> jede zweite Zeile entfernt. Die j&uuml;ngere H&auml;lfte und die Kopfzeile bleiben unangetastet. <b>Achtung:</b> Das entfernt alte Messpunkte unwiderruflich. Den aktuellen Speicherverbrauch zeigt die Zeile unten. Vertr&auml;gt sich nicht mit dem WebDAV-Abgleich, der ist bei eingeschalteter Kompaktierung gesperrt."],
@@ -211,55 +212,63 @@ var foodQueue = [];
 var foodQueueRunning = false;
 var foodQueued = {};
 
-function showInventory(){
-  var doInsert = function(rowsHTML) {
-    $("body").append(rowsHTML);
-  };
-  // Ein Schlüssel für Lesen und Schreiben, mit Server-Präfix: vorher wurde
-  // eba_inv gelesen und eba_inventory geschrieben, der Cache griff also nie.
-  var invKey = "eba_inventory_" + srvKey();
-  var storedData = GM_getValue(invKey, "0\nx").split("\n", 2);
-  var hours = Math.floor($.now()/3600000);
-  //get schaben
-  if (hours!=storedData[0]) {
-    GM_xmlhttpRequest({
-      method: "GET",
-      url: document.URL.substring(0, document.URL.indexOf("/", 9))+"/ameisenzimmer.php?cat=2",
-      onload: function(response) {
-
-          var items = GM_getValue("eba_stock_items", "").split("\n");
-          var length = 0;
-          for(i = 0; i < items.length; i++){
-              length = items[i].length > length ? items[i].length : length;
-          }
-          var eba_inv = "<p style=\"color:white;font-family:monospace\">";
-          for(i = 0; i < items.length; i++){
-              var item = items[i]+":&nbsp;";
-              for(j = 0; j < length - items[i].length; j++){
-                  item += "&nbsp;";
-              }
-              if(items[i].length == 0){
-                  eba_inv += "<br>";
-              }else{
-                  var str_regex = items[i]+"<\/td><td class=liste><center>[0-9]+";
-                  var regex = new RegExp(str_regex, "g");
-
-                  try{
-                      var item_amount = response.responseText.match(str_regex)[0].replace(items[i]+"</td><td class=liste><center>", "");
-                  }catch(err){
-                      item_amount = 0;
-                  }
-                  eba_inv += "&nbsp;"+item+item_amount+"<br>"
-              }
-          }
-          eba_inv += "</p>";
-        doInsert(eba_inv);
-        GM_setValue(invKey, ""+hours+"\n"+eba_inv);
-      }
-    });
-  } else {
-    doInsert(storedData[1]);
+// Seitenleiste: Werte der Begriffe aus eba_stock_items (ein Begriff pro Zeile).
+// Der Lagerstand kommt aus ebaParseStock() und dem Tick-Abruf ebaStockRun().
+// Zuordnung eines Begriffs: zuerst exakter Name (Futter, Zubehör, Formicarien/
+// Nester, Möbel), sonst Teilstring ohne Beachtung der Groß-/Kleinschreibung mit
+// der SUMME aller Treffer ("Nest" = alle Nester, "Anlage" = alle Anlagen).
+// Ameisen nur mit eigener Syntax: "@Lasius niger" zeigt Königinnen/Arbeiterinnen
+// (ebenfalls erst exakt, sonst Teilstring mit Summe); sonst werden sie nicht gezählt.
+function ebaStockLookup(stock, term) {
+  var cats = ["food", "acc", "nest", "furn"];
+  if (term.charAt(0) === "@") {
+    var an = $.trim(term.substr(1)), ants = stock.ants || {}, sub = {q: 0, w: 0}, r;
+    if (Object.prototype.hasOwnProperty.call(ants, an)) { r = ants[an]; }
+    else {
+      var low = an.toLowerCase();
+      $.each(ants, function(n, e) { if (low && n.toLowerCase().indexOf(low) >= 0) { sub.q += e.q; sub.w += e.w; } });
+      r = sub;
+    }
+    return ebaStockNum(r.q) + "/" + ebaStockNum(r.w);
   }
+  var sum = 0, found = false, i, k;
+  for (i = 0; i < cats.length; i++) {
+    var c = stock[cats[i]] || {};
+    if (Object.prototype.hasOwnProperty.call(c, term)) { sum += c[term]; found = true; }
+  }
+  if (!found) {
+    var lt = term.toLowerCase();
+    for (i = 0; i < cats.length; i++) {
+      var d = stock[cats[i]] || {};
+      for (k in d) {
+        if (Object.prototype.hasOwnProperty.call(d, k) && lt && k.toLowerCase().indexOf(lt) >= 0) { sum += d[k]; }
+      }
+    }
+  }
+  return ebaStockNum(sum);
+}
+function showInventory(){
+  var items = $.map(("" + GM_getValue("eba_stock_items", "")).split("\n"), function(l) { return $.trim(l); });
+  var render = function(stock) {
+    var esc = function(s) { return $("<div>").text(s).html(); };
+    var width = 0, i;
+    var labels = $.map(items, function(t) { return t.charAt(0) === "@" ? $.trim(t.substr(1)) : t; });
+    for (i = 0; i < labels.length; i++) { width = Math.max(width, labels[i].length); }
+    var html = "<p id=\"eba_inventory\" style=\"color:white;font-family:monospace\">";
+    for (i = 0; i < items.length; i++) {
+      if (!items[i].length) { html += "<br>"; continue; }
+      var pad = "";
+      for (var j = 0; j < width - labels[i].length; j++) { pad += "&nbsp;"; }
+      html += "&nbsp;" + esc(labels[i]) + ":&nbsp;" + pad + ebaStockLookup(stock, items[i]) + "<br>";
+    }
+    html += "</p>";
+    $("#eba_inventory").remove();
+    $("body").append(html);
+  };
+  var cache = ebaStockCacheRead();
+  if (cache) { render(cache.stock); }
+  ebaStockListeners.push(render);
+  ebaStockRun();
 }
 function researchLevelCorrection () {
   if(!$("h3:contains('Forschung')").length){return}
@@ -1006,6 +1015,321 @@ function updateGlobalStatistic() {
   if (money != null) { histAppend("money", timeKey, "" + money, "cent"); }
   var points = readStatusPoints();
   if (points != null) { histAppend("points", timeKey, "" + points, "punkte"); }
+}
+
+// ---------------------------------------------------------------------------
+// Lagerbestand je Tick (ameisenzimmer.php?cat=2, "Dein Lager")
+//
+// Fünf Reihen je Server, Schlüssel histKey("stock_<kat>"), Kopfzeile wie bei den
+// anderen eba_hist_*-Reihen (Format 2):
+//   stock_food  Futter in Gramm              2<TAB>stock_food<TAB>gramm<TAB><Ticklänge min>
+//   stock_acc   Zubehör (Anzahl)             ... stueck
+//   stock_nest  Formicarien und Nester       ... stueck
+//   stock_furn  Möbel                        ... stueck
+//   stock_ants  Ameisen                      ... koeniginnen/arbeiterinnen
+// Datenzeile, spärlich (Name alphabetisch, 0/fehlend weggelassen):
+//   <Tick-Beginn in Minuten seit Epoch>TAB Name=Wert TAB Name=Wert ...
+//   Ameisen: Art=Königinnen/Arbeiterinnen, Zeilen der Art (unterschiedliche
+//   Nester) werden addiert. Ein leerer Bestand ergibt eine Zeile nur mit Zeitschlüssel.
+// Höchstens eine Zeile je Tick und Reihe; beim Verschmelzen (mergeStockHistory)
+// gewinnt die nichtleere, dann die lexikografisch kleinere Zeile.
+//
+// Lesen für Auswertungen: ebaStockSeries(kat) -> [{t: ms, values: {Name: Zahl}}]
+// ---------------------------------------------------------------------------
+
+var EBA_STOCK_CATS = { food: "gramm", acc: "stueck", nest: "stueck", furn: "stueck", ants: "koeniginnen/arbeiterinnen" };
+var EBA_STOCK_HEADINGS = { "Ameisen": "ants", "Futter": "food", "Zubehör": "acc", "Formicarien und Nester": "nest", "Möbel": "furn" };
+var EBA_STOCK_RETRY_MS = 10 * 60000; // frühestens nach 10 Minuten erneut abrufen
+var ebaStockEarly = null;            // Lager, direkt aus der Seite gelesen (vor anderen Features)
+var ebaStockStarted = false;
+var ebaStockListeners = [];
+
+// Lagerseite lesen. Argument: Document, Element, jQuery-Objekt oder HTML-Text.
+// Rückgabe {food:{Name:Gramm}, acc:{Name:Anzahl}, nest:{...}, furn:{...},
+// ants:{Art:{q:Königinnen, w:Arbeiterinnen, n:Zeilen}}} oder null, wenn die Seite
+// kein Lager ist ("Dein Lager" fehlt) oder eine Zahl nicht lesbar ist.
+// Gelesen wird über die Abschnittsüberschriften (<b>Name</b> vor der Tabelle),
+// nicht über Tabellenpositionen. Reihen mit gleichem Namen werden addiert.
+function ebaParseStock(docOrHtml) {
+  var root;
+  try {
+    root = (typeof docOrHtml === "string")
+      ? $(new DOMParser().parseFromString(docOrHtml, "text/html"))
+      : $(docOrHtml);
+  } catch (err) { return null; }
+  var ok = false;
+  root.find("h3").each(function() { if ($(this).text().indexOf("Dein Lager") >= 0) { ok = true; } });
+  if (!ok) { return null; }
+  var res = { food: {}, acc: {}, nest: {}, furn: {}, ants: {} };
+  var clean = function(s) { return $.trim(("" + s).replace(/[\s ]+/g, " ")); };
+  var bad = false;
+  // In Dokumentreihenfolge: Überschrift (<b> außerhalb von table.liste) setzt die
+  // Kategorie, die nächste Tabelle gehört dazu. Wie der Parser <p> und <table>
+  // verschachtelt (je nach Dokumentmodus), spielt so keine Rolle.
+  var cat = null;
+  root.find("b, table.liste").each(function() {
+    if (this.nodeName.toUpperCase() === "B") {
+      if ($(this).closest("table.liste").length) { return; }
+      cat = EBA_STOCK_HEADINGS[clean($(this).text())] || null;
+      return;
+    }
+    if (!cat || $(this).parents("table.liste").length) { return; } // verschachtelte Tabellen nicht
+    var cur = cat;
+    cat = null; // eine Tabelle je Überschrift
+    var rows = $(this).find("tr");
+    // Kopfzeile prüfen: erste Zelle "Name" - sonst ist es nicht die Lagertabelle
+    var h = rows.first().children("td,th");
+    if (h.length < 2 || clean(h.eq(0).text()) !== "Name") { return; }
+    rows.slice(1).each(function() {
+      var tds = $(this).children("td,th");
+      if (tds.length < 2) { return; }
+      var name = clean(tds.eq(0).text());
+      if (!name) { return; }
+      var a = parseDeNumber(clean(tds.eq(1).text()));
+      if (a === null) { bad = true; return; }
+      if (cur === "ants") {
+        var w = parseDeNumber(clean(tds.eq(2).text()));
+        if (w === null) { bad = true; return; }
+        var e = res.ants[name] || (res.ants[name] = { q: 0, w: 0, n: 0 });
+        e.q += a; e.w += w; e.n++;
+      } else {
+        res[cur][name] = (res[cur][name] || 0) + a;
+      }
+    });
+  });
+  return bad ? null : res;
+}
+
+// Namen für die Reihe: Tab, Zeilenumbruch und "=" ersetzen
+function ebaStockName(n) { return ("" + n).replace(/[\t\r\n=]/g, "-"); }
+function ebaStockNum(v) { return "" + (Math.round(v * 100) / 100); }
+
+// Datenzeile ohne Zeitschlüssel ("Name=Wert\tName=Wert"), "" bei leerem Bestand
+function ebaStockFields(cat, stock) {
+  var sum = {};
+  var src = stock[cat] || {};
+  for (var k in src) {
+    if (!Object.prototype.hasOwnProperty.call(src, k)) { continue; }
+    var n = ebaStockName(k);
+    if (cat === "ants") {
+      var s = sum["k" + n] || (sum["k" + n] = { n: n, q: 0, w: 0 });
+      s.q += src[k].q; s.w += src[k].w;
+    } else {
+      var t = sum["k" + n] || (sum["k" + n] = { n: n, v: 0 });
+      t.v += src[k];
+    }
+  }
+  var list = [];
+  for (var j in sum) {
+    if (!Object.prototype.hasOwnProperty.call(sum, j)) { continue; }
+    var e = sum[j];
+    if (cat === "ants") {
+      if (!(e.q || e.w)) { continue; }
+      list.push([e.n, e.n + "=" + ebaStockNum(e.q) + "/" + ebaStockNum(e.w)]);
+    } else {
+      if (!e.v) { continue; }
+      list.push([e.n, e.n + "=" + ebaStockNum(e.v)]);
+    }
+  }
+  list.sort(function(x, y) { return x[0] < y[0] ? -1 : (x[0] > y[0] ? 1 : 0); });
+  return $.map(list, function(p) { return p[1]; }).join("\t");
+}
+
+// Gibt es in dieser Reihe schon eine Zeile für den Tick? Die Reihe wird von hinten
+// durchsucht (nach dem Abgleich muss die letzte Zeile nicht die jüngste sein).
+function ebaStockHasTick(cat, tickMin) {
+  var saved = GM_getValue(histKey("stock_" + cat), "");
+  if (!saved) { return false; }
+  var ls = saved.split("\n");
+  for (var i = ls.length - 1; i >= 1; i--) {
+    var t = parseFloat(ls[i]);
+    if (t === tickMin) { return true; }
+    if (t < tickMin) { return false; }
+  }
+  return false;
+}
+
+// Eine Zeile je Kategorie und Tick anhängen. true, wenn etwas geschrieben wurde.
+function ebaStockStore(stock, tickMin) {
+  var wrote = false;
+  $.each(EBA_STOCK_CATS, function(cat, unit) {
+    if (ebaStockHasTick(cat, tickMin)) { return; }
+    var key = histKey("stock_" + cat);
+    var saved = GM_getValue(key, "") || histHead("stock_" + cat, unit);
+    var f = ebaStockFields(cat, stock);
+    GM_setValue(key, compactHistory(saved + "\n" + tickMin + (f ? "\t" + f : "")));
+    wrote = true;
+  });
+  return wrote;
+}
+
+// Verschmelzen zweier Lager-Reihen: eine Zeile je Zeitschlüssel. Auswahl bei
+// gleichem Zeitschlüssel: nichtleere Zeile vor leerer, dann die lexikografisch
+// kleinere. Totale Ordnung auf dem Inhalt, also kommutativ, assoziativ,
+// idempotent; die Ausgabe ist kanonisch (Kopfzeile, dann aufsteigend nach Zeit).
+function mergeStockHistory(a, b) {
+  var head = "", best = {};
+  var add = function(text) {
+    if (typeof text !== "string") { return; }
+    var ls = text.replace(/\r/g, "").split("\n");
+    for (var i = 0; i < ls.length; i++) {
+      var l = ls[i];
+      if (!l) { continue; }
+      if (/^\d+\tstock_[a-z]+(\t|$)/.test(l)) { head = head ? mergeHeadLine(head, l) : l; continue; }
+      var t = parseFloat(l);
+      if (isNaN(t)) { continue; }
+      var tab = l.indexOf("\t");
+      var rest = tab < 0 ? "" : l.substr(tab + 1);
+      var line = t + (rest ? "\t" + rest : "");
+      var cur = best["k" + t];
+      if (!cur || (rest !== "" && cur.rest === "") ||
+          ((rest !== "") === (cur.rest !== "") && syncCmpLine(line, cur.line) < 0)) {
+        best["k" + t] = { t: t, line: line, rest: rest };
+      }
+    }
+  };
+  add(a); add(b);
+  var all = [];
+  for (var k in best) { if (Object.prototype.hasOwnProperty.call(best, k)) { all.push(best[k]); } }
+  all.sort(function(x, y) { return x.t - y.t; });
+  var out = head ? [head] : [];
+  for (var j = 0; j < all.length; j++) { out.push(all[j].line); }
+  return out.join("\n");
+}
+
+// Lesezugriff für Auswertungen. cat = "food" | "acc" | "nest" | "furn" | "ants".
+// Rückgabe chronologisch aufsteigend: [{t: ms, values: {Name: Zahl}}].
+// Die Zeilen sind spärlich: ein Name, der in values fehlt, hatte in diesem Tick
+// den Bestand 0 (eine Zeile ohne Namen = Lager dieser Kategorie leer). Bei "ants"
+// ist values = Königinnen + Arbeiterinnen; zusätzlich gibt es queens:{Art:Zahl}
+// und workers:{Art:Zahl}. t = Tick-Beginn in ms seit Epoch (Serverzeit); die Zeile
+// zeigt das Lager, wie es nach dem Ende dieses Ticks war.
+function ebaStockSeries(cat) {
+  var out = [];
+  if (!EBA_STOCK_CATS.hasOwnProperty(cat)) { return out; }
+  var saved = GM_getValue(histKey("stock_" + cat), "");
+  if (!saved) { return out; }
+  var ls = saved.split("\n");
+  for (var i = 1; i < ls.length; i++) {
+    var f = ls[i].split("\t");
+    var t = parseFloat(f[0]);
+    if (isNaN(t)) { continue; }
+    var row = { t: t * 60000, values: {} };
+    if (cat === "ants") { row.queens = {}; row.workers = {}; }
+    for (var j = 1; j < f.length; j++) {
+      var p = f[j].lastIndexOf("=");
+      if (p < 1) { continue; }
+      var name = f[j].substr(0, p), val = f[j].substr(p + 1);
+      if (cat === "ants") {
+        var qw = val.split("/"), q = parseFloat(qw[0]), w = parseFloat(qw[1]);
+        if (isNaN(q) || isNaN(w)) { continue; }
+        row.queens[name] = q; row.workers[name] = w; row.values[name] = q + w;
+      } else {
+        var v = parseFloat(val);
+        if (!isNaN(v)) { row.values[name] = v; }
+      }
+    }
+    out.push(row);
+  }
+  return out;
+}
+
+// Zwischenspeicher für die Seitenleiste: "<Marke in Tick-Minuten>\n<JSON>".
+// Die Marke ist der Tick, dessen Ende der Stand abbildet (bei laufendem Tick der
+// vorige), so dass nach Tickende neu geholt wird.
+function ebaStockCacheKey() { return "eba_inventory_" + srvKey(); }
+function ebaStockCacheRead() {
+  var raw = GM_getValue(ebaStockCacheKey(), "");
+  if (typeof raw !== "string") { return null; }
+  var p = raw.indexOf("\n");
+  if (p < 1) { return null; }
+  try {
+    var t = parseFloat(raw.substr(0, p)), s = JSON.parse(raw.substr(p + 1));
+    if (isNaN(t) || !s || typeof s !== "object" || !s.food || !s.acc || !s.nest || !s.furn || !s.ants) { return null; }
+    return { t: t, stock: s };
+  } catch (err) { return null; }
+}
+
+function ebaStockHistoryOn() { return !!GM_getValue("eba_enable_stock_history", false); }
+function ebaStockInventoryOn() { return !!GM_getValue("eba_enable_show_inventory", false); }
+
+// Neuen Lagerstand verarbeiten: Reihen (nur bei aktivierter Option und nach
+// Tickende) und Zwischenspeicher der Seitenleiste.
+function ebaStockApply(stock) {
+  var tk = getTickInfo();
+  var tickMin = tk.nowTick / 60000;
+  if (ebaStockHistoryOn() && tk.done) { ebaStockStore(stock, tickMin); }
+  if (ebaStockInventoryOn()) {
+    var mark = tk.done ? tickMin : tickMin - getTickMinutes();
+    GM_setValue(ebaStockCacheKey(), mark + "\n" + JSON.stringify(stock));
+  }
+  $.each(ebaStockListeners, function(i, fn) { try { fn(stock); } catch (err) { /* Anzeige darf nichts blockieren */ } });
+}
+
+// Wird ein Abruf gebraucht? Nur nach Tickende; fehlt der Tick in einer Reihe
+// oder ist der Zwischenspeicher älter als der Tick. Ohne jeden Zwischenspeicher
+// holt die Seitenleiste einmal auch bei laufendem Tick.
+function ebaStockNeedFetch() {
+  var tk = getTickInfo();
+  var tickMin = tk.nowTick / 60000;
+  var cache = ebaStockInventoryOn() ? ebaStockCacheRead() : null;
+  if (ebaStockInventoryOn() && !cache) { return true; }
+  if (!tk.done) { return false; }
+  if (cache && cache.t < tickMin) { return true; }
+  if (ebaStockHistoryOn()) {
+    var missing = false;
+    $.each(EBA_STOCK_CATS, function(cat) { if (!ebaStockHasTick(cat, tickMin)) { missing = true; } });
+    if (missing) { return true; }
+  }
+  return false;
+}
+
+// Hintergrundabruf der Lagerseite. Sperre über einen GM-Zeitstempel (PC-Uhr),
+// gilt für alle Tabs und zugleich als Wartezeit nach einem Fehlversuch.
+function ebaStockFetch() {
+  var lockKey = "eba_inventory_" + srvKey() + "lock";
+  var now = $.now(), last = parseFloat(GM_getValue(lockKey, 0));
+  if (!isNaN(last) && Math.abs(now - last) < EBA_STOCK_RETRY_MS) { return; }
+  GM_setValue(lockKey, now);
+  var fail = function() { /* Sperre bleibt: Wiederholung frühestens nach 10 Minuten */ };
+  try {
+    GM_xmlhttpRequest({
+      method: "GET",
+      url: location.origin + "/ameisenzimmer.php?cat=2",
+      overrideMimeType: "text/html; charset=windows-1252",
+      timeout: 20000,
+      onload: function(response) {
+        try {
+          if (response.status && response.status !== 200) { fail(); return; }
+          var stock = ebaParseStock(response.responseText);
+          if (!stock) { fail(); return; }
+          GM_setValue(lockKey, 0); // Erfolg: keine Wartezeit nötig, der Bestand ist da
+          ebaStockApply(stock);
+        } catch (err) { fail(); }
+      },
+      onerror: fail,
+      ontimeout: fail
+    });
+  } catch (err) { fail(); }
+}
+
+// Einstieg, einmal je Seitenaufruf (Option "Lagerbestand je Tick festhalten"
+// und Seitenleiste rufen beide hierher). Auf der Lagerseite wird direkt der
+// Seiteninhalt verwendet, sonst höchstens ein Hintergrundabruf je Tick.
+function ebaStockRun() {
+  if (ebaStockStarted || !(ebaStockHistoryOn() || ebaStockInventoryOn())) { return; }
+  ebaStockStarted = true;
+  if (!$("div#status").length) { return; }
+  if (ebaStockEarly) { ebaStockApply(ebaStockEarly); return; }
+  if (ebaStockNeedFetch()) { ebaStockFetch(); }
+}
+function ebaStockHistory() { ebaStockRun(); }
+// Muss vor allen Features laufen: "Ameisen im Lager zusammenfassen" und die
+// Sortierung bauen die Tabellen um.
+function ebaStockSnapshotEarly() {
+  if (!(ebaStockHistoryOn() || ebaStockInventoryOn())) { return; }
+  if (!$("h3:contains('Dein Lager')").length) { return; }
+  ebaStockEarly = ebaParseStock(document);
 }
 
 // ---------------------------------------------------------------------------
@@ -1817,6 +2141,8 @@ function importHistoryJSON(text) {
         res = mergeFoodHistory(mine, v);
       } else if (/_(foodsearch|antsearch)$/.test(k)) {
         res = mergeSeries(mine, v, true, true);
+      } else if (davKind(k) === "stock") {
+        res = mergeStockHistory(mine, v);
       } else {
         res = mergeSeries(mine, v, true, false);
       }
@@ -3565,6 +3891,7 @@ function davKind(key) {
   if (key.indexOf("eba_statistic_") === 0) { return "formi"; }
   if (key.indexOf("eba_food_") === 0) { return "food"; }
   if (/_(foodsearch|antsearch)$/.test(key)) { return "search"; }
+  if (/^eba_hist_(speed_)?stock_(food|acc|nest|furn|ants)$/.test(key)) { return "stock"; }
   return "hist";
 }
 function davMerge(key, a, b) {
@@ -3572,6 +3899,7 @@ function davMerge(key, a, b) {
     case "formi": return mergeFormiHistory(a, b);
     case "food": return mergeFoodHistory(a, b);
     case "search": return mergeSeries(a, b, true, true);
+    case "stock": return mergeStockHistory(a, b);
     default: return mergeSeries(a, b, true, false);
   }
 }
@@ -3615,6 +3943,7 @@ function davValidate(key, text) {
     else if (kind === "search") { ms = t; }
     else { ms = t * 60000; }
     if (isNaN(t) || !ebaTimePlausible(ms)) { res.dropped++; continue; }
+    if (kind === "stock" && !/^\d+(\.\d+)?(\t[^\t=]+=\d+(\.\d+)?(\/\d+(\.\d+)?)?)*$/.test(line)) { res.dropped++; continue; }
     out.push(line);
   }
   res.ok = true;
@@ -4911,6 +5240,7 @@ $(window).on("hashchange", function() {
 // auch gesetzt wird, wenn keine der neuen Optionen aktiv ist.
 migrateHistorySchema();
 enableConfig();
+ebaStockSnapshotEarly();
 $.each(configItems, function(k, v) {
   var timer = new Date().getTime();
   GM_getValue(k, false) && v[0]();
