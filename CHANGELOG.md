@@ -15,6 +15,14 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
 
 > **Hinweis vor dem Update:** Mehrere Versionen (31.1, 31.7, 31.9) wandeln gespeicherte Daten beim ersten Start automatisch um. Empfehlung: vorher in der openEBA-Konfiguration die Daten über *Exportieren* sichern.
 
+## 33.8
+
+### Verbessert
+- WebDAV-Abgleich mit Serverzeit statt Rechner-Uhr:
+  - Sperren, Wartezeiten und die Anzeige „Letzter Abgleich“ laufen jetzt nach Serverzeit.
+  - Die Zeitstempel der Lösch-Marker („vergessen“ und „wieder zulassen“) sind auf allen Geräten vergleichbar. Bei zwei Geräten gewinnt die zeitlich spätere Aktion, auch wenn eine Rechner-Uhr falsch geht.
+  - Rückwärtskompatibel: Das Indexformat ist unverändert. Geräte mit älterer Version und vorhandene Index-Dateien funktionieren weiter. Gespeicherte Sperren aus der Rechner-Uhr führen nicht zu Dauersperren.
+
 ## 33.7
 
 ### Neu
