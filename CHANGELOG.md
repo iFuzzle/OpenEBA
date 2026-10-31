@@ -15,6 +15,15 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
 
 > **Hinweis vor dem Update:** Mehrere Versionen (31.1, 31.7, 31.9) wandeln gespeicherte Daten beim ersten Start automatisch um. Empfehlung: vorher in der openEBA-Konfiguration die Daten über *Exportieren* sichern.
 
+## 33.11
+
+### Verbessert
+- Spielhilfe:
+  - Der Menüpunkt heißt nur noch *openEBA: Spielhilfe*. Der Hinweis auf Community-Daten steht auf der Seite selbst.
+  - Der Reiter *Shopameisen* heißt jetzt *Vergleich* und umfasst alle Arten. Oben lässt sich umschalten zwischen *Alle*, *kaufbar (Shop)* und *nur findbar*, dazu kommt ein Filter nach Kategorie. Werte, die nur für Shopameisen bekannt sind (Tage, Regalplatz, Preise, Punkte bzw. Geld pro Tag), stehen bei findbaren Arten als „–“.
+  - Sortieren: Ein zweiter Klick auf dieselbe Spalte kehrt die Richtung um, ▲/▼ zeigt sie an. „–“ steht immer am Ende. Die Steckbriefe haben einen Knopf für auf- oder absteigend.
+  - Die Wohnung im Hochhaus hat jetzt ein Bild.
+
 ## 33.10
 
 ### Behoben
