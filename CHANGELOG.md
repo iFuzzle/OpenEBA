@@ -15,6 +15,15 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
 
 > **Hinweis vor dem Update:** Mehrere Versionen (31.1, 31.7, 31.9) wandeln gespeicherte Daten beim ersten Start automatisch um. Empfehlung: vorher in der openEBA-Konfiguration die Daten über *Exportieren* sichern.
 
+## 33.4
+
+### Neu
+- Option *Ausbruchschutz in der Formicarien-Übersicht anzeigen*: Unter „Hunger (Proteine)“ bzw. „Pilzstatus“ steht je Kolonie eine Zeile *Ausbruchschutz* mit Balken und Wert, z. B. `97,4 % PTFE`. Unter 20 % orange, unter 10 % rot. Ein Wert aus einem früheren Tick ist blass dargestellt, der Tooltip nennt den Stand. Quelle ist die Erfassung von Futter und Ausbruchschutz je Tick.
+
+### Verbessert
+- Lager: höchstens ein Scan pro Tick und Server, egal ob über die Lagerseite, den Hintergrundabruf, mehrere Tabs oder die Seitenleisten-Anzeige. Der erste Stand eines Ticks gewinnt. Fehlversuche frühestens nach 10 Minuten wiederholt, höchstens 3 pro Tick. Während eines laufenden Ticks wird nicht mehr abgerufen.
+- Changelog: Abschnitt 33.0 zusammengefasst.
+
 ## 33.3
 
 ### Neu
