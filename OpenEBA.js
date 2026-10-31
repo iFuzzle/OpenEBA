@@ -1253,8 +1253,16 @@ function ebaStockCacheRead() {
 function ebaStockHistoryOn() { return !!GM_getValue("eba_enable_stock_history", false); }
 function ebaStockInventoryOn() { return !!GM_getValue("eba_enable_show_inventory", false); }
 
-// Neuen Lagerstand verarbeiten: Reihen (nur bei aktivierter Option und nach
-// Tickende) und Zwischenspeicher der Seitenleiste.
+// Pro Tick und Server höchstens EIN Scan des Lagers (Lagerseite, Hintergrundabruf,
+// mehrere Tabs, Seitenleiste: egal, der erste Stand gewinnt). Gescannt wird nur
+// nach Tickende. Ein Scan zählt, sobald er beansprucht ist (ebaStockClaimScan);
+// Fehlversuche des Hintergrundabrufs zählen nicht, werden aber begrenzt.
+var EBA_STOCK_MAX_TRIES = 3;         // Abrufversuche je Tick (ein Fehlversuch ist kein Scan)
+function ebaStockScanKey() { return "eba_inventory_" + srvKey() + "scan"; }
+function ebaStockScanned(tickMin) { return parseFloat(GM_getValue(ebaStockScanKey(), 0)) === tickMin; }
+
+// Neuen Lagerstand verarbeiten: Reihen (nur bei aktivierter Option) und
+// Zwischenspeicher der Seitenleiste. Läuft nur nach Tickende und nur einmal je Tick.
 function ebaStockApply(stock) {
   var tk = getTickInfo();
   var tickMin = tk.nowTick / 60000;
@@ -1266,32 +1274,25 @@ function ebaStockApply(stock) {
   $.each(ebaStockListeners, function(i, fn) { try { fn(stock); } catch (err) { /* Anzeige darf nichts blockieren */ } });
 }
 
-// Wird ein Abruf gebraucht? Nur nach Tickende; fehlt der Tick in einer Reihe
-// oder ist der Zwischenspeicher älter als der Tick. Ohne jeden Zwischenspeicher
-// holt die Seitenleiste einmal auch bei laufendem Tick.
-function ebaStockNeedFetch() {
-  var tk = getTickInfo();
-  var tickMin = tk.nowTick / 60000;
-  var cache = ebaStockInventoryOn() ? ebaStockCacheRead() : null;
-  if (ebaStockInventoryOn() && !cache) { return true; }
-  if (!tk.done) { return false; }
-  if (cache && cache.t < tickMin) { return true; }
-  if (ebaStockHistoryOn()) {
-    var missing = false;
-    $.each(EBA_STOCK_CATS, function(cat) { if (!ebaStockHasTick(cat, tickMin)) { missing = true; } });
-    if (missing) { return true; }
-  }
-  return false;
-}
-
-// Hintergrundabruf der Lagerseite. Sperre über einen GM-Zeitstempel (PC-Uhr),
-// gilt für alle Tabs und zugleich als Wartezeit nach einem Fehlversuch.
-function ebaStockFetch() {
+// Hintergrundabruf der Lagerseite. Der Versuchszähler (GM-Wert, alle Tabs) hat die
+// Form "<Tick-Minuten>|<Versuche>|<PC-Zeit ms>|<Kennung>" und wird VOR dem Request
+// geschrieben; wer die Kennung beim Zurücklesen nicht mehr findet, hat das Rennen
+// gegen einen anderen Tab verloren. Wartezeit nach einem Versuch: 10 Minuten.
+function ebaStockFetch(tickMin) {
   var lockKey = "eba_inventory_" + srvKey() + "lock";
-  var now = $.now(), last = parseFloat(GM_getValue(lockKey, 0));
-  if (!isNaN(last) && Math.abs(now - last) < EBA_STOCK_RETRY_MS) { return; }
-  GM_setValue(lockKey, now);
-  var fail = function() { /* Sperre bleibt: Wiederholung frühestens nach 10 Minuten */ };
+  var now = $.now(), count = 0;
+  var p = ("" + GM_getValue(lockKey, "")).split("|");
+  if (p.length >= 4 && parseFloat(p[0]) === tickMin) {
+    var last = parseFloat(p[2]);
+    count = parseInt(p[1], 10) || 0;
+    if (count >= EBA_STOCK_MAX_TRIES) { return; }
+    if (!isNaN(last) && Math.abs(now - last) < EBA_STOCK_RETRY_MS) { return; }
+  }
+  var token = now + "." + Math.random();
+  var mine = tickMin + "|" + (count + 1) + "|" + now + "|" + token;
+  GM_setValue(lockKey, mine);
+  if (GM_getValue(lockKey, "") !== mine) { return; }
+  var fail = function() { /* Zähler bleibt: Wiederholung frühestens nach 10 Minuten */ };
   try {
     GM_xmlhttpRequest({
       method: "GET",
@@ -1303,7 +1304,10 @@ function ebaStockFetch() {
           if (response.status && response.status !== 200) { fail(); return; }
           var stock = ebaParseStock(response.responseText);
           if (!stock) { fail(); return; }
-          GM_setValue(lockKey, 0); // Erfolg: keine Wartezeit nötig, der Bestand ist da
+          // Hat inzwischen ein anderer Weg (Lagerseite in einem Tab) den Tick
+          // gescannt, gewinnt dessen Stand.
+          if (ebaStockScanned(tickMin) || getTickInfo().nowTick / 60000 !== tickMin) { return; }
+          GM_setValue(ebaStockScanKey(), tickMin);
           ebaStockApply(stock);
         } catch (err) { fail(); }
       },
@@ -1314,14 +1318,28 @@ function ebaStockFetch() {
 }
 
 // Einstieg, einmal je Seitenaufruf (Option "Lagerbestand je Tick festhalten"
-// und Seitenleiste rufen beide hierher). Auf der Lagerseite wird direkt der
-// Seiteninhalt verwendet, sonst höchstens ein Hintergrundabruf je Tick.
+// und Seitenleiste rufen beide hierher). Nach Tickende und nur wenn dieser Tick
+// noch nicht gescannt ist: auf der Lagerseite direkt der Seiteninhalt (kein
+// Request), sonst ein Hintergrundabruf. Bei laufendem Tick gibt es keinen Scan
+// (auch nicht beim allerersten Mal ohne Zwischenspeicher): die Lagerseite füllt
+// dann nur die Anzeige.
 function ebaStockRun() {
   if (ebaStockStarted || !(ebaStockHistoryOn() || ebaStockInventoryOn())) { return; }
   ebaStockStarted = true;
   if (!$("div#status").length) { return; }
-  if (ebaStockEarly) { ebaStockApply(ebaStockEarly); return; }
-  if (ebaStockNeedFetch()) { ebaStockFetch(); }
+  var tk = getTickInfo();
+  var tickMin = tk.nowTick / 60000;
+  if (!tk.done) {
+    if (ebaStockEarly) { $.each(ebaStockListeners, function(i, fn) { try { fn(ebaStockEarly); } catch (err) { } }); }
+    return;
+  }
+  if (ebaStockScanned(tickMin)) { return; }
+  if (ebaStockEarly) {
+    GM_setValue(ebaStockScanKey(), tickMin);
+    ebaStockApply(ebaStockEarly);
+    return;
+  }
+  ebaStockFetch(tickMin);
 }
 function ebaStockHistory() { ebaStockRun(); }
 // Muss vor allen Features laufen: "Ameisen im Lager zusammenfassen" und die
