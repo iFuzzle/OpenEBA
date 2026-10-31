@@ -15,6 +15,11 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
 
 > **Hinweis vor dem Update:** Mehrere Versionen (31.1, 31.7, 31.9) wandeln gespeicherte Daten beim ersten Start automatisch um. Empfehlung: vorher in der openEBA-Konfiguration die Daten über *Exportieren* sichern.
 
+## 33.10
+
+### Behoben
+- Zeitzone: Alle Zeiten sind jetzt unabhängig von Zeitzone und Uhr des Rechners, z. B. beim Spielen im Urlaub. Die Serverzeit der Seite wird ausdrücklich als deutsche Zeit (inkl. Sommerzeit) gelesen, gespeichert wird eine weltweit eindeutige Zeit, angezeigt wird immer deutsche Zeit. Ein Gerät im Ausland erzeugt beim WebDAV-Abgleich mit einem Gerät in Deutschland kein endloses Hin und Her mehr. Bereits gespeicherte Daten aus Deutschland bleiben unverändert gültig.
+
 ## 33.9
 
 ### Verbessert
