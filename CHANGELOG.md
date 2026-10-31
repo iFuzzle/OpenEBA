@@ -23,11 +23,12 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
   - **CSV** lädt die Statistik als Datei für Excel herunter (Semikolon, Dezimalkomma).
   - **Tabelle** öffnet das bisherige Textfeld zum Kopieren.
 - Seite *openEBA-Verlauf*: Jede Formicarium-Gruppe hat in der Kopfzeile einen CSV-Link.
-
 - Einheitlich Serverzeit statt Rechner-Uhr: Endzeit „[Endet …]“ bei Jobs und Forschung, Zeitraumfilter der Seite *openEBA-Verlauf* und der Kurve im Header, Stunden-Cache der Ameisenshop-Preise, Punkte pro Stunde, Sperre des Lager-Abrufs und Zeitstempel im Export. Zwei Browser im selben Tick verhalten sich damit gleich. Das Punkte-pro-Stunde-Fenster wird nach dem Update einmal neu befüllt („+?“, bis zwei Stunden vorliegen).
+- *Ausbruchschutz in der Formicarien-Übersicht anzeigen*: Der Prozentbalken ist eine eigene Option (*… mit Prozentbalken*, Standard aus). Ohne sie steht nur der Wert, z. B. `97,4 % PTFE`.
 
 ### Behoben
 - Mit *Bookmarks einblenden* stand *openEBA-Verlauf* im Statistik-Menü hinter den Bookmarks. Er steht jetzt immer direkt unter *openEBA*.
+- Ausbruchschutz in der Übersicht: Die Zeile aktualisiert sich jetzt, sobald der Hintergrundabruf den neuen Wert geliefert hat. Bisher blieben Kolonien, die noch nicht abgerufen waren, blass und kursiv. Während ein Abruf läuft, ist die Zeile neutral dargestellt. Ein hängender Abruf blockiert die Warteschlange nicht mehr. Balken und Text brechen nicht mehr um.
 
 ## 33.4
 
