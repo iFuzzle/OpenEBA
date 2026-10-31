@@ -29,6 +29,7 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
   - **Info:** Wachstumshinweise und Danksagungen.
   
   Ein Schalter zeigt die Werte des Speedservers. Die Bilder lädt das Skript vom Spielserver, die Daten stammen aus der Community-Spielhilfe.
+- Ameisen- und Futtersuche: In der Auswahl der Dauer steht hinter jeder Option die voraussichtliche Endzeit, z. B. `8:00:00 → morgen 07:53`. Läuft gerade eine Aktion, wird ab deren Ende gerechnet. Die Anzeige nutzt die Serverzeit und aktualisiert sich jede Minute. Gehört zur Option *Jobs/Forschungen mit Informationen anreichern*.
 
 ## 33.6
 
