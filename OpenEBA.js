@@ -3987,6 +3987,62 @@ var EBA_DAV_NEW_BUDGET = 40;          // zusätzliche Requests pro Auto-Lauf, so
 var EBA_DAV_INV_INTERVAL = 1800000;   // ms: so selten fragt der Auto-Lauf das Server-Inventar neu ab
 var EBA_DAV_IDX_MAX = 5000;           // Zeilen der Index-Datei, mehr werden verworfen
 
+// ---------------------------------------------------------------------------
+// Zeitbasis des Abgleichs: Serverzeit statt PC-Uhr
+//
+// davNow(): Sperren, Wartezeiten, Inventar-Zeitpunkt und Statuszeile. Diese
+//   Werte bleiben im Browser (GM-Speicher), es zählt nur, dass alle Tabs
+//   dieselbe Uhr benutzen: getServerNow() ("Wanduhr-Epoch").
+// davStamp(): Zeitstempel der Lösch-Marker in der Index-Datei. Sie werden
+//   zwischen Geräten verglichen (größerer gewinnt), brauchen also eine Uhr, die
+//   auf allen Geräten gleich läuft - unabhängig von PC-Uhr UND PC-Zeitzone.
+//   Das ist die echte Epoch der Serveruhr: Server-Wanduhr (Europe/Berlin) in
+//   UTC umgerechnet. Damit liegt der Wert im selben Bereich wie die PC-ms
+//   (Date.now()), die ältere Skriptversionen schreiben und die schon im Index
+//   stehen; Unterschiede sind nur Fehler der PC-Uhr. Format und Bedeutung der
+//   Index-Datei bleiben deshalb unverändert (ältere Parser verwerfen Zeilen mit
+//   zusätzlichen Spalten und schreiben den Index ohne sie zurück - eine
+//   Formatkennung würde zwischen alten und neuen Geräten hin- und herkippen).
+//   Ohne Intl-Zeitzonen fällt davStamp() auf getServerNow() zurück; das ist auf
+//   Geräten in deutscher Zeitzone derselbe Wert.
+// Ältere Skriptversionen (oder Tabs, die seit dem Update nicht neu geladen
+// wurden) schreiben Sperren und Wartezeiten noch in PC-Zeit. Damit eine
+// falsch gehende PC-Uhr daraus keine Dauersperre macht, gelten solche Werte
+// nur innerhalb ihres Zeitfensters, gemessen in beide Richtungen (davWithin,
+// Obergrenze beim Backoff).
+// ---------------------------------------------------------------------------
+function davNow() { return getServerNow(); }
+var davTzFmt = null;
+// Versatz der Berliner Wanduhr zu UTC (ms) zum Zeitpunkt t, null ohne Intl-Zeitzonen
+function davBerlinOff(t) {
+  try {
+    if (!davTzFmt) {
+      davTzFmt = new Intl.DateTimeFormat("en-US", { timeZone: "Europe/Berlin", hour12: false, year: "numeric",
+        month: "numeric", day: "numeric", hour: "numeric", minute: "numeric", second: "numeric" });
+    }
+    var p = {}, parts = davTzFmt.formatToParts(new Date(t));
+    for (var i = 0; i < parts.length; i++) { p[parts[i].type] = parseInt(parts[i].value, 10); }
+    var w = Date.UTC(p.year, p.month - 1, p.day, p.hour % 24, p.minute, p.second);
+    var off = w - Math.floor(t / 1000) * 1000;
+    return isNaN(off) || Math.abs(off) > 86400000 ? null : off;
+  } catch (err) { return null; }
+}
+function davStamp() {
+  var e = getServerNow();
+  var w = e - new Date(e).getTimezoneOffset() * 60000; // Server-Wanduhr, als UTC gelesen
+  var o = davBerlinOff(w);
+  if (o === null) { return e; }
+  var o2 = davBerlinOff(w - o); // an der Sommerzeitgrenze einmal nachrechnen
+  return w - (o2 === null ? o : o2);
+}
+// Liegt der gespeicherte Zeitpunkt t (davNow-ms) weniger als win ms entfernt?
+// Auch nach vorn begrenzt: ein Wert weit in der Zukunft stammt von einer
+// vorgehenden PC-Uhr und gilt als abgelaufen.
+function davWithin(t, win) {
+  t = parseInt(t, 10) || 0;
+  return t > 0 && Math.abs(davNow() - t) < win;
+}
+
 // Schlüssel des Abgleichs selbst. Gelten für beide Server (ein Zugang für
 // Normal- und Speedserver) und werden weder exportiert noch importiert:
 // im Export stünde sonst das Passwort, und ein manipulierter Import könnte
@@ -4213,7 +4269,9 @@ function davKeyValid(k) {
 //   a = angekündigt/vorhanden, f = vergessen. Je Schlüssel gewinnt der größere
 //   Zeitstempel, bei Gleichstand f. Das ist idempotent, kommutativ, assoziativ
 //   und kanonisch (sortiert) - die Geräte erreichen also einen Fixpunkt.
-//   "Wieder zulassen" schreibt a mit größerem Zeitstempel. Lokale Kopie:
+//   "Wieder zulassen" schreibt a mit größerem Zeitstempel. ms ist die Serverzeit
+//   (davStamp), bei älteren Skriptversionen die PC-Uhr des Geräts; beide
+//   liegen im selben Wertebereich und werden gleich behandelt. Lokale Kopie:
 //   eba_dav_idx_<srv>, Stand des Servers: eba_dav_idxst_<srv> {etag, text}.
 // ---------------------------------------------------------------------------
 function davSrvName() { return srvKey() ? "speed" : "normal"; }
@@ -4240,7 +4298,7 @@ function davIdxParse(text) {
   if (/^\s*</.test(text)) { res.reason = "HTML statt Daten"; return res; }
   var lines = text.split("\n");
   if (lines[0] !== "eba_index\t1") { res.reason = "keine Index-Datei oder neueres Format"; return res; }
-  var maxMs = new Date().getTime() + 7 * 86400000, n = 0;
+  var maxMs = davStamp() + 7 * 86400000, n = 0;
   for (var i = 1; i < lines.length; i++) {
     if (!lines[i]) { continue; }
     var p = lines[i].split("\t");
@@ -4280,7 +4338,7 @@ function davIgnoreMap() {
 function davIgnoredCount() { var n = 0, m = davIgnoreMap(); for (var k in m) { if (m.hasOwnProperty(k)) { n++; } } return n; }
 // Reihen vergessen: lokaler Marker, geht beim nächsten Lauf in die Index-Datei.
 function davForget(keys) {
-  var m = davIdxMap(), now = new Date().getTime();
+  var m = davIdxMap(), now = davStamp();
   $.each(keys, function(i, k) {
     if (!davKeyValid(k)) { return; }
     davIdxPut(m, k, Math.max(now, (m[k] ? m[k].ms : 0) + 1), "f");
@@ -4289,7 +4347,7 @@ function davForget(keys) {
 }
 // Alle Marker aufheben; die Reihen werden wieder abgeglichen.
 function davRestoreIgnored() {
-  var m = davIdxMap(), now = new Date().getTime(), n = 0;
+  var m = davIdxMap(), now = davStamp(), n = 0;
   for (var k in m) {
     if (m.hasOwnProperty(k) && m[k].st === "f") { davIdxPut(m, k, Math.max(now, m[k].ms + 1), "a"); n++; }
   }
@@ -4353,7 +4411,7 @@ function davIdxSync(announce, stats, cb, attempt, trail) {
     if (!rp.ok) { stats.skipped.push("Index-Datei: " + rp.reason); return cb(null); } // fremder Inhalt: nicht anfassen
     var merged = local, k;
     for (k in rp.map) { if (rp.map.hasOwnProperty(k)) { davIdxPut(merged, k, rp.map[k].ms, rp.map[k].st); } }
-    var now = new Date().getTime();
+    var now = davStamp();
     $.each(announce, function(i, key) { if (davKeyValid(key) && !merged[key]) { merged[key] = { ms: now, st: "a" }; } });
     var text = davIdxText(merged);
     davIdxSave(merged);
@@ -4433,7 +4491,7 @@ function davList(cb) {
 function davInvDue(manual) {
   if (manual) { return true; }
   var t = GM_getValue("eba_dav_inv_ms_" + srvKey(), 0);
-  return !t || new Date().getTime() - t > EBA_DAV_INV_INTERVAL || davIdxDirty();
+  return !davWithin(t, EBA_DAV_INV_INTERVAL) || davIdxDirty();
 }
 function davInventory(manual, stats, cb) {
   var tryPf = manual || GM_getValue("eba_dav_pf_" + srvKey(), "") !== "no";
@@ -4453,7 +4511,7 @@ function davInventory(manual, stats, cb) {
       arr.sort();
       if (listed || stats.idxOk) {
         GM_setValue(davInvKey(), arr.join("\n"));
-        GM_setValue("eba_dav_inv_ms_" + srvKey(), new Date().getTime());
+        GM_setValue("eba_dav_inv_ms_" + srvKey(), davNow());
       }
       stats.inv = (listed ? "PROPFIND ok (" + listed.length + " Dateien)" : (tryPf ? "PROPFIND nicht möglich (HTTP " + l.status + ")" : "PROPFIND aus"))
         + ", Index-Datei " + (stats.idxOk ? "ok" : "nicht lesbar") + ", " + arr.length + " Reihen bekannt";
@@ -4491,7 +4549,7 @@ function davSyncKey(key, stats, cb, attempt, trail) {
   var gh = {};
   // Auto-Läufe lassen eine Reihe, die gerade dauerhaft 412 liefert, eine Weile in Ruhe
   var stuckAt = parseInt(GM_getValue("eba_dav_stuck_" + key, 0), 10) || 0;
-  if (attempt === 0 && !stats.manual && stuckAt && new Date().getTime() - stuckAt < EBA_DAV_STUCK_PAUSE) {
+  if (attempt === 0 && !stats.manual && davWithin(stuckAt, EBA_DAV_STUCK_PAUSE)) {
     stats.skipped.push(key + ": pausiert nach 412");
     return cb(null);
   }
@@ -4556,7 +4614,7 @@ function davSyncKey(key, stats, cb, attempt, trail) {
         for (var t = 1; t < trail.length; t++) { if (davEtagCore(trail[t]) !== davEtagCore(trail[0])) { same = false; } }
         var stuck = same && trail.length >= EBA_DAV_MAX_412 && remote !== null && g.etag !== "";
         if (!uncond && (attempt + 1 < EBA_DAV_MAX_412 || stuck)) { return davSyncKey(key, stats, cb, attempt + 1, trail); }
-        GM_setValue("eba_dav_stuck_" + key, new Date().getTime());
+        GM_setValue("eba_dav_stuck_" + key, davNow());
         return cb({ kind: "412", msg: "Datei " + key + ".tsv lässt sich nicht bedingt schreiben (412) "
           + (same && remote !== null ? "- der Server lehnt seinen eigenen ETag ab. " : "- andere Geräte schreiben gleichzeitig, neuer Versuch beim nächsten Lauf. ")
           + "Gesendet: If-Match " + (ph["If-Match"] || ph["If-None-Match"] || "-") + "; Server lieferte ETag "
@@ -4575,7 +4633,7 @@ function davSyncKey(key, stats, cb, attempt, trail) {
     stats.requests++;
     davRequest("GET", davFileUrl(key) + davBust(), undefined, {}, function(v) {
       if (v.status !== 200 || v.body.replace(/\r/g, "") !== remote.replace(/\r/g, "")) {
-        GM_setValue("eba_dav_stuck_" + key, new Date().getTime());
+        GM_setValue("eba_dav_stuck_" + key, davNow());
         stats.status = v.status;
         return cb({ kind: "412", msg: "Datei " + key + ".tsv lässt sich nicht bedingt schreiben (412) und ändert sich zugleich "
           + "laufend (oder wird zwischengespeichert); nichts überschrieben, neuer Versuch später." });
@@ -4610,7 +4668,7 @@ function davFailure(r, key) {
 
 // Statuszeile des letzten Laufs (pro Server)
 function davStatusKey() { return "eba_dav_status_" + srvKey(); }
-function davSaveStatus(o) { o.time = new Date().getTime(); GM_setValue(davStatusKey(), JSON.stringify(o)); }
+function davSaveStatus(o) { o.time = davNow(); GM_setValue(davStatusKey(), JSON.stringify(o)); }
 function davStatusText() {
   var s;
   try { s = JSON.parse(GM_getValue(davStatusKey(), "")); } catch (err) { s = null; }
@@ -4655,7 +4713,7 @@ function davRun(keysArg, budgetArg, manual, done, progress, pre) {
       if (fail.kind === "auth") { GM_setValue("eba_dav_halt", fail.msg); }
       if (fail.kind === "backoff") {
         var lvl = Math.min(GM_getValue("eba_dav_backoff_lvl", 0), EBA_DAV_BACKOFF.length - 1);
-        GM_setValue("eba_dav_backoff_until", new Date().getTime() + EBA_DAV_BACKOFF[lvl] * 60000);
+        GM_setValue("eba_dav_backoff_until", davNow() + EBA_DAV_BACKOFF[lvl] * 60000);
         GM_setValue("eba_dav_backoff_lvl", lvl + 1);
       }
       if (fail.kind === "quota" || fail.kind === "size") { GM_setValue("eba_dav_halt", fail.msg); }
@@ -4665,7 +4723,7 @@ function davRun(keysArg, budgetArg, manual, done, progress, pre) {
       if (manual) { GM_setValue("eba_dav_halt", ""); }
     }
     stats.left = keys.length - i;
-    if (manual && !fail && stats.left === 0) { GM_setValue("eba_dav_full_" + srvKey(), new Date().getTime()); }
+    if (manual && !fail && stats.left === 0) { GM_setValue("eba_dav_full_" + srvKey(), davNow()); }
     davSaveStatus(stats);
     GM_setValue("eba_dav_busy", 0);
     if (done) { done(stats); }
@@ -4683,7 +4741,7 @@ function davRun(keysArg, budgetArg, manual, done, progress, pre) {
       setTimeout(step, 300);
     });
   };
-  GM_setValue("eba_dav_busy", new Date().getTime());
+  GM_setValue("eba_dav_busy", davNow());
   var start = function(fail) {
     if (fail && fail.kind !== "other") { return finish(fail); }
     if (fail) { stats.skipped.push(fail.msg); }
@@ -4734,10 +4792,13 @@ function davAutoRun() {
   if (!GM_getValue("eba_dav_ok_ms", 0)) { return; }      // noch kein erfolgreicher Verbindungstest
   if (GM_getValue("eba_dav_halt", "")) { return; }       // nach 401/403/507/413 nur manuell
   if (GM_getValue("eba_enable_history_compaction", false)) { return; }
-  var now = new Date().getTime();
-  if (GM_getValue("eba_dav_backoff_until", 0) > now) { return; }
-  if (now - GM_getValue("eba_dav_busy", 0) < 60000) { return; } // anderer Tab gleicht gerade ab
-  if (now - GM_getValue("eba_dav_last_ms", 0) < 60000) { return; }
+  var now = davNow();
+  // Wartezeit nach Fehlern; ein Wert jenseits der längsten Stufe stammt von einer
+  // vorgehenden PC-Uhr (ältere Version) und wird ignoriert.
+  var until = parseInt(GM_getValue("eba_dav_backoff_until", 0), 10) || 0;
+  if (until > now && until - now <= EBA_DAV_BACKOFF[EBA_DAV_BACKOFF.length - 1] * 60000 + 60000) { return; }
+  if (davWithin(GM_getValue("eba_dav_busy", 0), 60000)) { return; } // anderer Tab gleicht gerade ab
+  if (davWithin(GM_getValue("eba_dav_last_ms", 0), 60000)) { return; }
   var tk = getTickInfo();
   if (!tk.done) { return; } // erst nach dem Tick, dann ist er erfasst
   var tickKey = "eba_dav_tick_" + srvKey();
@@ -4773,7 +4834,7 @@ function davTest(cb) {
       if (g.status === 401 || g.status === 403) { return cb("Anmeldung für Dateien abgelehnt (" + g.status + ")."); }
       if (g.status !== 200 && g.status !== 404) { return cb("Unerwartete Antwort " + g.status + " für " + probe + ".tsv"); }
       if (g.status === 200 && /^\s*</.test(g.body)) { return cb("Der Server liefert HTML statt Daten - leitet er auf eine Login-Seite um? URL prüfen."); }
-      GM_setValue("eba_dav_ok_ms", new Date().getTime());
+      GM_setValue("eba_dav_ok_ms", davNow());
       GM_setValue("eba_dav_halt", "");
       var msg = "Verbindung ok (Ordner HTTP " + f.status + ", " + probe + ".tsv HTTP " + g.status
         + (g.etag ? ", ETag " + g.etag : (g.status === 200 ? ", OHNE ETag - konkurrierendes Schreiben ist nicht abgesichert" : "")) + ").";
