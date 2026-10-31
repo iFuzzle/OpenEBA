@@ -36,25 +36,40 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
 ### Verbessert
 - Punkte und Maximum in der Punkte-Zelle ohne Tausenderpunkt.
 
-## 33.0 (Entwurf)
+## 33.0 (31.10.2026)
 
-> **Entwurf:** bitte vor der Freigabe finalisieren (Datum, Highlights, Hinweise). Die Einzelheiten stehen in den Einträgen 31.1 bis 32.8 darunter.
+Erste Veröffentlichung auf `main` seit dem Fork von Pepper. Die Version fasst die Änderungen von 32.0 bis 32.9 zusammen; die Einzelheiten stehen unten in den Einträgen der jeweiligen Versionen.
+
+### Highlights
+- **Abgleich per WebDAV/Nextcloud in beide Richtungen:** Ein neues Gerät holt nach *Verbindung testen* und *Jetzt abgleichen* alle Reihen auf einmal (32.3).
+- **Kolonienpflege:** ehemalige Kolonien lassen sich vergessen, Kolonien nach einem Umzug (neue Spiel-ID) lassen sich mit *Kolonie umziehen* zusammenführen (32.1, 32.5).
+- **Diagramm *Punkte pro Tick*** auf der Seite *openEBA-Verlauf* (32.6).
+- **Zuverlässigere Zeiten:** Datum und Uhrzeit kommen aus der Serverzeit des Spiels, eine falsch gestellte Rechner-Uhr stört nicht mehr (32.8).
 
 ### Neu
-- Vollständige Historien für Formicarien, Geld, Punkte, Ticklänge sowie Futter- und Ameisensuchen, mit Verlaufsgrafiken (Seite *openEBA-Verlauf*), Auswachszustand in Prozent, maximaler Punktzahl und Nestwarnung.
-- Abgleich der Historien per WebDAV/Nextcloud in beide Richtungen, mit Index-Dateien und Markierungen für vergessene Reihen.
-- Kolonienpflege: *Vergessen* für ehemalige Kolonien und *Kolonie umziehen* für neue Spiel-IDs.
-- Export und Import der Daten, Normal- und Speedserver getrennt.
+- WebDAV: Reihen, die ein Gerät noch nie gesehen hat, werden über den Ordnerinhalt bzw. die Index-Dateien `eba_index_normal.tsv` / `eba_index_speed.tsv` geholt. Der automatische Lauf holt neue Reihen in Portionen (32.3).
+- Vergessene Reihen werden als „vergessen“ markiert und von allen Geräten ignoriert; die Datei auf dem Server bleibt bestehen. *Vergessene Reihen wieder zulassen* hebt die Markierungen auf (32.3).
+- Ehemalige Kolonien erscheinen auf der Verlaufsseite in einem eigenen Bereich und lassen sich dort lokal mit *Vergessen* löschen (32.1).
+- *Kolonie umziehen / Historien zusammenführen* in der openEBA-Konfiguration, mit Prüfung (Art, Arbeiterinnen, Königinnen, zeitliche Reihenfolge) und Vorschau (32.1).
+- Diagramm *Punkte pro Tick*; bei Lücken in den Daten wird der Durchschnitt über mehrere Ticks gezeigt, markiert mit einem Ring (32.6).
+- Dieses Änderungsprotokoll (`CHANGELOG.md`) (32.6).
 
 ### Verbessert
-- Datum und Uhrzeit kommen aus der Serverzeit des Spiels (32.8).
-- Futterbestand wird zu Tickbeginn erfasst, nicht erst nach dem Füttern (32.6).
-- Skriptkopf: Beschreibung ergänzt, Forum auch unter `https` ausgenommen. Korrekturen an Optionsbeschreibungen (Tippfehler).
+- *Kolonie umziehen* behält immer die größere ID und vergisst die kleinere; die Reihenfolge der Eingabe spielt keine Rolle mehr (32.5).
+- Futterbestand wird zu Tickbeginn erfasst (beim Öffnen der Detailseite bzw. unmittelbar vor dem Füttern), nicht erst nach dem Füttern. Der erste Stand eines Ticks gewinnt (32.6).
+- README neu gegliedert, Tippfehler in Optionstexten korrigiert, Skriptbeschreibung ergänzt, Forum auch unter `https` ausgenommen (32.9).
 
 ### Behoben
-- Zahlreiche Korrekturen an Statistik, Suchhistorie und Datenabgleich (u.a. doppelte Zeilen je Tick, vermischte Suchen, WebDAV-Fehler 412).
+- WebDAV: Dauerschleife mit Fehler 412 („Precondition Failed“) behoben; der Abgleich verträgt unterschiedliche ETag-Schreibweisen. Eine nicht schreibbare Reihe bricht den Abgleich nicht mehr ab, der automatische Lauf pausiert sie 15 Minuten (32.4).
+- Suchhistorie funktioniert auch auf `draussen.php` mit leerem `cat`-Parameter, wohin das Spiel nach Ende einer Aktion weiterleitet (32.2).
+- Falsche Rechner-Uhr führt nicht mehr zu Zeilen mit falschem Datum oder Tick (32.8).
 
-> **Hinweis vor dem Update:** Mehrere Versionen wandeln gespeicherte Daten beim ersten Start automatisch um. Vorher in der openEBA-Konfiguration über *Exportieren* sichern.
+### Hinweise zum Update
+- **Backup vor dem Update:** Mehrere frühere Versionen (31.1, 31.7, 31.9) wandeln gespeicherte Daten beim ersten Start automatisch um. Vorher in der openEBA-Konfiguration die Daten über *Exportieren* sichern.
+- **WebDAV:** Geräte mit älterer Skriptversion kennen die Markierungen für vergessene Reihen nicht und laden ihre Reihe höchstens wie bisher hoch. Am besten alle Geräte auf 33 aktualisieren. Details im [README](README.md).
+- Wird auf einem Gerät ohne Skript gefüttert, kann weiterhin der Nachher-Zustand des Futterbestands erfasst werden (32.6).
+
+### Einzelversionen 32.0 bis 32.9
 
 ## 32.9
 
