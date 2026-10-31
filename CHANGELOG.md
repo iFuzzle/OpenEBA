@@ -15,6 +15,11 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
 
 > **Hinweis vor dem Update:** Mehrere Versionen (31.1, 31.7, 31.9) wandeln gespeicherte Daten beim ersten Start automatisch um. Empfehlung: vorher in der openEBA-Konfiguration die Daten über *Exportieren* sichern.
 
+## 33.6
+
+### Verbessert
+- Ausbruchschutz in der Übersicht: Ein Wert aus einem früheren Tick ist immer blass und kursiv dargestellt, auch während der neue Wert noch abgerufen wird. Der Tooltip nennt dann zusätzlich „wird aktualisiert …“. Sobald der Wert des aktuellen Ticks da ist, erscheint die Zeile normal.
+
 ## 33.5
 
 ### Verbessert
