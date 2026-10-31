@@ -88,7 +88,7 @@ const configItems = {
   "eba_enable_growth_percent"                : [showGrowthPercent, "Auswachszustand der Kolonien in Prozent anzeigen", "Hinter den Punkten (bei aktivierter maximaler Punktzahl dahinter) steht in Klammern der Auswachszustand, z.B. <i>4998 / 5000 +37 (99,9 %)</i> (ohne maximale Punktzahl <i>4998 +37 (99,9 %)</i>; der Zuwachs im letzten Tick kommt aus der Formicarien-Statistik) in Formicarien-&Uuml;bersicht und Einzelansicht: Arbeiterinnen geteilt durch die maximalen Arbeiterinnen der Art (bei polygynen Arten mit dem Zuwachs je K&ouml;nigin laut Polygynierechner wie bei der maximalen Punktzahl, bei unbekanntem Zuwachs ein <i>?</i>). Die Prozentzahl wird abgeschnitten, nicht gerundet. Die Farbe zeigt die Wachstumsphase: unter 24 % Anlaufphase (blau), 24&ndash;94 % Hauptwachstumsphase (gr&uuml;n), ab 94 % Endphase (gelb), 100 % ausgewachsen (hell, fett). Ist das Nest zu mehr als 75 % belegt, erscheint ein oranges <i>&#9888;</i>, denn das bremst das Wachstum (in der Einzelansicht mit der Belegung des Spiels, in der &Uuml;bersicht nur, wenn schon die Arbeiterinnen allein dar&uuml;ber liegen). Der Tooltip zeigt Phase, ob Nest oder Formicarium zuerst voll ist (z.B. <i>Nest voll bei ca. 5.000 Arbeiterinnen</i>) und die Belegung. Der Platzbedarf der Brut ist nicht eingerechnet."],
   "eba_enable_history_charts"                : [enableHistoryCharts, "Verlaufsgrafiken f&uuml;r Geld, Punkte und Formicarien", "Beim &Uuml;berfahren von <i>Geld</i> und <i>Punkte</i> in der Kopfzeile erscheint eine kleine Kurve aus den gespeicherten Werten. Ein Klick darauf &ouml;ffnet unter <i>Statistik</i> die Seite <i>openEBA-Verlauf</i> mit gro&szlig;en Diagrammen (Geld, Punkte, Tickl&auml;nge, je Formicarium Arbeiterinnen, Punkte, Brut und Hunger). Die Kurven brauchen die Optionen <i>Geld, Punkte und Tickl&auml;nge historisieren</i> bzw. <i>Formicarien-Statistik</i>."],
   "eba_enable_overview_escape_bar"           : [ebaNoop, "Ausbruchschutz in der &Uuml;bersicht mit Prozentbalken", "Zeigt in der Zeile <i>Ausbruchschutz</i> zus&auml;tzlich einen Prozentbalken vor dem Text. Wirkt nur, wenn die Option <i>Ausbruchschutz in der Formicarien-&Uuml;bersicht anzeigen</i> aktiv ist; ohne diese Option erscheint nur der Text (z.B. <i>97,4 % PTFE</i>)."],
-  "eba_enable_overview_escape"               : [showOverviewEscape, "Ausbruchschutz in der Formicarien-&Uuml;bersicht anzeigen", "Unter dem Hunger (Proteine) bzw. dem Pilzstatus jeder Kolonie erscheint eine Zeile <i>Ausbruchschutz</i> mit Balken, Prozentwert und Typ (z.B. <i>97,4 % PTFE</i>). Das Spiel zeigt ihn in der &Uuml;bersicht nicht; der Wert stammt aus der zuletzt festgehaltenen Futter-Historie (daf&uuml;r muss die Option <i>Futterbestand und Ausbruchschutz pro Tick festhalten</i> aktiv sein). Stammt der Wert nicht aus dem aktuellen Tick, erscheint er blasser und kursiv, der Tooltip nennt den Zeitpunkt (und ggf. <i>wird aktualisiert</i>); sobald der Hintergrundabruf den neuen Wert geholt hat, wird die Zeile automatisch normal dargestellt. Den Prozentbalken schaltet die separate Option <i>mit Prozentbalken</i> zu. Unter 20 % orange, unter 10 % rot."],
+  "eba_enable_overview_escape"               : [showOverviewEscape, "Ausbruchschutz in der Formicarien-&Uuml;bersicht anzeigen", "Unter dem Hunger (Proteine) bzw. dem Pilzstatus jeder Kolonie erscheint eine Zeile <i>Ausbruchschutz</i> mit Balken, Prozentwert (z.B. <i>97,4 %</i>; die Art, z.B. PTFE, steht im Tooltip). Das Spiel zeigt ihn in der &Uuml;bersicht nicht; der Wert stammt aus der zuletzt festgehaltenen Futter-Historie (daf&uuml;r muss die Option <i>Futterbestand und Ausbruchschutz pro Tick festhalten</i> aktiv sein). Stammt der Wert nicht aus dem aktuellen Tick, erscheint er blasser und kursiv, der Tooltip nennt den Zeitpunkt; solange ein Abruf aussteht, erscheint dahinter ein &#9203;. Sobald der Hintergrundabruf den neuen Wert geholt hat, wird die Zeile automatisch normal dargestellt. Den Prozentbalken schaltet die separate Option <i>mit Prozentbalken</i> zu. Unter 20 % orange, unter 10 % rot."],
   "eba_enable_spielhilfe"                    : [enableSpielhilfe, "Spielhilfe im Lexikon anzeigen (Community-Daten)", "F&uuml;gt unter <i>lexikon.php</i> den Men&uuml;punkt <i>openEBA: Spielhilfe</i> ein: Ameisen-Steckbriefe mit Bildern, Shopameisen-Vergleich, Wohnungen, Forschungsbaum als Grafik, Forschungsziele und -bonus, Jobs, Futter. Die Daten stammen aus der Community-Spielhilfe (Excel) und Lexikon-Tabellen und sind <b>nicht vom Spielbetreiber</b>. Bilder werden vom Spielserver geladen, der Reiter l&auml;dt sie erst beim Anzeigen."]
 }
 const shopPriceLimits = {
@@ -2501,23 +2501,25 @@ function showOverviewEscape() {
           var last = series.length ? series[series.length - 1] : null;
           var pending = !!foodPending[srvKey() + id + "_" + (tk.nowTick / 60000)];
           var wait = " – wird aktualisiert …";
+          var hg = pending ? " <span title='wird aktualisiert …'>\u23f3</span>" : "";
           var html;
           if (!last || (last.escape && last.escapePct == null)) {
-            html = "<span class='eba_escape_txt' title=\"" + (pending ? "wird aktualisiert …" : optTip) + "\">&ndash;</span>";
+            html = "<span class='eba_escape_txt' title=\"" + (pending ? "wird aktualisiert …" : optTip) + "\">&ndash;</span>" + hg;
           } else if (!last.escape) {
-            html = "<span class='eba_escape_txt' title='Stand: " + ebaFmtDate(last.t, "short") + " " + ebaFmtDate(last.t, "time") + (last.t < tk.nowTick && pending ? wait : "") + "'>keiner</span>";
+            html = "<span class='eba_escape_txt' title='Stand: " + ebaFmtDate(last.t, "short") + " " + ebaFmtDate(last.t, "time") + "'>keiner</span>" + (last.t < tk.nowTick ? hg : "");
           } else {
             var v = Math.max(0, Math.min(100, last.escapePct));
             var img = v < 25 ? 4 : v < 50 ? 3 : v < 75 ? 2 : 1;
             var old = last.t < tk.nowTick;
             var stale = old; // immer blass/kursiv, solange der Wert nicht aus dem aktuellen Tick stammt
             var col = v < 10 ? "#ff5a5a" : v < 20 ? "#ff9a5c" : "";
-            var txt = ebaFmtPct(last.escapePct) + " %" + (last.escapeType ? " " + $("<div>").text(last.escapeType).html() : "");
-            var tip = "Stand: " + ebaFmtDate(last.t, "short") + " " + ebaFmtDate(last.t, "time") + (stale ? " (älter als der aktuelle Tick)" + (pending ? wait : "") : "");
+            var txt = ebaFmtPct(last.escapePct) + " %";
+            var typ = last.escapeType ? " (" + $("<div>").text(last.escapeType).html().replace(/'/g, "&#39;") + ")" : "";
+            var tip = "Stand: " + ebaFmtDate(last.t, "short") + " " + ebaFmtDate(last.t, "time") + (stale ? " (älter als der aktuelle Tick)" : "") + typ;
             html = (bar ? "<img class='percentImage' src='img/percentbar/percentImage.png' title='" + ebaFmtPct(last.escapePct) + "%'"
                  + " style='width:100px;height:9px;background-position:" + (-120 + v) + "px 50%;background-image:url(img/percentbar/percentImage_back" + img + ".png)'>" : "")
                  + "<span class='eba_escape_txt' title='" + tip + "' style='"
-                 + (col ? "color:" + col + ";" : "") + (stale ? "opacity:0.6;font-style:italic;" : "") + "'>" + (bar ? " " : "") + txt + "</span>";
+                 + (col ? "color:" + col + ";" : "") + (stale ? "opacity:0.6;font-style:italic;" : "") + "'>" + (bar ? " " : "") + txt + "</span>" + (stale ? hg : "");
           }
           var sig = html;
           var oldRow = div.find("tr.eba_escape_row");
@@ -3028,7 +3030,7 @@ function ebaSearchEndTimes() {
   if (!sels.length) { return; }
   var wd = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
   var apply = function() {
-    var base = ebaActionBaseTime();
+    var base = getServerNow(); // immer ab Seitenaufruf/jetzt: es läuft nur eine Aktion, Einreihen gibt es nicht
     var nowD = new Date(getServerNow());
     var today = new Date(nowD.getFullYear(), nowD.getMonth(), nowD.getDate()).getTime();
     sels.find("option").each(function() {
@@ -3044,12 +3046,7 @@ function ebaSearchEndTimes() {
     });
   };
   apply();
-  // Basis ist nur ohne laufende Aktion beweglich (Serverzeit); sonst fix.
-  if ($("#headercountdown span").text() === "") {
-    window.setInterval(function() {
-      if ($("#headercountdown span").text() === "") { apply(); }
-    }, 60000);
-  }
+  window.setInterval(apply, 60000);
 }
 function processJobOffers() {
   ebaSearchEndTimes();
