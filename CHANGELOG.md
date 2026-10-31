@@ -15,6 +15,11 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
 
 > **Hinweis vor dem Update:** Mehrere Versionen (31.1, 31.7, 31.9) wandeln gespeicherte Daten beim ersten Start automatisch um. Empfehlung: vorher in der openEBA-Konfiguration die Daten über *Exportieren* sichern.
 
+## 33.3
+
+### Neu
+- Seite *openEBA-Verlauf*: neuer einklappbarer Bereich **Lager** unter Geld, Punkte und Ticklänge. Die Kopfzeile zeigt den letzten Futtervorrat in kg je Art. Das Diagramm *Futtervorrat nach Art* hat vier Linien: Zucker (gemixtes Zuckerwasser, Zuckerwasser, Honig), Körner (Löwenzahnsamen, Grassamen), Blätter (Brombeerblätter) und Protein (alle übrigen Sorten). Jede Art lässt sich aufklappen und zeigt die Einzelsorten. Dazu kommt ein Diagramm für Zubehör. Voraussetzung: Option *Lagerbestand je Tick festhalten*.
+
 ## 33.2
 
 ### Neu
