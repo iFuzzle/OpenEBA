@@ -15,6 +15,21 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
 
 > **Hinweis vor dem Update:** Mehrere Versionen (31.1, 31.7, 31.9) wandeln gespeicherte Daten beim ersten Start automatisch um. Empfehlung: vorher in der openEBA-Konfiguration die Daten über *Exportieren* sichern.
 
+## 33.7
+
+### Neu
+- Option *Spielhilfe im Lexikon anzeigen (Community-Daten)*: Im Lexikon steht unter den Kategorien der neue Punkt **openEBA: Spielhilfe** mit dem Hinweis „Community-Daten, nicht vom Spielbetreiber“. Er enthält acht Reiter:
+  - **Ameisen:** Steckbriefe aller Arten mit Bild, Filter und Sortierung, Details mit Platzbedarf, Fundorten, Futter und Entwicklungszeiten, dazu ein Polygynie-Rechner und eine Bildergalerie der Entwicklungsstufen.
+  - **Shopameisen:** Punkte und Geld pro Tag, auch je Regalplatz.
+  - **Wohnungen.**
+  - **Forschungsbaum:** als Grafik und als Stufentabellen.
+  - **Ziele & Bonus.**
+  - **Jobs.**
+  - **Futter.**
+  - **Info:** Wachstumshinweise und Danksagungen.
+  
+  Ein Schalter zeigt die Werte des Speedservers. Die Bilder lädt das Skript vom Spielserver, die Daten stammen aus der Community-Spielhilfe.
+
 ## 33.6
 
 ### Verbessert

@@ -55,6 +55,9 @@ Die Konfiguration steht auf der Statistik-Seite des Spiels unter *openEBA*. Die 
 - *Gleichartige Nachrichten zusammenfassen*: Gleicher Absender und Betreff werden eine Zeile.
 - *Nachrichten nach Absendern filtern*: Blendet Nachrichten bestimmter Absender aus.
 
+### Lexikon
+- *Spielhilfe im Lexikon anzeigen (Community-Daten)*: Zusätzlicher Menüpunkt *openEBA: Spielhilfe* unter lexikon.php (nicht vom Spielbetreiber, Daten aus der Community-Spielhilfe): Ameisen-Steckbriefe mit Bildern, Filter und Sortierung, Shopameisen-Vergleich, Wohnungen, Forschungsbaum als Grafik, Forschungsziele und -bonus, Jobs, Futter. Standardmäßig aus.
+
 ### Komfort
 - *Auto-Reload ausschalten*: Keine automatische Neuladung nach Ende eines Jobs oder einer Forschung.
 - *Am Ende des Countdowns einen Sound abspielen*
