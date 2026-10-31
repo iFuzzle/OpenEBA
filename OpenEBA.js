@@ -5282,7 +5282,7 @@ function ebaHistStockSection(page, add, since, open, hs) {
     });
     var legend = $.map(lines, function(l) { return [[esc(l.name), l.color]]; });
     add(target, title + (u.unit ? " (" + u.unit + ")" : ""), lines[0].points, "", lines.slice(1),
-      { color: lines[0].color, fmt: u.fmt, unit: u.unit, legend: legend, noStats: true, chart: { multiTip: true, name: lines[0].name } });
+      { color: lines[0].color, fmt: u.fmt, unit: u.unit, legend: legend, noStats: true, chart: { multiTip: true, name: lines[0].name, yMin: 0 } });
   };
   var drawSub = function(sub) {
     var key = sub.attr("data-key"), body = sub.find(".eba_lager_sub_body");
@@ -5324,7 +5324,7 @@ function ebaHistStockSection(page, add, since, open, hs) {
         return { points: sc(per[g.key]), color: g.color, name: g.name };
       }), { color: groups[0].color, fmt: u.fmt, unit: u.unit, noStats: true,
             legend: $.map(groups, function(g) { return [[g.name, g.color]]; }),
-            chart: { multiTip: true, name: groups[0].name } });
+            chart: { multiTip: true, name: groups[0].name, yMin: 0 } });
       $.each(groups, function(i, g) { addSub(body, g.key, g.name + " nach Sorte"); });
     }
     if (acc.length) { addSub(body, "acc", "Zubeh&ouml;r"); }
