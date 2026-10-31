@@ -15,6 +15,18 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
 
 > **Hinweis vor dem Update:** Mehrere Versionen (31.1, 31.7, 31.9) wandeln gespeicherte Daten beim ersten Start automatisch um. Empfehlung: vorher in der openEBA-Konfiguration die Daten über *Exportieren* sichern.
 
+## 33.5
+
+### Verbessert
+- Formicarien-Übersicht: Der Link *Statistik* unter jeder Kolonie ist ersetzt durch drei Links:
+  - **Verlauf** öffnet die Seite *openEBA-Verlauf* mit dieser Kolonie aufgeklappt.
+  - **CSV** lädt die Statistik als Datei für Excel herunter (Semikolon, Dezimalkomma).
+  - **Tabelle** öffnet das bisherige Textfeld zum Kopieren.
+- Seite *openEBA-Verlauf*: Jede Formicarium-Gruppe hat in der Kopfzeile einen CSV-Link.
+
+### Behoben
+- Mit *Bookmarks einblenden* stand *openEBA-Verlauf* im Statistik-Menü hinter den Bookmarks. Er steht jetzt immer direkt unter *openEBA*.
+
 ## 33.4
 
 ### Neu
