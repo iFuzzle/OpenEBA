@@ -24,6 +24,8 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
   - **Tabelle** öffnet das bisherige Textfeld zum Kopieren.
 - Seite *openEBA-Verlauf*: Jede Formicarium-Gruppe hat in der Kopfzeile einen CSV-Link.
 
+- Einheitlich Serverzeit statt Rechner-Uhr: Endzeit „[Endet …]“ bei Jobs und Forschung, Zeitraumfilter der Seite *openEBA-Verlauf* und der Kurve im Header, Stunden-Cache der Ameisenshop-Preise, Punkte pro Stunde, Sperre des Lager-Abrufs und Zeitstempel im Export. Zwei Browser im selben Tick verhalten sich damit gleich. Das Punkte-pro-Stunde-Fenster wird nach dem Update einmal neu befüllt („+?“, bis zwei Stunden vorliegen).
+
 ### Behoben
 - Mit *Bookmarks einblenden* stand *openEBA-Verlauf* im Statistik-Menü hinter den Bookmarks. Er steht jetzt immer direkt unter *openEBA*.
 
