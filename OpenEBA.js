@@ -421,7 +421,7 @@ function alwaysShowShopPrices() {
   // es nicht - wer zuerst lud, hat dem anderen Server seine Preise gezeigt.
   var priceKey = "eba_shop_prices_" + srvKey();
   var storedData = GM_getValue(priceKey, "0\nx").split("\n", 2);
-  // Stundenraster der Serverzeit (Wanduhr-Epoch), nicht der PC-Uhr. Ein alter Cache mit
+  // Stundenraster der Serverzeit (echte Epoch), nicht der PC-Uhr. Ein alter Cache mit
   // PC-Stunde passt fast nie dazu (Vergleich per !=) und wird einmalig neu geladen.
   var hours = Math.floor(getServerNow()/3600000);
   if (hours!=storedData[0]) {
@@ -449,29 +449,109 @@ function alwaysShowShopPrices() {
 // Formicarien-Statistik: Tick-Erkennung, Serverzeit, Futter-Snapshots
 // ---------------------------------------------------------------------------
 
-function formatStatTime(ms) {
-  var d = new Date(ms);
-  var p = function(n) { return (n < 10 ? "0" : "") + n; };
-  return p(d.getDate()) + "." + p(d.getMonth() + 1) + "." + d.getFullYear() + " " + p(d.getHours()) + ":" + p(d.getMinutes());
+// ---------------------------------------------------------------------------
+// Zeitbasis: echte Epoch, Anzeige in Berliner Zeit
+//
+// Der Spielserver läuft auf Europe/Berlin (MEZ/MESZ). getServerNow() liefert die
+// ECHTE Epoch (ms seit 1970 UTC) der Serveruhr - unabhängig von Zeitzone und Uhr
+// des PCs. Alle Zeitschlüssel (Ticks, Historien, WebDAV) bauen darauf auf.
+// Alles, was als Datum/Uhrzeit angezeigt oder von der Seite gelesen wird, geht
+// über ebaBerlinParts() bzw. ebaBerlinToEpoch(), nie über die lokalen Getter
+// (getHours() usw.), die von der Zeitzone des PCs abhängen.
+//
+// Rückwärtskompatibilität: Bis Version 33.8 war getServerNow() ein "Wanduhr-Epoch"
+// (die Epoch, deren LOKALE Wanduhr der Server-Wanduhr entspricht). Auf einem PC in
+// deutscher Zeitzone ist das genau die echte Epoch; ebaBerlinToEpoch() wählt in
+// der doppelten Stunde bei der Umstellung auf Winterzeit und in der fehlenden
+// Stunde bei der Umstellung auf Sommerzeit dieselbe Epoch wie new Date(y, m, d, ...)
+// auf einem solchen PC. Daten von deutschen PCs bleiben damit gültig; eine
+// Umwandlung ist nicht nötig.
+//
+// Tick-Raster: Berlin liegt immer ganze Stunden (+1 h/+2 h) neben UTC. Volle
+// Stunden (Normalserver) und 12-Minuten-Raster (Speedserver, 60 = 5 * 12) der
+// Berliner Wanduhr fallen deshalb exakt auf floor(epoch / tickMs) * tickMs - auch an
+// den Umstellungstagen (die Umstellung erfolgt um 01:00 UTC, also selbst auf
+// einer Tickgrenze; die Epoch läuft dabei gleichmäßig weiter).
+//
+// Ohne Intl-Zeitzonen (sehr alte Browser) wird wie bis Version 33.8 mit der
+// Zeitzone des PCs gerechnet.
+// ---------------------------------------------------------------------------
+var ebaTzFmt = null, ebaTzCache = {}, ebaTzCacheN = 0;
+// Versatz der Berliner Wanduhr zu UTC (ms) zum Zeitpunkt t, null ohne Intl-Zeitzonen.
+// Die Umstellungen liegen auf vollen UTC-Stunden, daher je UTC-Stunde zwischengespeichert.
+function ebaBerlinOff(t) {
+  if (typeof t !== "number" || isNaN(t)) { return null; }
+  var hk = Math.floor(t / 3600000);
+  if (ebaTzCache.hasOwnProperty(hk)) { return ebaTzCache[hk]; }
+  var off = null;
+  try {
+    if (!ebaTzFmt) {
+      ebaTzFmt = new Intl.DateTimeFormat("en-US", { timeZone: "Europe/Berlin", hour12: false, year: "numeric",
+        month: "numeric", day: "numeric", hour: "numeric", minute: "numeric", second: "numeric" });
+    }
+    var h0 = hk * 3600000;
+    var p = {}, parts = ebaTzFmt.formatToParts(new Date(h0));
+    for (var i = 0; i < parts.length; i++) { p[parts[i].type] = parseInt(parts[i].value, 10); }
+    off = Date.UTC(p.year, p.month - 1, p.day, p.hour % 24, p.minute, p.second) - h0;
+    if (isNaN(off) || Math.abs(off) > 86400000) { off = null; }
+  } catch (err) { off = null; }
+  if (ebaTzCacheN > 5000) { ebaTzCache = {}; ebaTzCacheN = 0; }
+  ebaTzCache[hk] = off; ebaTzCacheN++;
+  return off;
+}
+// Berliner Wanduhr zur Epoch ms: {y, mo (1-12), d, h, mi, s, wd (0 = Sonntag)}
+function ebaBerlinParts(ms) {
+  var o = ebaBerlinOff(ms), d;
+  if (o === null) {
+    d = new Date(ms);
+    return { y: d.getFullYear(), mo: d.getMonth() + 1, d: d.getDate(), h: d.getHours(),
+             mi: d.getMinutes(), s: d.getSeconds(), wd: d.getDay() };
+  }
+  d = new Date(ms + o);
+  return { y: d.getUTCFullYear(), mo: d.getUTCMonth() + 1, d: d.getUTCDate(), h: d.getUTCHours(),
+           mi: d.getUTCMinutes(), s: d.getUTCSeconds(), wd: d.getUTCDay() };
+}
+// Berliner Wanduhr (Monat 1-12) als echte Epoch ms. Wie new Date(...) auf einem
+// PC in deutscher Zeitzone: doppelte Stunde (Ende der Sommerzeit) -> die frühere,
+// fehlende Stunde (Beginn der Sommerzeit) -> mit dem Versatz davor.
+function ebaBerlinToEpoch(y, mo, d, h, mi, s) {
+  var w = Date.UTC(y, mo - 1, d, h || 0, mi || 0, s || 0);
+  var oA = ebaBerlinOff(w - 10800000), oB = ebaBerlinOff(w + 10800000);
+  if (oA === null || oB === null) { return new Date(y, mo - 1, d, h || 0, mi || 0, s || 0).getTime(); }
+  var eA = w - oA, eB = w - oB;
+  var okA = ebaBerlinOff(eA) === oA, okB = ebaBerlinOff(eB) === oB;
+  if (okA && okB) { return Math.min(eA, eB); }
+  if (okA) { return eA; }
+  if (okB) { return eB; }
+  return eA; // Lücke: Versatz vor der Umstellung
+}
+// Kalendertag (Tage seit 1970) der Berliner Wanduhr, für "heute/morgen"
+function ebaBerlinDay(ms) {
+  var p = ebaBerlinParts(ms);
+  return Math.round(Date.UTC(p.y, p.mo - 1, p.d) / 86400000);
 }
 
-// Serveruhr. Rückgabe ist ein "Wanduhr-Epoch": die Epoch-ms, bei denen die LOKALE
-// Wanduhr des Browsers (getHours() usw.) der Server-Wanduhr entspricht. Alle
-// Zeitschlüssel, Ticks und Formatierungen bauen darauf auf.
+function formatStatTime(ms) {
+  var b = ebaBerlinParts(ms);
+  var p = function(n) { return (n < 10 ? "0" : "") + n; };
+  return p(b.d) + "." + p(b.mo) + "." + b.y + " " + p(b.h) + ":" + p(b.mi);
+}
+
+// Serveruhr. Rückgabe ist die echte Epoch (ms seit 1970 UTC) der Serveruhr.
 // Quellen in dieser Reihenfolge:
 // 1. Inline-Skript des Spiels (Variable currenttime, Format "Month DD, YYYY HH:MM:SS",
-//    Server-Ortszeit): liefert Datum UND Uhrzeit. Wird beim Skriptstart einmal aus dem
-//    Seitenquelltext gelesen (nicht über window, wegen Tampermonkey-Sandbox) und als fester
-//    Offset zur PC-Uhr gemerkt; er gilt auch nach AJAX-Neuaufbauten weiter.
+//    Berliner Wanduhr): liefert Datum UND Uhrzeit. Wird beim Skriptstart einmal aus dem
+//    Seitenquelltext gelesen (nicht über window, wegen Tampermonkey-Sandbox), als
+//    Europe/Berlin in die echte Epoch umgerechnet und als fester Offset zur PC-Uhr
+//    gemerkt; er gilt auch nach AJAX-Neuaufbauten weiter. Zeitzone und Uhr des PCs
+//    spielen damit keine Rolle (nur der Gang der PC-Uhr seit dem Seitenladen).
 //    Das Element #servertime ist im Quelltext leer und wird erst in window.onload gefüllt.
-// 2. #servertime (nur Uhrzeit, ±12 h zur PC-Uhr; das Datum kommt von der PC-Uhr)
+// 2. #servertime (nur Uhrzeit, ±12 h zur Berliner Uhrzeit der PC-Uhr; das Datum kommt
+//    von der PC-Uhr)
 // 3. PC-Uhr
-// Zeitzonen: Die Server-Wanduhr wird als lokale Wanduhr des Browsers aufgebaut (wie bisher
-// bei #servertime), die Werte sind also unabhängig von der PC-Zeitzone Server-Wanduhrzeit.
-// Randfälle: Liegt die Server-Wanduhrzeit in einer Sommerzeit-Lücke der PC-Zeitzone, rückt
-// der Browser sie um eine Stunde vor (wie schon bisher). Wechselt die PC-Zeitzone zwischen
-// Skriptstart und Aufruf die Sommerzeit, bleibt der Offset fest (Abweichung höchstens 1 h bis
-// zum nächsten Seitenladen).
+// Randfall: In der doppelten Stunde am Ende der Sommerzeit (02:00-03:00) ist die
+// Wanduhr mehrdeutig; gewählt wird die frühere Epoch (wie bisher auf deutschen PCs),
+// also höchstens eine Stunde Abweichung bis zum nächsten Seitenladen nach 03:00.
 var EBA_MONTHS = ["january","february","march","april","may","june","july","august","september","october","november","december"];
 function readServerOffset() {
   var scripts = document.getElementsByTagName("script");
@@ -483,9 +563,9 @@ function readServerOffset() {
     var y = parseInt(m[4], 10), day = parseInt(m[3], 10);
     var h = parseInt(m[5], 10), mi = parseInt(m[6], 10), sec = parseInt(m[7], 10);
     if (mon < 0 || day < 1 || day > 31 || h > 23 || mi > 59 || sec > 59) { continue; } // nicht eindeutig
-    var d = new Date(y, mon, day, h, mi, sec);
-    if (d.getMonth() !== mon || d.getDate() !== day) { continue; } // z.B. 31. Februar
-    return d.getTime() - Date.now();
+    var chk = new Date(Date.UTC(y, mon, day));
+    if (chk.getUTCMonth() !== mon || chk.getUTCDate() !== day) { continue; } // z.B. 31. Februar
+    return ebaBerlinToEpoch(y, mon + 1, day, h, mi, sec) - Date.now();
   }
   return null;
 }
@@ -494,13 +574,14 @@ var EBA_SERVER_OFFSET = readServerOffset();
 function getServerNow() {
   if (EBA_SERVER_OFFSET !== null) { return Date.now() + EBA_SERVER_OFFSET; }
   var t = /(\d+):(\d+):(\d+)/.exec($("#servertime").text());
-  var d = new Date();
-  if (!t) { return d.getTime(); } // Fallback: PC-Uhr
+  var now = Date.now();
+  if (!t) { return now; } // Fallback: PC-Uhr
   var srv = (parseInt(t[1])*3600 + parseInt(t[2])*60 + parseInt(t[3])) * 1000;
-  var loc = ((d.getHours()*60 + d.getMinutes())*60 + d.getSeconds())*1000 + d.getMilliseconds();
+  var b = ebaBerlinParts(now); // Berliner Uhrzeit laut PC-Uhr
+  var loc = ((b.h*60 + b.mi)*60 + b.s)*1000 + now % 1000;
   var day = 86400000;
   var diff = (((srv - loc + day/2) % day) + day) % day - day/2; // in [-12h, +12h)
-  return d.getTime() + diff;
+  return now + diff;
 }
 
 // Nur die Subdomain speed.* ist der Speed-Server. Die frühere, unverankerte
@@ -956,8 +1037,8 @@ function ebaDownloadFormiCsv(id) {
   var lines = [$.map(t.head, function(h) { return cell($.trim(h)); }).join(";")];
   $.each(t.rows, function(i, r) { lines.push($.map(r, cell).join(";")); });
   var kind = (ebaFormiKind(id) || "Kolonie").replace(/[^A-Za-z0-9\u00C4\u00D6\u00DC\u00E4\u00F6\u00FC\u00DF_-]+/g, "_").replace(/^_+|_+$/g, "");
-  var d = new Date(), p = function(n) { return (n < 10 ? "0" : "") + n; };
-  var name = "openEBA_" + kind + "_" + id + "_" + d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) + ".csv";
+  var d = ebaBerlinParts(getServerNow()), p = function(n) { return (n < 10 ? "0" : "") + n; };
+  var name = "openEBA_" + kind + "_" + id + "_" + d.y + "-" + p(d.mo) + "-" + p(d.d) + ".csv";
   var blob = new Blob(["\uFEFF" + lines.join("\r\n") + "\r\n"], { type: "text/csv;charset=utf-8" });
   var url = URL.createObjectURL(blob);
   var a = document.createElement("a");
@@ -1495,8 +1576,9 @@ function rowTimeValue(row) {
   var m = /(\d{1,2})\.(\d{1,2})\.(\d{2,4})(?:[\s,]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/.exec(row);
   if (m) {
     var y = m[3].length == 2 ? 2000 + parseInt(m[3], 10) : parseInt(m[3], 10);
-    return new Date(y, parseInt(m[2], 10) - 1, parseInt(m[1], 10),
-                    parseInt(m[4] || "0", 10), parseInt(m[5] || "0", 10), parseInt(m[6] || "0", 10)).getTime();
+    // Datumsangaben der Seite sind Berliner Wanduhr
+    return ebaBerlinToEpoch(y, parseInt(m[2], 10), parseInt(m[1], 10),
+                    parseInt(m[4] || "0", 10), parseInt(m[5] || "0", 10), parseInt(m[6] || "0", 10));
   }
   var t = /(\d{1,2}):(\d{2}):(\d{2})/.exec(row);
   if (t) { return (parseInt(t[1], 10) * 3600 + parseInt(t[2], 10) * 60 + parseInt(t[3], 10)) * 1000; }
@@ -2106,9 +2188,10 @@ function mergeFormiHistory(a, b) {
   //     die dem Tickbeginn am nächsten liegt (= die zuerst erfasste). Die Zeilen
   //     mit 0/0 sind Aufrufe NACH dem Füttern. Unlesbarer Hunger zählt als -1.
   //  2. kleinerer Dedup-Schlüssel: Zeit + alle Felder OHNE das letzte. Das letzte
-  //     Feld ist timeStr aus formatStatTime(), das über getDate()/getHours() von
-  //     Zeitzone und Sommerzeit des Geräts abhängt - bei identischen Messwerten
-  //     ist es ein Artefakt und entscheidet nicht über die Identität.
+  //     Feld ist timeStr aus formatStatTime(). Es ist inzwischen immer
+  //     Berliner Zeit, hing bei älteren Versionen aber von Zeitzone und
+  //     Sommerzeit des Geräts ab - bei identischen Messwerten ist es ein
+  //     Artefakt und entscheidet nicht über die Identität.
   //  3. kleinere Gesamtzeile.
   for (var i = 0; i < all.length; i++) {
     var line = all[i][0] + "\t" + all[i][1];
@@ -3015,12 +3098,15 @@ function insertNote() {
 }
 // Basiszeit für Endzeit-Anzeigen: Serverzeit, bzw. Ende der laufenden Aktion (Header-Countdown), falls vorhanden.
 function ebaActionBaseTime() {
-  var starttime = getServerNow(); // Serverzeit; der Countdown ist ebenfalls Server-Wanduhr
+  var starttime = getServerNow(); // Serverzeit (echte Epoch)
   var to = $("#headercountdown span").text();
   if (to!="") {
+    // "bis TT.MM.JJJJ HH:MM:SS" ist Berliner Wanduhr
     var result = /(\d+).(\d+).(\d+) (\d+):(\d+):(\d+)/.exec(to.substring(4));
-    var runTo = new Date(result[3], result[2]-1, result[1], result[4], result[5], result[6]);
-    starttime = runTo.getTime();
+    if (result) {
+      starttime = ebaBerlinToEpoch(parseInt(result[3], 10), parseInt(result[2], 10), parseInt(result[1], 10),
+        parseInt(result[4], 10), parseInt(result[5], 10), parseInt(result[6], 10));
+    }
   }
   return starttime;
 }
@@ -3031,18 +3117,17 @@ function ebaSearchEndTimes() {
   var wd = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
   var apply = function() {
     var base = getServerNow(); // immer ab Seitenaufruf/jetzt: es läuft nur eine Aktion, Einreihen gibt es nicht
-    var nowD = new Date(getServerNow());
-    var today = new Date(nowD.getFullYear(), nowD.getMonth(), nowD.getDate()).getTime();
+    var today = ebaBerlinDay(base);
     sels.find("option").each(function() {
       var opt = $(this);
       var min = parseInt(opt.val(), 10);
       if (isNaN(min)) { return; }
       var orig = opt.attr("data-eba-orig");
       if (orig === undefined) { orig = opt.text(); opt.attr("data-eba-orig", orig); }
-      var end = new Date(base + min * 60000);
-      var days = Math.round((new Date(end.getFullYear(), end.getMonth(), end.getDate()).getTime() - today) / 86400000);
-      var day = days === 0 ? "heute" : days === 1 ? "morgen" : days === 2 ? "\u00fcbermorgen" : wd[end.getDay()];
-      opt.text(orig + " \u2192 " + day + " " + ("0" + end.getHours()).slice(-2) + ":" + ("0" + end.getMinutes()).slice(-2));
+      var endMs = base + min * 60000, end = ebaBerlinParts(endMs);
+      var days = ebaBerlinDay(endMs) - today;
+      var day = days === 0 ? "heute" : days === 1 ? "morgen" : days === 2 ? "\u00fcbermorgen" : wd[end.wd];
+      opt.text(orig + " \u2192 " + day + " " + ("0" + end.h).slice(-2) + ":" + ("0" + end.mi).slice(-2));
     });
   };
   apply();
@@ -3068,12 +3153,12 @@ function processJobOffers() {
     //duration nodes[0]
     var result = /(\d+):(\d+):(\d+)/.exec(nodes[0].nodeValue.substring(7));
     var sec = parseInt(result[1])*60*60 + parseInt(result[2])*60 + parseInt(result[3]);
-    var end = new Date(starttime+sec*1000);
-    var target = " [Endet "+weekday[end.getDay()]+", ";
-    if (end.getHours()<10) target += "0";
-    target += end.getHours() + ":";
-    if (end.getMinutes()<10) target += "0";
-    target += end.getMinutes() + "]";
+    var end = ebaBerlinParts(starttime+sec*1000); // Anzeige in Berliner Zeit
+    var target = " [Endet "+weekday[end.wd]+", ";
+    if (end.h<10) target += "0";
+    target += end.h + ":";
+    if (end.mi<10) target += "0";
+    target += end.mi + "]";
     nodes[0].nodeValue = nodes[0].nodeValue+target;
     //earnings nodes[1], only with "Lohn"
     if (nodes[1].nodeValue.indexOf(" Lohn")==0) {
@@ -3174,10 +3259,7 @@ function resetStoredValues(onlyThisServer) {
 // Königinnen bleiben gleich. Die Historie der kleineren (alten) ID wird hier mit den
 // normalen Merge-Funktionen in die größere (neue) ID verschmolzen; die kleinere ID wird vergessen.
 // ---------------------------------------------------------------------------
-function ebaColonyFmtTime(ms) {
-  var d = new Date(ms), p = function(n) { return (n < 10 ? "0" : "") + n; };
-  return p(d.getDate()) + "." + p(d.getMonth() + 1) + "." + d.getFullYear() + " " + p(d.getHours()) + ":" + p(d.getMinutes());
-}
+function ebaColonyFmtTime(ms) { return formatStatTime(ms); }
 // Kurzbeschreibung einer Historie für Auswahllisten
 function ebaColonyDescribe(id) {
   var rows = ebaFormiRows(id);
@@ -3989,19 +4071,19 @@ var EBA_DAV_IDX_MAX = 5000;           // Zeilen der Index-Datei, mehr werden ver
 //
 // davNow(): Sperren, Wartezeiten, Inventar-Zeitpunkt und Statuszeile. Diese
 //   Werte bleiben im Browser (GM-Speicher), es zählt nur, dass alle Tabs
-//   dieselbe Uhr benutzen: getServerNow() ("Wanduhr-Epoch").
+//   dieselbe Uhr benutzen: getServerNow().
 // davStamp(): Zeitstempel der Lösch-Marker in der Index-Datei. Sie werden
 //   zwischen Geräten verglichen (größerer gewinnt), brauchen also eine Uhr, die
 //   auf allen Geräten gleich läuft - unabhängig von PC-Uhr UND PC-Zeitzone.
-//   Das ist die echte Epoch der Serveruhr: Server-Wanduhr (Europe/Berlin) in
-//   UTC umgerechnet. Damit liegt der Wert im selben Bereich wie die PC-ms
-//   (Date.now()), die ältere Skriptversionen schreiben und die schon im Index
-//   stehen; Unterschiede sind nur Fehler der PC-Uhr. Format und Bedeutung der
-//   Index-Datei bleiben deshalb unverändert (ältere Parser verwerfen Zeilen mit
-//   zusätzlichen Spalten und schreiben den Index ohne sie zurück - eine
-//   Formatkennung würde zwischen alten und neuen Geräten hin- und herkippen).
-//   Ohne Intl-Zeitzonen fällt davStamp() auf getServerNow() zurück; das ist auf
-//   Geräten in deutscher Zeitzone derselbe Wert.
+//   Das ist die echte Epoch der Serveruhr, also genau getServerNow() (bis
+//   Version 33.8 rechnete davStamp() die damalige Wanduhr-Epoch hier selbst nach
+//   Europe/Berlin um; das Ergebnis ist dasselbe). Damit liegt der Wert im selben
+//   Bereich wie die PC-ms (Date.now()), die ältere Skriptversionen schreiben und
+//   die schon im Index stehen; Unterschiede sind nur Fehler der PC-Uhr. Format
+//   und Bedeutung der Index-Datei bleiben deshalb unverändert (ältere Parser
+//   verwerfen Zeilen mit zusätzlichen Spalten und schreiben den Index ohne sie
+//   zurück - eine Formatkennung würde zwischen alten und neuen Geräten hin- und
+//   herkippen).
 // Ältere Skriptversionen (oder Tabs, die seit dem Update nicht neu geladen
 // wurden) schreiben Sperren und Wartezeiten noch in PC-Zeit. Damit eine
 // falsch gehende PC-Uhr daraus keine Dauersperre macht, gelten solche Werte
@@ -4009,29 +4091,7 @@ var EBA_DAV_IDX_MAX = 5000;           // Zeilen der Index-Datei, mehr werden ver
 // Obergrenze beim Backoff).
 // ---------------------------------------------------------------------------
 function davNow() { return getServerNow(); }
-var davTzFmt = null;
-// Versatz der Berliner Wanduhr zu UTC (ms) zum Zeitpunkt t, null ohne Intl-Zeitzonen
-function davBerlinOff(t) {
-  try {
-    if (!davTzFmt) {
-      davTzFmt = new Intl.DateTimeFormat("en-US", { timeZone: "Europe/Berlin", hour12: false, year: "numeric",
-        month: "numeric", day: "numeric", hour: "numeric", minute: "numeric", second: "numeric" });
-    }
-    var p = {}, parts = davTzFmt.formatToParts(new Date(t));
-    for (var i = 0; i < parts.length; i++) { p[parts[i].type] = parseInt(parts[i].value, 10); }
-    var w = Date.UTC(p.year, p.month - 1, p.day, p.hour % 24, p.minute, p.second);
-    var off = w - Math.floor(t / 1000) * 1000;
-    return isNaN(off) || Math.abs(off) > 86400000 ? null : off;
-  } catch (err) { return null; }
-}
-function davStamp() {
-  var e = getServerNow();
-  var w = e - new Date(e).getTimezoneOffset() * 60000; // Server-Wanduhr, als UTC gelesen
-  var o = davBerlinOff(w);
-  if (o === null) { return e; }
-  var o2 = davBerlinOff(w - o); // an der Sommerzeitgrenze einmal nachrechnen
-  return w - (o2 === null ? o : o2);
-}
+function davStamp() { return getServerNow(); }
 // Liegt der gespeicherte Zeitpunkt t (davNow-ms) weniger als win ms entfernt?
 // Auch nach vorn begrenzt: ein Wert weit in der Zukunft stammt von einer
 // vorgehenden PC-Uhr und gilt als abgelaufen.
@@ -4990,12 +5050,12 @@ function ebaPad2(n) { return (n < 10 ? "0" : "") + n; }
 
 // Datum/Uhrzeit deutsch: "26.10.2026 14:00" (mode "short": nur Datum, "time": nur Uhrzeit)
 function ebaFmtDate(t, mode) {
-  var d = new Date(t);
-  var date = ebaPad2(d.getDate()) + "." + ebaPad2(d.getMonth() + 1) + ".";
-  var time = ebaPad2(d.getHours()) + ":" + ebaPad2(d.getMinutes());
+  var d = ebaBerlinParts(t); // Berliner Zeit, unabhängig von der PC-Zeitzone
+  var date = ebaPad2(d.d) + "." + ebaPad2(d.mo) + ".";
+  var time = ebaPad2(d.h) + ":" + ebaPad2(d.mi);
   if (mode === "short") { return date; }
   if (mode === "time") { return time; }
-  return date + d.getFullYear() + " " + time;
+  return date + d.y + " " + time;
 }
 
 // Runde Achsenschritte: [Start, Ende, Schritt]
