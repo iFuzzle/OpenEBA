@@ -15,6 +15,14 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
 
 > **Hinweis vor dem Update:** Mehrere Versionen (31.1, 31.7, 31.9) wandeln gespeicherte Daten beim ersten Start automatisch um. Empfehlung: vorher in der openEBA-Konfiguration die Daten über *Exportieren* sichern.
 
+## 33.12 (31.10.2026)
+
+- Spielhilfe, Wohnungen: in Spielreihenfolge (Zimmer bei den Eltern, Schuppen, Dachboden, Hochhaus, Haus, Schloss), zusätzlich sortierbar nach Punkten, Preis, Plätzen und € je Platz.
+- Spielhilfe, Jobs: alle 10 Jobstufen als Karten mit Bild, Dauer, Lohn, Stundenlohn und Freischaltung (Klos putzen mit Pümpel, Pizza ausfahren, Regale einräumen mit Gabelstaplerschein, Museum bis „versierter Myrmekologe“, Werbeplakate kleben, Biologie-Exkursion). Fehlende Werte als „unbekannt“.
+- Spielhilfe, Futter: sortier- und filterbar (Futterart, Shop), Shop-Packungen mit Preis und Preis pro g; `&ndash;` wurde als Text angezeigt (behoben, auch in den Ameisen-Steckbriefen); Zuckerwasser, Mehlwürmer und Grassamen sind von Beginn an im Shop.
+- Spielhilfe, Vergleich: Spalten ASW-Punkte, ASW/Tag, ASW/Tag/Platz und ASW je € Kaufpreis.
+- Spielhilfe, Info: Dank an Telas, Links zu GitHub und Discord; tote Links (Forum-Backup, Polygynierechner-Sheet) entfernt; Schlusszeile „Danke an Martin für EBA!“.
+
 ## 33.11
 
 ### Verbessert
