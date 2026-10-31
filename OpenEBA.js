@@ -416,7 +416,9 @@ function alwaysShowShopPrices() {
   // es nicht - wer zuerst lud, hat dem anderen Server seine Preise gezeigt.
   var priceKey = "eba_shop_prices_" + srvKey();
   var storedData = GM_getValue(priceKey, "0\nx").split("\n", 2);
-  var hours = Math.floor($.now()/3600000);
+  // Stundenraster der Serverzeit (Wanduhr-Epoch), nicht der PC-Uhr. Ein alter Cache mit
+  // PC-Stunde passt fast nie dazu (Vergleich per !=) und wird einmalig neu geladen.
+  var hours = Math.floor(getServerNow()/3600000);
   if (hours!=storedData[0]) {
     GM_xmlhttpRequest({
       method: "GET",
@@ -779,7 +781,7 @@ function updateFormiStatistic() {
     var aid = $(this).attr("id").substr(11);
     if (/^\d+$/.test(aid) && $.inArray(aid, activeIds) < 0) { activeIds.push(aid); }
   });
-  GM_setValue("eba_formi_active_" + srvKey(), new Date().getTime() + "\t" + activeIds.join(","));
+  GM_setValue("eba_formi_active_" + srvKey(), getServerNow() + "\t" + activeIds.join(","));
   $("div[id='shopitem']:contains('Larven')").each(function(i, e) {
     var div = $(this);
     var long_str = ["Reagenzglas", "Mini Arena", "kleines Formicarium", "mittleres Formicarium", "großes Formicarium", "mittlere Anlage",
@@ -1276,12 +1278,12 @@ function ebaStockApply(stock) {
 }
 
 // Hintergrundabruf der Lagerseite. Der Versuchszähler (GM-Wert, alle Tabs) hat die
-// Form "<Tick-Minuten>|<Versuche>|<PC-Zeit ms>|<Kennung>" und wird VOR dem Request
+// Form "<Tick-Minuten>|<Versuche>|<Serverzeit ms>|<Kennung>" und wird VOR dem Request
 // geschrieben; wer die Kennung beim Zurücklesen nicht mehr findet, hat das Rennen
 // gegen einen anderen Tab verloren. Wartezeit nach einem Versuch: 10 Minuten.
 function ebaStockFetch(tickMin) {
   var lockKey = "eba_inventory_" + srvKey() + "lock";
-  var now = $.now(), count = 0;
+  var now = getServerNow(), count = 0; // Serverzeit: der Zähler wird zwischen Tabs/Geräten verglichen
   var p = ("" + GM_getValue(lockKey, "")).split("|");
   if (p.length >= 4 && parseFloat(p[0]) === tickMin) {
     var last = parseFloat(p[2]);
@@ -2100,7 +2102,7 @@ function exportHistoryJSON(onlyThisServer) {
   var out = {
     format: "openEBA-history",
     schema: EBA_SCHEMA_VERSION,
-    exported: new Date().getTime(),
+    exported: getServerNow(),
     server: srvKey(),
     onlyServer: !!onlyThisServer,
     values: {}
@@ -2951,7 +2953,7 @@ function processJobOffers() {
   if(!($("h3:contains('Aktionen')").length || $("h3:contains('Forschung')").length || $("h3:contains('Arbeitsamt')").length)) {return}
   const weekday = new Array("Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag");
   //start from now
-  var starttime = new Date().getTime();
+  var starttime = getServerNow(); // Serverzeit; der Countdown unten ist ebenfalls Server-Wanduhr
   //start from end of current if any
   var to = $("#headercountdown span").text();
   if (to!="") {
@@ -3011,7 +3013,14 @@ function statBeautify() {
 }
 function insertPointsDiff() {
   //determine current hours
-  var hours = parseInt((new Date().getTime()) / (1000*60*60));
+  var hours = parseInt(getServerNow() / (1000*60*60));
+  // Einmalige Umstellung der Stundenfenster von PC-Stunden auf Serverzeit-Stunden:
+  // alte Fenster verwerfen (sie würden sonst bis zu ±14 h falsch verglichen); sie füllen sich neu.
+  var winMark = "eba_points_" + srvKey() + "t";
+  if (GM_getValue(winMark, "") !== "s") {
+    $.each([1, 2], function(i, n) { GM_deleteValue(pointsWindowKey(n)); GM_deleteValue(hoursWindowKey(n)); });
+    GM_setValue(winMark, "s");
+  }
   //find current value
   //div#status => Punkte xxx => first group => remove points => parseInt
   var status = $("div#status");
@@ -5054,7 +5063,7 @@ function enableHistoryHeaderHover() {
     hide();
     var el = $(this), metric = el.attr("data-metric");
     var all = ebaGlobalSeries(metric);
-    var recent = ebaSeriesSince(all, new Date().getTime() - 7 * 86400000);
+    var recent = ebaSeriesSince(all, getServerNow() - 7 * 86400000);
     var pts = recent.length >= 2 ? recent : all;
     pop = $('<div class="eba_hist_pop" style="position:absolute;z-index:9999;width:260px;padding:6px 8px;background:#14391f;'
       + 'color:#e6f5ea;border:1px solid #3CAC56;border-radius:4px;font-size:11px;line-height:1.4;text-align:left;'
@@ -5122,7 +5131,7 @@ function renderHistoryPage(rangeKey) {
   page.append("<h3>openEBA-Verlauf (" + srvName(srvKey()) + ")</h3><div>Zeitraum: " + btns + "</div>");
   mainArea.append(page);
   page.on("click", ".eba_range", function() { renderHistoryPage($(this).attr("data-range")); });
-  var since = span ? new Date().getTime() - span : 0;
+  var since = span ? getServerNow() - span : 0;
   var add = function(target, title, series, metric, extra, o) {
     o = o || {};
     var box = $("<div style='margin:10px 0'></div>");
