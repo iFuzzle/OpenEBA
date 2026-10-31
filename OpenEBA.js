@@ -1,13 +1,14 @@
 // ==UserScript==
 // @name           openEBA
 // @namespace      openEBA
-// @description    openEBA
+// @description    Erweiterungen für EatenByAnts
 // @include        http://eatenbyants.de/*
 // @include        http://*.eatenbyants.de/*
 // @include        https://eatenbyants.de/*
 // @include        https://*.eatenbyants.de/*
 // @exclude        http://forum.eatenbyants.de/*
-// @version        32.0
+// @exclude        https://forum.eatenbyants.de/*
+// @version        33
 // @require        http://ajax.googleapis.com/ajax/libs/jquery/1/jquery.min.js
 // @grant          GM_getValue
 // @grant          GM_setValue
@@ -40,16 +41,16 @@ var EBA_SRV_PREFIXES = [
   "eba_hist_", "eba_statistic_", "eba_food_", "eba_tickdur_",
   "eba_schemaversion_", "eba_points_", "eba_hours_",
   "eba_inventory_", "eba_shop_prices_", "eba_saved_state_",
-  "eba_shop_remember_price_"
+  "eba_shop_remember_price_", "eba_formi_active_"
 ];
 
 const configItems = {
   "eba_disable_reload"                       : [disableReloadOnFinish, "Auto-Reload ausschalten", "Nach Ende eines Jobs, einer Forschung usw. wird die Seite nicht mehr neu geladen."],
   "eba_enable_sound_on_job_end"              : [enableSoundOnJobEnd, "Am Ende des Countdowns einen Sound abspielen"],
-  "eba_enable_note"                          : [insertNote, "Notitzblock", "Der Inhalt wird lokal auf dem Computer gespeichert."],
+  "eba_enable_note"                          : [insertNote, "Notizblock", "Der Inhalt wird lokal auf dem Computer gespeichert."],
   "eba_sort_filter_options"                  : [sortAndFilterOptions, "Alle Auswahllisten sortieren und zusammenfassen", "Sortierung nach Alphabet. Gleiche Eintr&auml;ge werden zu einer Zeile zusammengefasst und die Anzahl dahintergeh&auml;ngt."],
   "eba_enable_shop_filter_by_category"       : [shopFilterList, "Auswahllisten in den Kleinanzeigen nach Kategorie filtern", "Wird unter <i>Kleinanzeigen</i>/<i>Ameisen</i> die Unterkategorie <i>exotische</i> gew&auml;hlt, dann wird auch die Auswahlliste auf exotische Arten eingeschr&auml;nkt. Analog f&uuml;r <i>Kleinanzeigen</i>/<i>Sonstige</i>."],
-  "eba_enable_shop_filter"                   : [enableShopFilter, "Kleinanzeigen filtern", "Pflege der Suchbegriffe in der Liste unten. In den Kleinanzeigen wird die jeweils erste (das Angebot) und vorletzte Spalte (der Anbieter) gepr&uuml;ft, ob sie einen der Suchbegriffe enth&auml;llt. Falls ja, wird die Zeile ausgeblendet.<br>Z.B. blendet der Eintrag <i>Lasius</i> alle Lasius-Arten aus, aber auch die Angebote eines Spielers namens \"Lasiusz&uuml;chter\"."],
+  "eba_enable_shop_filter"                   : [enableShopFilter, "Kleinanzeigen filtern", "Pflege der Suchbegriffe in der Liste unten. In den Kleinanzeigen wird die jeweils erste (das Angebot) und vorletzte Spalte (der Anbieter) gepr&uuml;ft, ob sie einen der Suchbegriffe enth&auml;lt. Falls ja, wird die Zeile ausgeblendet.<br>Z.B. blendet der Eintrag <i>Lasius</i> alle Lasius-Arten aus, aber auch die Angebote eines Spielers namens \"Lasiusz&uuml;chter\"."],
   "eba_enable_shop_move_form"                : [shopMoveForm, "Formular in den Kleinanzeigen &uuml;ber die Tabelle schieben"],
   "eba_enable_shop_move_selection"           : [shopMoveSelection, "Selektierte Kleinanzeigen-Eintr&auml;ge nach oben schieben", "Auswahl eines Eintrags in der Auswahlliste bef&ouml;rdert alle entsprechenden Zeilen an den Anfang der Tabelle."],
   "eba_enable_shop_sumMultipleShopLines"     : [sumMultipleShopLines, "Gleichartige Kleinanzeigen-Eintr&auml;ge zusammenfassen", "Exakt gleiche Angebote eines Verk&auml;ufers werden zusammengefasst und die Anzahl wird dem Verk&auml;ufer vorangestellt. Z.B. &quot;(3x)&quot;, also 3 identische Angebote. Ein Klick darauf f&uuml;gt die ausgeblendeten Angebote wieder ein."],
@@ -65,18 +66,18 @@ const configItems = {
   "eba_enable_stat_beautify"                 : [statBeautify, "Statistik verbessern", "Einf&uuml;gen von 1.000er-Trennzeichen und Tooltips, die die Differenz zu den eigenen Punkten anzeigen. Das Avatar-Bild oben rechts bekommt als Tooltip die eigene Punkte-Entwicklung pro Stunde."],
   "eba_enable_process_jobs"                  : [processJobOffers, "Jobs/Forschungen mit Informationen anreichern", "Stundenlohn und Dauer (nach Abschluss der aktuellen Aktion) anzeigen."],
   "eba_enable_formi_statistic"               : [updateFormiStatistic, "Formicarien-Statistik", "Wird aktualisiert bei jedem Aufruf der Formicarien-&Uuml;bersicht. Aufzurufen dort mit dem Link <i>Statistik</i> bei jedem Formicarium. Optimiert zum Kopieren und Einf&uuml;gen in Excel und Co. Die Werte werden auch genutzt, um die Entwicklung von Eiern, Larven, Puppen, Ameisen und Punkten pro Stunde als jeweiligen Tooltip anzuzeigen."],
-  "eba_enable_food_snapshot"                 : [function(){}, "Futterbestand und Ausbruchschutz pro Tick festhalten", "Beim ersten Aufruf der Formicarien-&Uuml;bersicht nach einem Tick wird die Futtertabelle jedes Formicariums samt Ausbruchschutz (Typ und Prozent, z.B. <i>PTFE 97,4</i>) im Hintergrund aus der Detailansicht geholt und in der Formicarien-Statistik erg&auml;nzt. Funktioniert nur zusammen mit der Formicarien-Statistik."],
+  "eba_enable_food_snapshot"                 : [ebaFoodSnapshotDetail, "Futterbestand und Ausbruchschutz pro Tick festhalten", "Beim ersten Aufruf der Formicarien-&Uuml;bersicht nach einem Tick wird die Futtertabelle jedes Formicariums samt Ausbruchschutz (Typ und Prozent, z.B. <i>PTFE 97,4</i>) im Hintergrund aus der Detailansicht geholt und in der Formicarien-Statistik erg&auml;nzt. Wird die Detailansicht des Formicariums vorher aufgerufen, wird der Bestand direkt beim Laden bzw. unmittelbar vor dem F&uuml;ttern erfasst (Zustand vor dem F&uuml;ttern). Funktioniert nur zusammen mit der Formicarien-Statistik."],
   "eba_enable_mark_shop_messages"            : [enableMarkShopMessages, "Option zum Markieren von Kleinanzeigen-Nachrichten einblenden"],
-  "eba_enable_sum_multiple_messages"         : [sumMultipleMessages, "Gleichartige Nachrichten zusammenfassen", "Nachrichten desselben Benutzers mit demselben Betreff werden zusamengefasst. Der Haken zum L&ouml;schen bezieht sich auf alle zusammengefassten Nachrichten!"],
-  "eba_enable_message_filter"                : [enableMessageFilter, "Nachrichten nach Absendern filtern", "Pflege der Suchbegriffe in der Liste unten. In den Nachrichten wird der Absender gepr&uuml;ft, ob er einen der Suchbegriffe enth&auml;llt. Falls ja, wird die Zeile ausgeblendet.<br>Z.B. blendet der Eintrag <i>Pepper</i> alle Nachrichten von Pepper aus, aber auch die Nachrichten eines Spielers namens \"Pepperoni\"."],
-  "eba_enable_research_level"                : [researchLevelCorrection, "Forschungsstufe um 1 verringern", "Korrigiert die angezeigte Stufe um 1 nach unten, auf die Stufe die man tatsächlich erforscht hat."],
+  "eba_enable_sum_multiple_messages"         : [sumMultipleMessages, "Gleichartige Nachrichten zusammenfassen", "Nachrichten desselben Benutzers mit demselben Betreff werden zusammengefasst. Der Haken zum L&ouml;schen bezieht sich auf alle zusammengefassten Nachrichten!"],
+  "eba_enable_message_filter"                : [enableMessageFilter, "Nachrichten nach Absendern filtern", "Pflege der Suchbegriffe in der Liste unten. In den Nachrichten wird der Absender gepr&uuml;ft, ob er einen der Suchbegriffe enth&auml;lt. Falls ja, wird die Zeile ausgeblendet.<br>Z.B. blendet der Eintrag <i>Pepper</i> alle Nachrichten von Pepper aus, aber auch die Nachrichten eines Spielers namens \"Pepperoni\"."],
+  "eba_enable_research_level"                : [researchLevelCorrection, "Forschungsstufe um 1 verringern", "Korrigiert die angezeigte Stufe um 1 nach unten, auf die Stufe, die man tatsächlich erforscht hat."],
   "eba_modify_gui"                           : [modifyGUI, "GUI anpassen", "- Breitenanpassungen<br>- Zeilenumbruch in den Kleinanzeigen verhindern<br>- Meldungen in den Kopf verschieben, damit sie nicht das Layout st&ouml;ren."],
-  "eba_enableBookmarks"                      : [enableBookmarks, "Bookmarks einblenden", "Pflege der Bookmarks in der Liste unten. Sie werden an das Navigationsmen&uuml; links gehangen."],
+  "eba_enableBookmarks"                      : [enableBookmarks, "Bookmarks einblenden", "Pflege der Bookmarks in der Liste unten. Sie werden an das Navigationsmen&uuml; links gehängt."],
   "eba_snow"                                 : [initSnow, "Schnee"],
   "eba_enable_food_move_form"                : [foodMoveForm, "Dialog 'Futtertierzucht einrichten' an den Anfang der Seite schieben"],
   "eba_enable_form_move_form"                : [formiMoveForm, "Dialog 'Formicarium einrichten' an den Anfang der Seite schieben"],
   "eba_enable_stock_sort"                    : [sortStock, "Nester und Formicarien im Lager nach Größe statt alphabetisch ordnen"],
-  "eba_enable_show_inventory"                : [showInventory, "Inventar in der Seitenleiste Anzeigen", "Bestimmte Items aus dem Lager in der linken Seitenleiste Anzeigen. Begriffe werden in der unteren Liste gepflegt"],
+  "eba_enable_show_inventory"                : [showInventory, "Inventar in der Seitenleiste anzeigen", "Bestimmte Items aus dem Lager in der linken Seitenleiste anzeigen. Begriffe werden in der unteren Liste gepflegt."],
   "eba_enable_global_statistic"              : [updateGlobalStatistic, "Geld, Punkte und Tickl&auml;nge historisieren", "Je Tick wird einmal der Geldbestand, die Punktzahl und die Dauer des letzten Ticks mit Zeitstempel festgehalten. Die Erfassung l&auml;uft auf jeder Spielseite (die Werte stehen in der Statusbox oben), aber immer nur einmal pro Tick."],
   "eba_enable_search_statistic"              : [updateSearchStatistic, "Futter- und Ameisensuchen vollst&auml;ndig historisieren", "Das Spiel zeigt nur die letzten Ergebnisse einer Futtersuche bzw. K&ouml;niginnensuche. Beim Aufruf der jeweiligen Seite wird die angezeigte Tabelle mit der gespeicherten Historie verschmolzen, sodass auch &auml;ltere Treffer erhalten bleiben."],
   "eba_enable_history_compaction"            : [function(){}, "Historien ausd&uuml;nnen, wenn sie zu gro&szlig; werden", "Ohne diese Option wachsen die Historien unbegrenzt (bisheriges Verhalten). Mit der Option wird in einer Reihe ab " + EBA_HIST_MAX_LINES + " Zeilen aus der <b>&auml;lteren H&auml;lfte</b> jede zweite Zeile entfernt. Die j&uuml;ngere H&auml;lfte und die Kopfzeile bleiben unangetastet. <b>Achtung:</b> Das entfernt alte Messpunkte unwiderruflich. Den aktuellen Speicherverbrauch zeigt die Zeile unten. Vertr&auml;gt sich nicht mit dem WebDAV-Abgleich, der ist bei eingeschalteter Kompaktierung gesperrt."],
@@ -437,8 +438,44 @@ function formatStatTime(ms) {
   return p(d.getDate()) + "." + p(d.getMonth() + 1) + "." + d.getFullYear() + " " + p(d.getHours()) + ":" + p(d.getMinutes());
 }
 
-// Serveruhr: Offset zwischen #servertime (Footer) und PC-Uhr
+// Serveruhr. Rückgabe ist ein "Wanduhr-Epoch": die Epoch-ms, bei denen die LOKALE
+// Wanduhr des Browsers (getHours() usw.) der Server-Wanduhr entspricht. Alle
+// Zeitschlüssel, Ticks und Formatierungen bauen darauf auf.
+// Quellen in dieser Reihenfolge:
+// 1. Inline-Skript des Spiels (Variable currenttime, Format "Month DD, YYYY HH:MM:SS",
+//    Server-Ortszeit): liefert Datum UND Uhrzeit. Wird beim Skriptstart einmal aus dem
+//    Seitenquelltext gelesen (nicht über window, wegen Tampermonkey-Sandbox) und als fester
+//    Offset zur PC-Uhr gemerkt; er gilt auch nach AJAX-Neuaufbauten weiter.
+//    Das Element #servertime ist im Quelltext leer und wird erst in window.onload gefüllt.
+// 2. #servertime (nur Uhrzeit, ±12 h zur PC-Uhr; das Datum kommt von der PC-Uhr)
+// 3. PC-Uhr
+// Zeitzonen: Die Server-Wanduhr wird als lokale Wanduhr des Browsers aufgebaut (wie bisher
+// bei #servertime), die Werte sind also unabhängig von der PC-Zeitzone Server-Wanduhrzeit.
+// Randfälle: Liegt die Server-Wanduhrzeit in einer Sommerzeit-Lücke der PC-Zeitzone, rückt
+// der Browser sie um eine Stunde vor (wie schon bisher). Wechselt die PC-Zeitzone zwischen
+// Skriptstart und Aufruf die Sommerzeit, bleibt der Offset fest (Abweichung höchstens 1 h bis
+// zum nächsten Seitenladen).
+var EBA_MONTHS = ["january","february","march","april","may","june","july","august","september","october","november","december"];
+function readServerOffset() {
+  var scripts = document.getElementsByTagName("script");
+  var re = /\bcurrenttime\s*=\s*(['"])\s*([A-Za-z]+)\s+(\d{1,2})\s*,\s*(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})\s*\1/;
+  for (var i = 0; i < scripts.length; i++) {
+    var m = re.exec(scripts[i].text || scripts[i].textContent || "");
+    if (!m) { continue; }
+    var mon = EBA_MONTHS.indexOf(m[2].toLowerCase());
+    var y = parseInt(m[4], 10), day = parseInt(m[3], 10);
+    var h = parseInt(m[5], 10), mi = parseInt(m[6], 10), sec = parseInt(m[7], 10);
+    if (mon < 0 || day < 1 || day > 31 || h > 23 || mi > 59 || sec > 59) { continue; } // nicht eindeutig
+    var d = new Date(y, mon, day, h, mi, sec);
+    if (d.getMonth() !== mon || d.getDate() !== day) { continue; } // z.B. 31. Februar
+    return d.getTime() - Date.now();
+  }
+  return null;
+}
+var EBA_SERVER_OFFSET = readServerOffset();
+
 function getServerNow() {
+  if (EBA_SERVER_OFFSET !== null) { return Date.now() + EBA_SERVER_OFFSET; }
   var t = /(\d+):(\d+):(\d+)/.exec($("#servertime").text());
   var d = new Date();
   if (!t) { return d.getTime(); } // Fallback: PC-Uhr
@@ -609,6 +646,58 @@ function ebaParseEscape(html) {
   return $.trim((t ? t[1] + " " : "") + val.toString().replace(".", ","));
 }
 
+// Zeile der Futter-Historie aus dem Futter-Block (div[data-formi='food']) und dem
+// HTML der Seite (für den Ausbruchschutz). Format unverändert: tickMin\t\tFutter\tAusbruch
+function ebaFoodLine(tickMin, box, html) {
+  var entries = [];
+  box.find("table.liste tr").slice(1).each(function() {
+    var td = $(this).children("td");
+    var name = $.trim(td.eq(0).text());
+    if (!name) { return; }
+    var gram = $.trim(td.eq(1).text()).replace(".", ",");
+    var cond = $.trim(td.eq(3).text());
+    entries.push(name + " " + gram + "g " + cond);
+  });
+  return tickMin + "\t\t" + (entries.length ? entries.join(" | ") : "leer") + "\t" + ebaParseEscape(html);
+}
+
+// Snapshot direkt aus der geöffneten Detailseite (ameisenzimmer.php?cat=9&id=...).
+// Läuft beim Laden der Seite und vor jedem Füttern (Button, AJAX, Hotkey z/p), also
+// bevor das Futter verändert wird. Nur nach Tickende und genau einmal je Tick:
+// ist schon eine Zeile für den Tick da, passiert nichts (erster Stand gewinnt).
+function ebaCaptureFoodFromPage() {
+  try {
+    if (!GM_getValue("eba_enable_food_snapshot", false)) { return; }
+    if (!/\/ameisenzimmer\.php/.test(location.pathname)) { return; }
+    var box = $("div[data-formi='food']").first();
+    if (!box.length) { return; }
+    var m = /[?&]id=(\d+)/.exec(location.search);
+    var id = m ? m[1] : box.find("input[name='id']").first().val();
+    if (!id) { return; }
+    var tk = getTickInfo();
+    if (!tk.done) { return; }
+    var tickMin = tk.nowTick / 60000;
+    if (hasFoodSnapshot(id, tickMin)) { return; }
+    var key = "eba_food_" + srvKey() + id;
+    GM_setValue(key, mergeFoodHistory(GM_getValue(key, ""), ebaFoodLine(tickMin, box, document.documentElement.outerHTML)));
+  } catch (err) {}
+}
+function ebaFoodSnapshotDetail() {
+  ebaCaptureFoodFromPage();
+  // Capture-Phase: läuft vor den Handlern des Spiels (auch vor dem AJAX-Absenden)
+  var guard = function(e) {
+    var f = e.target && e.target.closest ? e.target.closest("form") : null;
+    if (!f) { return; }
+    if (e.type === "click" && !(e.target.type === "submit" || e.target.type === "image")) { return; }
+    var act = $(f).find("input[name='action']").val();
+    if (act === "addfood" || act === "newescapeprotection" || $(f).find("select[name='foodid']").length) {
+      ebaCaptureFoodFromPage();
+    }
+  };
+  document.addEventListener("click", guard, true);
+  document.addEventListener("submit", guard, true);
+}
+
 // Futter-Snapshots im Hintergrund holen (sequentiell, um den Server zu schonen)
 function queueFoodSnapshot(id, url, tickMin) {
   var k = srvKey() + id + "_" + tickMin;
@@ -633,17 +722,8 @@ function runFoodQueue() {
         var box = $(doc).find("div[data-formi='food']");
         if (!box.length) { fail(); return; } // z.B. ausgeloggt
         if (!hasFoodSnapshot(job.id, job.tickMin)) {
-          var entries = [];
-          box.find("table.liste tr").slice(1).each(function() {
-            var td = $(this).children("td");
-            var name = $.trim(td.eq(0).text());
-            if (!name) { return; }
-            var gram = $.trim(td.eq(1).text()).replace(".", ",");
-            var cond = $.trim(td.eq(3).text());
-            entries.push(name + " " + gram + "g " + cond);
-          });
           var key = "eba_food_" + srvKey() + job.id;
-          var line = job.tickMin + "\t\t" + (entries.length ? entries.join(" | ") : "leer") + "\t" + ebaParseEscape(response.responseText);
+          var line = ebaFoodLine(job.tickMin, box, response.responseText);
           GM_setValue(key, mergeFoodHistory(GM_getValue(key, ""), line));
         }
         next();
@@ -682,6 +762,14 @@ function updateFormiStatistic() {
   var tk = getTickInfo();
   var tickMin = getTickMinutes();
   var tickHours = tickMin / 60;
+  // Aktuell vorhandene Formicarien merken (nur aus der vollständigen Übersicht).
+  // Kolonien im Lager fehlen hier; die Verlaufsseite zeigt sie als "ehemalig".
+  var activeIds = [];
+  $("div[id='shopitem']:contains('Larven') span[id^='sugarhunger']").each(function() {
+    var aid = $(this).attr("id").substr(11);
+    if (/^\d+$/.test(aid) && $.inArray(aid, activeIds) < 0) { activeIds.push(aid); }
+  });
+  GM_setValue("eba_formi_active_" + srvKey(), new Date().getTime() + "\t" + activeIds.join(","));
   $("div[id='shopitem']:contains('Larven')").each(function(i, e) {
     var div = $(this);
     var long_str = ["Reagenzglas", "Mini Arena", "kleines Formicarium", "mittleres Formicarium", "großes Formicarium", "mittlere Anlage",
@@ -944,7 +1032,8 @@ function isDraussenCat3() {
   if (location.pathname !== "/draussen.php") { return false; }
   // Ohne cat-Parameter zeigt das Spiel automatisch cat=3 (Ergebnisse).
   if (!/[?&]cat=/.test(location.search)) { return true; }
-  return /[?&]cat=3(&|#|$)/.test(location.search);
+  // Nach Aktionsende leitet das Spiel auf ?cat=&id= weiter (cat leer): wie cat=3.
+  return /[?&]cat=(3)?(&|#|$)/.test(location.search);
 }
 function searchPageKindBase() {
   var h = $("h3").text();
@@ -1526,7 +1615,7 @@ function mergeSeries(a, b, hasHeader, byContent) {
       // Jeder wartende Marker bekommt den Zeitschlüssel SEINER Folgezeile und
       // wird regulär einsortiert. Rang 0 hält ihn vor der Datenzeile.
       for (var p = 0; p < pending.length; p++) {
-        var mid = "H " + t + " " + pending[p];
+        var mid = "H\u0000" + t + "\u0000" + pending[p];
         if (seen[mid] === true) { continue; }
         seen[mid] = true;
         data.push([t, 0, pending[p]]);
@@ -1534,7 +1623,7 @@ function mergeSeries(a, b, hasHeader, byContent) {
       pending = [];
       // Präfix vor dem Schlüssel, damit kein Inhalt je einen Namen aus
       // Object.prototype (z.B. "constructor") treffen kann.
-      var id = (byContent ? "C " : "L ") + (byContent ? content : line);
+      var id = (byContent ? "C\u0000" : "L\u0000") + (byContent ? content : line);
       if (typeof seen[id] === "number") {
         // Das Minimum ist von der Reihenfolge unabhängig und damit kommutativ.
         if (byContent && t < data[seen[id]][0]) { data[seen[id]][0] = t; }
@@ -1545,7 +1634,7 @@ function mergeSeries(a, b, hasHeader, byContent) {
     }
     // Marker ohne Folgezeile gehören an das Ende der Reihe.
     for (var q = 0; q < pending.length; q++) {
-      var eid = "E " + pending[q];
+      var eid = "E\u0000" + pending[q];
       if (seen[eid] === true) { continue; }
       seen[eid] = true;
       data.push([Infinity, 0, pending[q]]);
@@ -1676,6 +1765,7 @@ function exportHistoryJSON(onlyThisServer) {
   $.each(GM_listValues(), function(i, k) {
     if (k.indexOf("eba_") !== 0) { return; }
     if (davIsOwnKey(k)) { return; } // Zugangsdaten und Zustand des WebDAV-Abgleichs nie exportieren
+    if (k.indexOf("eba_formi_active_") === 0) { return; } // Zustand der Übersicht dieses Geräts, kein Datenbestand
     if (onlyThisServer && !isOwnServerKey(k)) { return; } // Filtermuster wie in ebaFormiIds()
     out.values[k] = GM_getValue(k, null);
   });
@@ -1717,6 +1807,7 @@ function importHistoryJSON(text) {
     // Eine fremde Datei darf weder die Ziel-URL noch die Zugangsdaten des
     // WebDAV-Abgleichs setzen - sonst ließen sich die Historien umleiten.
     if (davIsOwnKey(k)) { return; }
+    if (k.indexOf("eba_formi_active_") === 0) { return; } // Zustand der Übersicht dieses Geräts
     if (isHistoryKey(k) && typeof v === "string") {
       var mine = GM_getValue(k, "");
       var res;
@@ -1783,6 +1874,28 @@ function ebaGlobalSeries(metric) {
   return out;
 }
 
+// Punkte pro Tick, abgeleitet aus der globalen Punkte-Reihe.
+// Je Messpunkt: (Punkte - vorherige Punkte) / Ticks seit der vorherigen Messung.
+// Mehrere Werte im selben Tick: der jeweils letzte zählt. Rückgabe: [[tMs, wert, ticks], ...];
+// ticks > 1 bedeutet Lücke, der Wert ist dann ein Durchschnitt.
+function ebaPointsPerTickSeries() {
+  var tickMs = getTickMinutes() * 60000;
+  var keys = [], byTick = {};
+  $.each(ebaGlobalSeries("points"), function(i, p) {
+    var k = Math.floor(p[0] / tickMs);
+    if (byTick[k] === undefined) { keys.push(k); }
+    byTick[k] = p; // später gespeicherter Wert im selben Tick überschreibt
+  });
+  keys.sort(function(a, b) { return a - b; });
+  var out = [];
+  for (var i = 1; i < keys.length; i++) {
+    var n = keys[i] - keys[i - 1];
+    var cur = byTick[keys[i]], prev = byTick[keys[i - 1]];
+    out.push([cur[0], (cur[1] - prev[1]) / n, n]);
+  }
+  return out;
+}
+
 // IDs aller Formicarien mit Historie auf dem aktuellen Server
 function ebaFormiIds() {
   var pre = "eba_statistic_" + srvKey();
@@ -1793,6 +1906,28 @@ function ebaFormiIds() {
     if (/^\d+$/.test(rest)) { out.push(rest); } // filtert auf dem Normalserver die speed_-Schlüssel
   });
   return out;
+}
+
+// IDs der Formicarien aus der letzten vollständigen Übersicht; null = noch unbekannt
+// (dann gelten alle als aktiv).
+function ebaFormiActiveIds() {
+  var raw = GM_getValue("eba_formi_active_" + srvKey(), "");
+  if (typeof raw !== "string" || raw.indexOf("\t") < 0) { return null; }
+  var list = raw.split("\t")[1];
+  return list ? list.split(",") : [];
+}
+
+// Verlauf einer ehemaligen Kolonie lokal löschen, samt WebDAV-Zustand (ETag/Länge, Fehlerliste).
+// Die Datei auf dem Server bleibt; ein Marker in der Ignorierliste (davForget) verhindert, dass sie zurückkommt.
+function ebaForgetFormi(id) {
+  $.each(["eba_statistic_" + srvKey() + id, "eba_food_" + srvKey() + id], function(i, key) {
+    GM_deleteValue(key);
+    GM_deleteValue(davStateKey(key));
+    davSetBad(key, false);
+  });
+  // Marker in der Ignorierliste (geht per Index-Datei auch an die anderen Geräte);
+  // die Dateien auf dem Server bleiben, werden aber nicht mehr geholt oder hochgeladen.
+  davForget(["eba_statistic_" + srvKey() + id, "eba_food_" + srvKey() + id]);
 }
 
 // Art des Formicariums aus der Kopfzeile der Historie
@@ -1972,8 +2107,10 @@ function enableKeyNavi() {
     } else if (e.which==118 || e.which==113) { //prev
       link = $("a:contains('voriges')").attr('href');
     } else if (e.which==122) { //feed sugar
+      ebaCaptureFoodFromPage();
       $("select[name='foodid']").eq(0).parent().submit();
     } else if (e.which==112) { //feed protein
+      ebaCaptureFoodFromPage();
       $("select[name='foodid']").eq(1).parent().submit();
     }
     if (link!=null) window.location.href = link;
@@ -2090,19 +2227,14 @@ function shopSeparator() {
 }
 function shopMoveSelection() {
   if (!$("center > b:contains('Kleinanzeigen')").length){return}
-//  var inMisc = $("#shopitem").find("h3:contains('Sonstiges')").length;
   $("#shopitem select").on("change", function(e){
     var text = $("#shopitem option:selected").text();
     text = text.substring(0, text.indexOf("(")-1);
-//    GM_setValue("eba_last_small_ads_"+inMisc, text); //remember last
     var trs = $("table.liste").find("tr");
     trs.filter(function(i){
       return $(this).html().indexOf(">"+text)>0;
     }).insertAfter(trs.eq(0));
   });
-  //select a default
-//  var last = GM_getValue("eba_last_small_ads_"+inMisc);
-//  $("#shopitem option:contains('"+last+"')").prop("selected", true);
   $("#shopitem select").change();
 }
 function sortStock() {
@@ -2534,6 +2666,158 @@ function resetStoredValues(onlyThisServer) {
   });
   return removed;
 }
+// ---------------------------------------------------------------------------
+// Kolonie umziehen: Historie einer alten Spiel-ID in die neue ID übernehmen
+//
+// Wer eine Kolonie ins Lager räumt, verliert die Brut (Eier/Larven/Puppen = 0),
+// und beim Wiederaufstellen vergibt das Spiel eine neue ID. Arbeiterinnen und
+// Königinnen bleiben gleich. Die Historie der kleineren (alten) ID wird hier mit den
+// normalen Merge-Funktionen in die größere (neue) ID verschmolzen; die kleinere ID wird vergessen.
+// ---------------------------------------------------------------------------
+function ebaColonyFmtTime(ms) {
+  var d = new Date(ms), p = function(n) { return (n < 10 ? "0" : "") + n; };
+  return p(d.getDate()) + "." + p(d.getMonth() + 1) + "." + d.getFullYear() + " " + p(d.getHours()) + ":" + p(d.getMinutes());
+}
+// Kurzbeschreibung einer Historie für Auswahllisten
+function ebaColonyDescribe(id) {
+  var rows = ebaFormiRows(id);
+  var s = "ID " + id + " (" + (ebaFormiKind(id) || "?") + ")";
+  if (!rows.length) { return s + ", keine Zeilen"; }
+  var last = rows[0];
+  $.each(rows, function(i, r) { if (r.t > last.t) { last = r; } });
+  return s + ", " + rows.length + " Zeilen, letzter Stand " + ebaColonyFmtTime(last.t)
+    + ": " + (last.queens == null ? "?" : last.queens) + " Kön., " + (last.ants == null ? "?" : last.ants) + " Arb.";
+}
+// Reihenfolge: Es wird immer die kleinere (ältere) ID vergessen und die größere (neuere) behalten,
+// gleich in welcher Reihenfolge die IDs eingegeben werden. Rückgabe {oldId, newId} oder null.
+function ebaColonyOrder(a, b) {
+  a = $.trim("" + a); b = $.trim("" + b);
+  if (!/^\d+$/.test(a) || !/^\d+$/.test(b) || a === b) { return null; }
+  return parseInt(a, 10) < parseInt(b, 10) ? { oldId: a, newId: b } : { oldId: b, newId: a };
+}
+// Prüfung ohne Schreibzugriff. Die Eingaben dürfen vertauscht sein: alt = kleinere ID, neu = größere ID.
+// Rückgabe {errors:[], warnings:[], infos:[], canMerge, needConfirm}
+function ebaColonyCheck(idA, idB) {
+  var res = { errors: [], warnings: [], infos: [], canMerge: false, needConfirm: false };
+  var ord = ebaColonyOrder(idA, idB);
+  if (!/^\d+$/.test($.trim("" + idA)) || !/^\d+$/.test($.trim("" + idB))) { res.errors.push("Bitte zwei numerische IDs angeben."); return res; }
+  if (!ord) { res.errors.push("Die beiden IDs sind gleich."); return res; }
+  var oldId = ord.oldId, newId = ord.newId;
+  res.infos.push("Behalten: " + newId + " (neu, größere ID). Vergessen: " + oldId + " (alt, kleinere ID).");
+  var ro = ebaFormiRows(oldId), rn = ebaFormiRows(newId);
+  if (!ro.length) { res.errors.push("Zur kleineren ID " + oldId + " gibt es auf diesem Server keine Historie."); }
+  if (!rn.length) { res.errors.push("Zur größeren ID " + newId + " gibt es auf diesem Server keine Historie."); }
+  if (res.errors.length) { return res; }
+  var ko = ebaFormiKind(oldId), kn = ebaFormiKind(newId);
+  if (ko !== kn) {
+    res.errors.push("Verschiedene Art: kleinere ID \"" + ko + "\", größere ID \"" + kn + "\". Das ist keine Umstellung derselben Kolonie, Zusammenführen nicht möglich.");
+    return res;
+  }
+  var oldFirst = ro[0], oldLast = ro[0], newFirst = rn[0], newLast = rn[0];
+  $.each(ro, function(i, r) { if (r.t > oldLast.t) { oldLast = r; } if (r.t < oldFirst.t) { oldFirst = r; } });
+  $.each(rn, function(i, r) { if (r.t > newLast.t) { newLast = r; } if (r.t < newFirst.t) { newFirst = r; } });
+  var brood = function(r) { return (r.eggs || 0) + "/" + (r.larvae || 0) + "/" + (r.cocoons || 0); };
+  res.infos.push("Art: " + ko + " (gleich).");
+  res.infos.push("Alt: " + ro.length + " Zeilen, letzter Stand " + ebaColonyFmtTime(oldLast.t) + ": "
+    + oldLast.queens + " Königinnen, " + oldLast.ants + " Arbeiterinnen, Brut " + brood(oldLast) + ".");
+  res.infos.push("Neu: " + rn.length + " Zeilen, erster Stand " + ebaColonyFmtTime(newFirst.t) + ": "
+    + newFirst.queens + " Königinnen, " + newFirst.ants + " Arbeiterinnen, Brut " + brood(newFirst) + ".");
+  if (oldLast.ants !== newFirst.ants) {
+    res.warnings.push("Arbeiterinnenzahl weicht ab: alt " + oldLast.ants + ", neu " + newFirst.ants + ". Möglicherweise nicht dieselbe Kolonie!");
+  }
+  if (oldLast.queens !== newFirst.queens) {
+    res.warnings.push("Königinnenzahl weicht ab: alt " + oldLast.queens + ", neu " + newFirst.queens + ". Möglicherweise nicht dieselbe Kolonie!");
+  }
+  if (oldLast.t >= newFirst.t) {
+    res.warnings.push("Zeitliche Überlappung: die alte Historie endet (" + ebaColonyFmtTime(oldLast.t) + ") nicht vor dem Beginn der neuen ("
+      + ebaColonyFmtTime(newFirst.t) + "). Je Tick bleibt nur eine Zeile.");
+  }
+  res.infos.push("Hinweis: Beim Einlagern wird die Brut auf 0 gesetzt, ein Sprung der Brut auf 0 am Übergang ist normal.");
+  res.infos.push("Ergebnis: höchstens " + (ro.length + rn.length) + " Zeilen von " + ebaColonyFmtTime(Math.min(oldFirst.t, newFirst.t))
+    + " bis " + ebaColonyFmtTime(Math.max(oldLast.t, newLast.t)) + ".");
+  res.canMerge = true;
+  res.needConfirm = res.warnings.length > 0;
+  return res;
+}
+// Zusammenführen. Rückgabe Text fürs Ergebnisfeld. Wirft bei Prüffehlern.
+// Die kleinere ID wird danach immer vergessen (wie der "Vergessen"-Knopf), die größere behalten.
+function ebaColonyMerge(idA, idB, confirmed) {
+  var chk = ebaColonyCheck(idA, idB);
+  if (!chk.canMerge) { throw new Error(chk.errors.join(" ")); }
+  var ord = ebaColonyOrder(idA, idB), oldId = ord.oldId, newId = ord.newId;
+  if (chk.needConfirm && !confirmed) { throw new Error("Warnungen müssen bestätigt werden (\"trotzdem zusammenführen\")."); }
+  var sk = srvKey();
+  var kOldF = "eba_statistic_" + sk + oldId, kNewF = "eba_statistic_" + sk + newId;
+  var kOldFood = "eba_food_" + sk + oldId, kNewFood = "eba_food_" + sk + newId;
+  var mergedF = mergeFormiHistory(GM_getValue(kOldF, ""), GM_getValue(kNewF, ""));
+  if (!mergedF) { throw new Error("Verschmelzen ergab eine leere Reihe, nichts geändert."); }
+  GM_setValue(kNewF, mergedF);
+  var oldFood = GM_getValue(kOldFood, ""), newFood = GM_getValue(kNewFood, "");
+  var foodTxt = "";
+  var keys = [kNewF];
+  if (oldFood || newFood) {
+    var mergedFood = mergeFoodHistory(oldFood, newFood);
+    GM_setValue(kNewFood, mergedFood);
+    keys.push(kNewFood);
+    foodTxt = " Futter-Historie: " + (mergedFood ? mergedFood.split("\n").length : 0) + " Zeilen.";
+  }
+  // Die neue Reihe muss beim nächsten WebDAV-Lauf hoch: die Länge im Merkzustand
+  // ungültig machen (davDirty() vergleicht gegen die gespeicherte Länge).
+  $.each(keys, function(i, k) { davSetState(k, davState(k).etag, -1); });
+  ebaForgetFormi(oldId); // lokal löschen, WebDAV-Zustand und Lösch-Marker im Index wie beim Vergessen-Knopf
+  var delTxt = " Die kleinere ID " + oldId + " wurde vergessen.";
+  return "Zusammengeführt: " + oldId + " (vergessen) -> " + newId + " (behalten), " + ebaFormiRows(newId).length + " Zeilen unter der größeren ID." + foodTxt + delTxt
+    + " Die behaltene Reihe wird beim nächsten WebDAV-Abgleich hochgeladen. Die Datei der vergessenen ID bleibt auf dem Server, wird aber "
+    + "von allen Geräten nicht mehr abgeglichen. Andere Geräte behalten ihre lokale Reihe der kleineren ID, bis sie dort vergessen wird.";
+}
+function colonyConfigHTML() {
+  var h = "<br><b>Kolonie umziehen / Historien zusammenf&uuml;hren</b>";
+  h += "<div style='font-size:0.9em'>Nach dem Einlagern und Wiederaufstellen einer Kolonie vergibt das Spiel eine neue, h&ouml;here ID. "
+     + "Hier werden zwei Historien zusammengef&uuml;hrt: die <b>gr&ouml;&szlig;ere ID wird behalten</b>, "
+     + "die <b>kleinere ID wird danach vergessen</b> (wie mit dem Vergessen-Knopf). Die Reihenfolge der Eingabe ist egal.</div>";
+  h += "Kolonie A <input type='text' id='eba_colony_old' size='8'> <select id='eba_colony_oldsel'></select><br>";
+  h += "Kolonie B <input type='text' id='eba_colony_new' size='8'> <select id='eba_colony_newsel'></select><br>";
+  h += "<div><button id='eba_colony_check' type='button'>Pr&uuml;fen</button> ";
+  h += "<button id='eba_colony_go' type='button' disabled>Zusammenf&uuml;hren</button></div>";
+  h += "<div id='eba_colony_confirmbox' style='display:none;color:#a00'><label><input type='checkbox' id='eba_colony_force'>trotzdem zusammenf&uuml;hren</label></div>";
+  h += "<div id='eba_colony_out' style='font-size:0.9em;white-space:pre-wrap'></div>";
+  return h;
+}
+function colonyConfigBind() {
+  var reset = function() {
+    $("#eba_colony_go").prop("disabled", true);
+    $("#eba_colony_confirmbox").hide();
+    $("#eba_colony_force").prop("checked", false);
+  };
+  var fill = function(sel, input) {
+    sel.empty().append($("<option>").val("").text("(Auswahl)"));
+    $.each(ebaFormiIds(), function(i, id) { sel.append($("<option>").val(id).text(ebaColonyDescribe(id))); });
+    sel.on("change", function() { if ($(this).val()) { input.val($(this).val()); } reset(); });
+  };
+  fill($("#eba_colony_oldsel"), $("#eba_colony_old"));
+  fill($("#eba_colony_newsel"), $("#eba_colony_new"));
+  $("#eba_colony_old, #eba_colony_new").on("input", reset);
+  $("#eba_colony_check").on("click", function() {
+    var c = ebaColonyCheck($("#eba_colony_old").val(), $("#eba_colony_new").val());
+    var t = [];
+    $.each(c.errors, function(i, s) { t.push("FEHLER: " + s); });
+    $.each(c.warnings, function(i, s) { t.push("WARNUNG: " + s); });
+    $.each(c.infos, function(i, s) { t.push(s); });
+    $("#eba_colony_out").text(t.join("\n"));
+    reset();
+    $("#eba_colony_go").prop("disabled", !c.canMerge);
+    if (c.canMerge && c.needConfirm) { $("#eba_colony_confirmbox").show(); }
+  });
+  $("#eba_colony_go").on("click", function() {
+    try {
+      $("#eba_colony_out").text(ebaColonyMerge($("#eba_colony_old").val(), $("#eba_colony_new").val(),
+        $("#eba_colony_force").prop("checked")));
+      reset();
+    } catch (err) {
+      $("#eba_colony_out").text("Fehler: " + err.message);
+    }
+  });
+}
 function enableConfig() {
   if (!$("#shopmenu:contains('Statistik')").length) {return}
   //$("#shopmenucats").append("<a href='/stats.php?limitplayers=14'>14-Tage-Statistik</a>");
@@ -2564,6 +2848,7 @@ function enableConfig() {
     configHTML += "<span id='eba_io_info'></span></div>";
     configHTML += "<div id='eba_io_usage' style='font-size:0.9em'></div>";
     configHTML += davConfigHTML();
+    configHTML += colonyConfigHTML();
     configHTML += "<div style='text-align:right;'><button id='eba_config_reset_srv' type='button'>Nur die Daten dieses Servers l&ouml;schen</button> ";
     configHTML += "<button id='eba_config_reset' type='button'>Alle gespeicherten Daten l&ouml;schen</button></div>";
     configHTML += "</div>";
@@ -2611,6 +2896,7 @@ function enableConfig() {
       }
     });
     davConfigBind();
+    colonyConfigBind();
     //Reset: beide Varianten fragen vorher nach, weil hier Monate an Historie hängen
     $("#eba_config_reset").on("click", function(e) {
       if (!window.confirm("ALLE gespeicherten openEBA-Daten werden unwiderruflich gelöscht - "
@@ -3135,7 +3421,11 @@ var EBA_DAV_AUTO_BUDGET = 6;          // höchstens so viele Requests pro automa
 var EBA_DAV_AUTO_IDLE = 2;            // davon unveränderte Reihen im Rundlauf
 var EBA_DAV_WARN_CHARS = 1048576;     // Größenwarnung je Datei (~1 MB)
 var EBA_DAV_BACKOFF = [5, 15, 60];    // Minuten Wartezeit nach Netz- bzw. Serverfehlern
+var EBA_DAV_STUCK_PAUSE = 900000;     // ms: so lange lässt der Auto-Lauf eine dauerhaft mit 412 scheiternde Reihe in Ruhe
 var EBA_DAV_MAX_412 = 3;              // Wiederholungen bei konkurrierendem Schreiben
+var EBA_DAV_NEW_BUDGET = 40;          // zusätzliche Requests pro Auto-Lauf, solange noch nie abgeglichene Reihen anstehen
+var EBA_DAV_INV_INTERVAL = 1800000;   // ms: so selten fragt der Auto-Lauf das Server-Inventar neu ab
+var EBA_DAV_IDX_MAX = 5000;           // Zeilen der Index-Datei, mehr werden verworfen
 
 // Schlüssel des Abgleichs selbst. Gelten für beide Server (ein Zugang für
 // Normal- und Speedserver) und werden weder exportiert noch importiert:
@@ -3155,20 +3445,35 @@ function davFileUrl(key) { return davConf().url + key + ".tsv"; }
 // Basic-Auth, UTF-8-sicher (btoa() allein scheitert an Umlauten).
 function davAuth(user, pass) { return "Basic " + btoa(unescape(encodeURIComponent(user + ":" + pass))); }
 
-// ETag aus den rohen Antwort-Headern; das letzte Vorkommen gewinnt.
-// Apache mit mod_deflate hängt bei komprimierter Auslieferung "-gzip" an,
-// vergleicht If-Match aber gegen den ETag ohne Zusatz. Daher wird der Zusatz
-// abgeschnitten, sonst scheitert jedes bedingte PUT dauerhaft mit 412.
-function davParseEtag(raw) {
-  var re = /^etag:[ \t]*(.*?)[ \t]*$/gim, m, e = "";
+// ETag aus den rohen Antwort-Headern. Header-Namen sind unabhaengig von der
+// Schreibweise; das letzte Vorkommen gewinnt. Nextcloud liefert zusaetzlich
+// OC-ETag mit dem unveraenderten Wert; den veraendern Proxys nicht (nginx macht
+// beim Komprimieren aus dem ETag einen schwachen W/"...", Apache mod_deflate
+// haengt "-gzip" an). Der Server vergleicht If-Match aber gegen den
+// urspruenglichen Wert. Deshalb gilt OC-ETag, falls vorhanden, und jeder ETag
+// wird auf den Kern ohne W/, Anfuehrungszeichen und -gzip reduziert und
+// einheitlich in Anfuehrungszeichen gesetzt.
+function davEtagCore(e) {
+  return ("" + (e || "")).replace(/^\s+|\s+$/g, "").replace(/^W\//i, "").replace(/^"(.*)"$/, "$1").replace(/-gzip$/, "");
+}
+function davEtagNorm(e) { var c = davEtagCore(e); return c === "" ? "" : '"' + c + '"'; }
+function davHdr(raw, name) {
+  var re = new RegExp("^" + name + ":[ \\t]*(.*?)[ \\t]*$", "gim"), m, e = "";
   while ((m = re.exec(raw || "")) !== null) { e = m[1]; }
-  return e.replace(/-gzip(")?$/, "$1");
+  return e;
+}
+function davParseEtag(raw) {
+  var oc = davHdr(raw, "oc-etag");
+  return davEtagNorm(oc !== "" ? oc : davHdr(raw, "etag"));
 }
 
 // Ein Request mit einheitlichem Ergebnis {ok, status, body, etag, err}.
 function davRequest(method, url, body, headers, cb) {
   var c = davConf();
-  var h = { "Authorization": davAuth(c.user, c.pass), "Accept-Encoding": "identity" };
+  // Cache-Control/nocache: eine zwischengespeicherte Antwort (samt altem ETag)
+  // darf nie an die Stelle der aktuellen Datei treten.
+  var h = { "Authorization": davAuth(c.user, c.pass), "Accept-Encoding": "identity",
+            "Cache-Control": "no-cache", "Pragma": "no-cache" };
   for (var k in headers) { if (headers.hasOwnProperty(k)) { h[k] = headers[k]; } }
   if (method === "PUT") { h["Content-Type"] = "text/plain; charset=utf-8"; }
   var called = false;
@@ -3183,11 +3488,13 @@ function davRequest(method, url, body, headers, cb) {
       // Browsersitzung statt über die Basic-Auth, und der Fehler tritt nur
       // auf einem Gerät auf
       anonymous: true,
+      nocache: true,
       timeout: EBA_DAV_TIMEOUT,
       overrideMimeType: "text/plain; charset=utf-8",
       onload: function(r) {
         done({ ok: r.status >= 200 && r.status < 300, status: r.status,
-               body: r.responseText || "", etag: davParseEtag(r.responseHeaders), err: "" });
+               body: r.responseText || "", etag: davParseEtag(r.responseHeaders), err: "",
+               rawEtag: davHdr(r.responseHeaders, "etag"), rawOc: davHdr(r.responseHeaders, "oc-etag") });
       },
       onerror: function(r) { done({ ok: false, status: (r && r.status) || 0, body: "", etag: "", err: "network" }); },
       ontimeout: function() { done({ ok: false, status: 0, body: "", etag: "", err: "timeout" }); }
@@ -3324,19 +3631,134 @@ function davSetBad(key, bad) {
   GM_setValue(davBadKey(), l.join("\n"));
 }
 
-// Abzugleichende Reihen des aktuellen Servers, sortiert.
-function davKeys() {
-  var withFood = GM_getValue("eba_dav_food", true);
-  var out = [];
-  $.each(GM_listValues(), function(i, k) {
-    if (!isHistoryKey(k)) { return; }
-    if (keyServer(k) !== srvKey()) { return; } // Präfix-Falle: eba_hist_ ist auch Präfix von eba_hist_speed_
-    if (!withFood && k.indexOf("eba_food_") === 0) { return; }
-    if (!/^[a-z0-9_]+$/.test(k)) { return; } // wird Dateiname
-    out.push(k);
+// Schlüssel, der als Datei im Ordner liegen darf: Zeitreihe des aktuellen Servers.
+// (Präfix-Falle: eba_hist_ ist auch Präfix von eba_hist_speed_; der Name wird Dateiname.)
+function davKeyValid(k) {
+  return typeof k === "string" && isHistoryKey(k) && keyServer(k) === srvKey() && /^[a-z0-9_]+$/.test(k);
+}
+
+// ---------------------------------------------------------------------------
+// Index-Datei eba_index_<normal|speed>.tsv im Ordner
+//
+// Sie hat zwei Aufgaben:
+//  1. Inventar, falls der Server PROPFIND (Dateiliste) nicht erlaubt: jedes
+//     Gerät trägt seine Schlüssel ein ("announce"), die anderen finden sie dort.
+//  2. Lösch-Marker (Tombstones) für "Vergessen" und "Kolonie umziehen". Die
+//     Datei der Reihe selbst wird NIE gelöscht; der Marker sagt allen Geräten
+//     nur: diese Reihe nicht mehr abgleichen (weder holen noch hochladen).
+// Format: Kopfzeile "eba_index<TAB>1", dann je Zeile "schlüssel<TAB>ms<TAB>a|f".
+//   a = angekündigt/vorhanden, f = vergessen. Je Schlüssel gewinnt der größere
+//   Zeitstempel, bei Gleichstand f. Das ist idempotent, kommutativ, assoziativ
+//   und kanonisch (sortiert) - die Geräte erreichen also einen Fixpunkt.
+//   "Wieder zulassen" schreibt a mit größerem Zeitstempel. Lokale Kopie:
+//   eba_dav_idx_<srv>, Stand des Servers: eba_dav_idxst_<srv> {etag, text}.
+// ---------------------------------------------------------------------------
+function davSrvName() { return srvKey() ? "speed" : "normal"; }
+function davIndexUrl() { return davConf().url + "eba_index_" + davSrvName() + ".tsv"; }
+function davIdxKey() { return "eba_dav_idx_" + srvKey(); }
+function davIdxStateKey() { return "eba_dav_idxst_" + srvKey(); }
+function davIdxPut(map, k, ms, st) {
+  var o = map[k];
+  if (!o || ms > o.ms || (ms === o.ms && st === "f" && o.st === "a")) { map[k] = { ms: ms, st: st }; }
+}
+function davIdxText(map) {
+  var ks = [], out = ["eba_index\t1"];
+  for (var k in map) { if (map.hasOwnProperty(k)) { ks.push(k); } }
+  ks.sort();
+  $.each(ks, function(i, k) { out.push(k + "\t" + map[k].ms + "\t" + map[k].st); });
+  return out.join("\n");
+}
+// Rückgabe {ok, map, dropped, reason}; ungültige Zeilen werden verworfen.
+function davIdxParse(text) {
+  var res = { ok: false, map: {}, dropped: 0, reason: "" };
+  if (typeof text !== "string") { res.reason = "kein Text"; return res; }
+  text = text.replace(/\r/g, "");
+  if (text.replace(/\s/g, "") === "") { res.ok = true; return res; }
+  if (/^\s*</.test(text)) { res.reason = "HTML statt Daten"; return res; }
+  var lines = text.split("\n");
+  if (lines[0] !== "eba_index\t1") { res.reason = "keine Index-Datei oder neueres Format"; return res; }
+  var maxMs = new Date().getTime() + 7 * 86400000, n = 0;
+  for (var i = 1; i < lines.length; i++) {
+    if (!lines[i]) { continue; }
+    var p = lines[i].split("\t");
+    if (p.length !== 3 || !davKeyValid(p[0]) || !/^\d{1,15}$/.test(p[1]) || (p[2] !== "a" && p[2] !== "f")
+        || parseInt(p[1], 10) > maxMs || ++n > EBA_DAV_IDX_MAX) { res.dropped++; continue; }
+    davIdxPut(res.map, p[0], parseInt(p[1], 10), p[2]);
+  }
+  res.ok = true;
+  return res;
+}
+function davIdxMap() { var p = davIdxParse(GM_getValue(davIdxKey(), "")); return p.ok ? p.map : {}; }
+function davIdxSave(map) { GM_setValue(davIdxKey(), davIdxText(map)); }
+function davIdxState() {
+  try { var s = JSON.parse(GM_getValue(davIdxStateKey(), "")); if (s && typeof s === "object") { return s; } } catch (err) {}
+  return { etag: "", text: null };
+}
+function davIdxDirty() {
+  var m = davIdxMap();
+  for (var k in m) { if (m.hasOwnProperty(k)) { return davIdxText(m) !== davIdxState().text; } }
+  return false; // leer: nichts zu melden
+}
+// Vergessene Reihen als Menge. Ein Formicarium, das dieses Gerät noch als aktiv
+// kennt, wird nie ignoriert: ein Fehlgriff auf einem Gerät soll dort keine
+// laufende Erfassung stilllegen.
+function davIgnoreMap() {
+  var m = davIdxMap(), out = {}, active = ebaFormiActiveIds();
+  for (var k in m) {
+    if (!m.hasOwnProperty(k) || m[k].st !== "f") { continue; }
+    if (active) {
+      var pre = k.indexOf("eba_statistic_") === 0 ? "eba_statistic_" : (k.indexOf("eba_food_") === 0 ? "eba_food_" : "");
+      if (pre && $.inArray(k.substr((pre + srvKey()).length), active) >= 0) { continue; }
+    }
+    out[k] = true;
+  }
+  return out;
+}
+function davIgnoredCount() { var n = 0, m = davIgnoreMap(); for (var k in m) { if (m.hasOwnProperty(k)) { n++; } } return n; }
+// Reihen vergessen: lokaler Marker, geht beim nächsten Lauf in die Index-Datei.
+function davForget(keys) {
+  var m = davIdxMap(), now = new Date().getTime();
+  $.each(keys, function(i, k) {
+    if (!davKeyValid(k)) { return; }
+    davIdxPut(m, k, Math.max(now, (m[k] ? m[k].ms : 0) + 1), "f");
   });
+  davIdxSave(m);
+}
+// Alle Marker aufheben; die Reihen werden wieder abgeglichen.
+function davRestoreIgnored() {
+  var m = davIdxMap(), now = new Date().getTime(), n = 0;
+  for (var k in m) {
+    if (m.hasOwnProperty(k) && m[k].st === "f") { davIdxPut(m, k, Math.max(now, m[k].ms + 1), "a"); n++; }
+  }
+  davIdxSave(m);
+  return n;
+}
+
+// Abzugleichende Reihen des aktuellen Servers, sortiert, ohne vergessene.
+// Ohne Argument nur die lokal vorhandenen; mit true auch die, die laut
+// Server-Inventar (eba_dav_inv_<srv>) dort liegen und lokal fehlen.
+function davKeys(withRemote) {
+  var withFood = GM_getValue("eba_dav_food", true);
+  var ign = davIgnoreMap(), seen = {}, out = [];
+  var add = function(k) {
+    if (seen[k] || ign[k] || !davKeyValid(k)) { return; }
+    if (!withFood && k.indexOf("eba_food_") === 0) { return; }
+    seen[k] = true; out.push(k);
+  };
+  $.each(GM_listValues(), function(i, k) { add(k); });
+  if (withRemote) { $.each(davInvList(), function(i, k) { add(k); }); }
   out.sort();
   return out;
+}
+function davAllKeys() { return davKeys(true); }
+function davInvKey() { return "eba_dav_inv_" + srvKey(); }
+function davInvList() { return $.grep(("" + GM_getValue(davInvKey(), "")).split("\n"), function(k) { return !!k; }); }
+function davHasState(key) { return GM_getValue(davStateKey(key), "") !== ""; }
+// Fortschritt: wie viele der bekannten Reihen sind abgeglichen?
+function davProgress() {
+  var all = davAllKeys(), done = 0;
+  $.each(all, function(i, k) { if (davHasState(k) && !davDirty(k)) { done++; } });
+  return { done: done, total: all.length };
 }
 
 // Gleiche Zeilenmenge? Erkennt einen PUT, der nur die Reihenfolge ändert.
@@ -3345,19 +3767,177 @@ function davSameLines(a, b) {
   return a.split("\n").sort().join("\n") === b.split("\n").sort().join("\n");
 }
 
+// Index-Datei abgleichen: GET -> verschmelzen (+ eigene Schlüssel ankündigen)
+// -> ggf. bedingtes PUT. Angekündigt wird erst NACH dem Verschmelzen mit dem
+// Server-Stand, sonst könnte ein frischer a-Eintrag einen f-Marker überstimmen.
+function davIdxSync(announce, stats, cb, attempt, trail) {
+  attempt = attempt || 0;
+  trail = trail || [];
+  var uncond = attempt > EBA_DAV_MAX_412 - 1; // wie bei den Reihen (siehe davSyncKey)
+  var st = davIdxState();
+  var local = davIdxMap();
+  var gh = {};
+  var dirty = davIdxText(local) !== st.text;
+  if (attempt === 0 && !dirty && st.etag) { gh["If-None-Match"] = davEtagNorm(st.etag); }
+  stats.requests++;
+  davRequest("GET", davIndexUrl() + (attempt > 0 ? davBust() : ""), undefined, gh, function(g) {
+    var remoteText, etag = g.etag;
+    if (g.status === 304) { remoteText = st.text; etag = st.etag; }
+    else if (g.status === 200) { remoteText = g.body.replace(/\r/g, ""); }
+    else if (g.status === 404) { remoteText = null; }
+    else { return cb(davFailure(g, "eba_index_" + davSrvName())); }
+    var rp = davIdxParse(remoteText === null ? "" : remoteText);
+    if (!rp.ok) { stats.skipped.push("Index-Datei: " + rp.reason); return cb(null); } // fremder Inhalt: nicht anfassen
+    var merged = local, k;
+    for (k in rp.map) { if (rp.map.hasOwnProperty(k)) { davIdxPut(merged, k, rp.map[k].ms, rp.map[k].st); } }
+    var now = new Date().getTime();
+    $.each(announce, function(i, key) { if (davKeyValid(key) && !merged[key]) { merged[key] = { ms: now, st: "a" }; } });
+    var text = davIdxText(merged);
+    davIdxSave(merged);
+    stats.idxOk = true;
+    var empty = true;
+    for (k in merged) { if (merged.hasOwnProperty(k)) { empty = false; } }
+    if (remoteText === null && empty) { return cb(null); }
+    if (remoteText !== null && text === remoteText) {
+      GM_setValue(davIdxStateKey(), JSON.stringify({ etag: etag, text: text }));
+      return cb(null);
+    }
+    var ph = (remoteText === null) ? { "If-None-Match": "*" } : (etag && !uncond ? { "If-Match": etag } : {});
+    stats.requests++;
+    davRequest("PUT", davIndexUrl(), text, ph, function(p) {
+      stats.status = p.status;
+      if (p.ok) { GM_setValue(davIdxStateKey(), JSON.stringify({ etag: p.etag, text: text })); return cb(null); }
+      if (p.status === 412) {
+        stats.conflicts++;
+        trail.push(etag);
+        var same = true;
+        for (var t = 1; t < trail.length; t++) { if (davEtagCore(trail[t]) !== davEtagCore(trail[0])) { same = false; } }
+        // Der Index ist eine reine Vereinigung (Einträge kommen bei jedem Gerät wieder vor):
+        // bei dauerhaft abgelehntem, unverändertem ETag einmal ohne If-Match schreiben.
+        var stuck = same && trail.length >= EBA_DAV_MAX_412 && remoteText !== null && !!etag;
+        if (!uncond && (attempt + 1 < EBA_DAV_MAX_412 || stuck)) { return davIdxSync(announce, stats, cb, attempt + 1, trail); }
+        return cb({ kind: "other", msg: "Index-Datei lässt sich gerade nicht bedingt schreiben (412; gesendet If-Match " + (etag || "-")
+          + ", Server ETag " + (g.rawEtag || "-") + ", OC-ETag " + (g.rawOc || "-") + "), neuer Versuch beim nächsten Lauf." });
+      }
+      if ((p.status === 404 || p.status === 409) && remoteText === null) {
+        return cb({ kind: "folder", msg: "Zielordner existiert nicht (HTTP " + p.status + "). Bitte im Webinterface anlegen: " + davConf().url });
+      }
+      return cb(davFailure(p, "eba_index_" + davSrvName()));
+    });
+  });
+}
+
+// Dateiliste per PROPFIND (Depth 1) aus der Multi-Status-Antwort lesen.
+// Namespace-unabhängig (d:, D:, ohne Präfix), href url-kodiert, absolut oder
+// nur als Pfad (Nextcloud: /remote.php/dav/files/<nutzer>/<ordner>/... bzw.
+// /public.php/webdav/...). Rückgabe: Dateinamen (ohne Ordner) oder null bei Parsefehler.
+function davParseList(xml) {
+  var doc;
+  try { doc = new DOMParser().parseFromString(xml, "application/xml"); } catch (err) { return null; }
+  if (!doc || !doc.documentElement || doc.getElementsByTagName("parsererror").length) { return null; }
+  var resp = doc.getElementsByTagNameNS("*", "response"), out = [];
+  for (var i = 0; i < resp.length; i++) {
+    if (resp[i].getElementsByTagNameNS("*", "collection").length) { continue; }
+    var hrefs = resp[i].getElementsByTagNameNS("*", "href");
+    if (!hrefs.length) { continue; }
+    var h = $.trim(hrefs[0].textContent || "").replace(/[?#].*$/, "").replace(/^[a-z][a-z0-9+.-]*:\/\/[^\/]*/i, "");
+    var seg = h.split("/").pop();
+    try { seg = decodeURIComponent(seg); } catch (err2) {}
+    if (seg) { out.push(seg); }
+  }
+  return out;
+}
+// cb({keys, status, fatal}); keys null = PROPFIND nicht nutzbar (dann Index-Datei).
+function davList(cb) {
+  var body = '<?xml version="1.0" encoding="utf-8"?><d:propfind xmlns:d="DAV:"><d:prop><d:resourcetype/></d:prop></d:propfind>';
+  davRequest("PROPFIND", davConf().url, body, { "Depth": "1", "Content-Type": "application/xml; charset=utf-8" }, function(r) {
+    var flag = "eba_dav_pf_" + srvKey();
+    // 401 und Netzfehler sind kein "PROPFIND geht nicht", sondern echte Fehler
+    if (r.status === 401 || r.status === 0 || r.status === 429) { return cb({ keys: null, status: r.status, fatal: davFailure(r, "") }); }
+    var names = (r.status === 207 || r.status === 200) ? davParseList(r.body) : null;
+    if (names === null) { GM_setValue(flag, "no"); return cb({ keys: null, status: r.status, fatal: null }); }
+    var keys = [];
+    $.each(names, function(i, n) {
+      if (/\.tsv$/.test(n) && davKeyValid(n.slice(0, -4))) { keys.push(n.slice(0, -4)); }
+    });
+    GM_setValue(flag, "ok");
+    cb({ keys: keys, status: r.status, fatal: null });
+  });
+}
+
+// Server-Inventar: PROPFIND (falls erlaubt) und Index-Datei. Ergebnis ist die
+// Liste eba_dav_inv_<srv>; vergessene Reihen filtert davKeys() heraus.
+function davInvDue(manual) {
+  if (manual) { return true; }
+  var t = GM_getValue("eba_dav_inv_ms_" + srvKey(), 0);
+  return !t || new Date().getTime() - t > EBA_DAV_INV_INTERVAL || davIdxDirty();
+}
+function davInventory(manual, stats, cb) {
+  var tryPf = manual || GM_getValue("eba_dav_pf_" + srvKey(), "") !== "no";
+  var afterList = function(l) {
+    if (l.fatal) { return cb(l.fatal); }
+    var listed = l.keys;
+    var announce = davKeys().concat(listed || []);
+    stats.idxOk = false;
+    davIdxSync(announce, stats, function(fail) {
+      if (fail && fail.kind !== "other") { return cb(fail); }
+      if (fail) { stats.skipped.push(fail.msg); }
+      var inv = {}, m = davIdxMap();
+      $.each(listed || [], function(i, k) { inv[k] = true; });
+      for (var k in m) { if (m.hasOwnProperty(k) && m[k].st === "a") { inv[k] = true; } }
+      var arr = [];
+      for (var k2 in inv) { if (inv.hasOwnProperty(k2)) { arr.push(k2); } }
+      arr.sort();
+      if (listed || stats.idxOk) {
+        GM_setValue(davInvKey(), arr.join("\n"));
+        GM_setValue("eba_dav_inv_ms_" + srvKey(), new Date().getTime());
+      }
+      stats.inv = (listed ? "PROPFIND ok (" + listed.length + " Dateien)" : (tryPf ? "PROPFIND nicht möglich (HTTP " + l.status + ")" : "PROPFIND aus"))
+        + ", Index-Datei " + (stats.idxOk ? "ok" : "nicht lesbar") + ", " + arr.length + " Reihen bekannt";
+      cb(null);
+    });
+  };
+  if (!tryPf) { return afterList({ keys: null, status: 0, fatal: null }); }
+  stats.requests++;
+  davList(afterList);
+}
+
 // Eine Reihe abgleichen: GET -> prüfen -> verschmelzen -> ggf. bedingtes PUT.
 // stats sammelt die Zahlen für die Statuszeile, cb(fatal) meldet einen Fehler,
 // nach dem der Lauf abgebrochen werden soll (Anmeldung, Netz, Server).
-function davSyncKey(key, stats, cb, attempt) {
+// 412-Strategie (Precondition Failed bei If-Match):
+//  - Wiederholung = frischer, unbedingter GET (kein If-None-Match, Cache-Buster
+//    in der URL), dann neu verschmelzen. Nie einfach nochmal PUTen.
+//  - Liefert der Server bei allen Wiederholungen denselben ETag und lehnt ihn
+//    trotzdem ab, schreibt er nicht konkurrierend, sondern kaputt (ETag wird
+//    auf dem Weg verändert, Cache, Proxy). Dann folgt eine letzte Runde: noch
+//    ein frischer GET, der denselben Inhalt liefern muss, danach EIN PUT ohne
+//    If-Match. Risiko: schreibt in der Lücke zwischen diesem GET und dem PUT
+//    ein anderes Gerät, fehlt dessen Fassung kurz auf dem Server. Verloren geht
+//    nichts: dieses Gerät hat seine Daten lokal, holt die Datei beim nächsten
+//    Lauf wegen des geänderten ETags neu und lädt sie verschmolzen wieder hoch.
+//  - Echte Rennen (ETag ändert sich zwischen den Versuchen) werden nie
+//    unbedingt überschrieben.
+function davBust() { return "?eba=" + new Date().getTime() + Math.floor(Math.random() * 1000); }
+function davSyncKey(key, stats, cb, attempt, trail) {
   attempt = attempt || 0;
+  trail = trail || [];
+  var uncond = attempt > EBA_DAV_MAX_412 - 1; // letzte Runde: unbedingtes Schreiben (siehe oben)
   var st = davState(key);
   var dirty = davDirty(key);
   var gh = {};
+  // Auto-Läufe lassen eine Reihe, die gerade dauerhaft 412 liefert, eine Weile in Ruhe
+  var stuckAt = parseInt(GM_getValue("eba_dav_stuck_" + key, 0), 10) || 0;
+  if (attempt === 0 && !stats.manual && stuckAt && new Date().getTime() - stuckAt < EBA_DAV_STUCK_PAUSE) {
+    stats.skipped.push(key + ": pausiert nach 412");
+    return cb(null);
+  }
   // Unverändert auf beiden Seiten kostet genau ein 304. Ist lokal etwas dazu-
-  // gekommen, wird der Inhalt in jedem Fall gebraucht.
-  if (!dirty && st.etag) { gh["If-None-Match"] = st.etag; }
+  // gekommen, wird der Inhalt in jedem Fall gebraucht. Nach einem 412 gibt es
+  // das nie: ein 304 brächte keine neue Fassung und der alte ETag bliebe.
+  if (attempt === 0 && !dirty && st.etag) { gh["If-None-Match"] = davEtagNorm(st.etag); }
   stats.requests++;
-  davRequest("GET", davFileUrl(key), undefined, gh, function(g) {
+  davRequest("GET", davFileUrl(key) + (attempt > 0 ? davBust() : ""), undefined, gh, function(g) {
     stats.status = g.status;
     if (g.status === 304) { stats.unchanged++; return cb(null); }
     if (g.status !== 200 && g.status !== 404) { return cb(davFailure(g, key)); }
@@ -3372,7 +3952,11 @@ function davSyncKey(key, stats, cb, attempt) {
     davSetBad(key, false);
     if (r.changed) { stats.pulled++; }
     if (r.body.length > EBA_DAV_WARN_CHARS) { stats.big.push(key); }
-    if (remote === null && r.body === "") { stats.equal++; return cb(null); } // nichts anzulegen
+    if (remote === null && r.body === "") { // nichts anzulegen; als abgeglichen merken
+      davSetState(key, "", r.local.length);
+      stats.equal++;
+      return cb(null);
+    }
     if (remote !== null && r.body === remote.replace(/\r/g, "")) {
       davSetState(key, g.etag, r.local.length);
       stats.equal++;
@@ -3383,10 +3967,13 @@ function davSyncKey(key, stats, cb, attempt) {
     // Liefert der Server keinen ETag, ist konkurrierendes Schreiben nicht
     // abzusichern; der Verbindungstest weist darauf hin.
     var ph = (remote === null) ? { "If-None-Match": "*" } : (g.etag ? { "If-Match": g.etag } : {});
+    var doPut = function() {
     stats.requests++;
     davRequest("PUT", davFileUrl(key), r.body, ph, function(p) {
       stats.status = p.status;
       if (p.ok) {
+        GM_setValue("eba_dav_stuck_" + key, 0);
+        if (uncond) { stats.uncond.push(key); }
         // ETag der neuen Fassung, falls der Server ihn mitliefert. Sonst holt
         // der nächste Lauf die Datei einmal vollständig.
         davSetState(key, p.etag, r.local.length);
@@ -3401,15 +3988,36 @@ function davSyncKey(key, stats, cb, attempt) {
         // Ein anderes Gerät war schneller: neu holen und neu verschmelzen,
         // niemals einfach erneut PUTen.
         stats.conflicts++;
-        if (attempt + 1 < EBA_DAV_MAX_412) { return davSyncKey(key, stats, cb, attempt + 1); }
-        return cb({ kind: "412", msg: "Datei " + key + ".tsv lässt sich dauerhaft nicht bedingt schreiben (412). "
-          + "Häufigste Ursache: ein Webserver, der den ETag verändert (Apache mod_deflate hängt \"-gzip\" an). "
-          + "Letzter ETag: " + (g.etag || "keiner") });
+        trail.push(g.etag);
+        var same = true;
+        for (var t = 1; t < trail.length; t++) { if (davEtagCore(trail[t]) !== davEtagCore(trail[0])) { same = false; } }
+        var stuck = same && trail.length >= EBA_DAV_MAX_412 && remote !== null && g.etag !== "";
+        if (!uncond && (attempt + 1 < EBA_DAV_MAX_412 || stuck)) { return davSyncKey(key, stats, cb, attempt + 1, trail); }
+        GM_setValue("eba_dav_stuck_" + key, new Date().getTime());
+        return cb({ kind: "412", msg: "Datei " + key + ".tsv lässt sich nicht bedingt schreiben (412) "
+          + (same && remote !== null ? "- der Server lehnt seinen eigenen ETag ab. " : "- andere Geräte schreiben gleichzeitig, neuer Versuch beim nächsten Lauf. ")
+          + "Gesendet: If-Match " + (ph["If-Match"] || ph["If-None-Match"] || "-") + "; Server lieferte ETag "
+          + (g.rawEtag || "-") + ", OC-ETag " + (g.rawOc || "-") + "; Versuche: " + (attempt + 1) + "." });
       }
       if ((p.status === 404 || p.status === 409) && remote === null) {
         return cb({ kind: "folder", msg: "Zielordner existiert nicht (HTTP " + p.status + "). Bitte im Webinterface anlegen: " + davConf().url });
       }
       return cb(davFailure(p, key));
+    });
+    };
+    if (!uncond) { return doPut(); }
+    // Letzte Runde: ohne If-Match, aber nur, wenn ein zweiter frischer GET
+    // dieselbe Fassung liefert, gegen die gerade verschmolzen wurde.
+    delete ph["If-Match"];
+    stats.requests++;
+    davRequest("GET", davFileUrl(key) + davBust(), undefined, {}, function(v) {
+      if (v.status !== 200 || v.body.replace(/\r/g, "") !== remote.replace(/\r/g, "")) {
+        GM_setValue("eba_dav_stuck_" + key, new Date().getTime());
+        stats.status = v.status;
+        return cb({ kind: "412", msg: "Datei " + key + ".tsv lässt sich nicht bedingt schreiben (412) und ändert sich zugleich "
+          + "laufend (oder wird zwischengespeichert); nichts überschrieben, neuer Versuch später." });
+      }
+      doPut();
     });
   });
 }
@@ -3450,24 +4058,34 @@ function davStatusText() {
     out.push("Kompaktierung ist eingeschaltet - der Abgleich ist deshalb gesperrt.");
   }
   if (!s) { out.push("Noch kein Abgleich auf dem " + srvName(srvKey()) + "."); return out.join("\n"); }
+  var pg = davProgress();
+  out.push("Fortschritt: " + pg.done + " von " + pg.total + " Reihen abgeglichen"
+    + (davIgnoredCount() ? " (" + davIgnoredCount() + " vergessene Reihen werden ignoriert)" : ""));
   out.push("Letzter Abgleich (" + (s.manual ? "manuell" : "automatisch") + ", " + srvName(srvKey()) + "): "
     + formatStatTime(s.time) + ", HTTP " + s.status + ", " + s.keys + " Reihen, " + s.requests + " Requests");
+  if (s.inv) { out.push("Server-Inventar: " + s.inv); }
   out.push("unverändert " + s.unchanged + " · gleich " + s.equal + " · geholt " + s.pulled + " · hochgeladen "
     + s.pushed + " · Konflikte " + s.conflicts + " · verworfene Zeilen " + s.dropped
     + " · PUTs ohne inhaltliche Änderung " + GM_getValue("eba_dav_nochange", 0));
+  if (s.uncond && s.uncond.length) {
+    out.push("Ohne ETag-Prüfung geschrieben (Server lehnte seinen eigenen ETag ab, Inhalt vorher doppelt geprüft): " + s.uncond.join(", "));
+  }
+  if (s.failed) { out.push(s.failed + " Reihe(n) nicht abgeglichen, die übrigen sind durchgelaufen (siehe Übersprungen)."); }
   if (s.big && s.big.length) { out.push("Größer als 1 MB: " + s.big.join(", ")); }
   if (s.skipped && s.skipped.length) { out.push("Übersprungen: " + s.skipped.join("; ")); }
   if (s.error) { out.push("Fehler: " + s.error); }
-  if (s.left) { out.push(s.left + " Reihen kommen beim nächsten Lauf dran."); }
+  if (s.left) { out.push(s.left + " Reihen kommen beim nächsten Lauf dran (automatisch je Tick, oder sofort mit Jetzt abgleichen)."); }
   return out.join("\n");
 }
 
 // Mehrere Reihen nacheinander abgleichen (300 ms Abstand, Muster runFoodQueue()).
-// budget begrenzt die Requests; ein schwerer Fehler bricht den Lauf ab.
-function davRun(keys, budget, manual, done) {
+// keys und budget dürfen Funktionen sein, die erst nach dem Vorlauf pre (Server-
+// Inventar) ausgewertet werden: keys(), budget(keys, stats). budget begrenzt die
+// Requests; ein schwerer Fehler bricht den Lauf ab. progress(stats) nach jeder Reihe.
+function davRun(keysArg, budgetArg, manual, done, progress, pre) {
   var stats = { keys: 0, requests: 0, status: 0, unchanged: 0, equal: 0, pulled: 0, pushed: 0,
-                conflicts: 0, dropped: 0, noChange: 0, skipped: [], big: [], error: "", left: 0, manual: !!manual };
-  var i = 0;
+                conflicts: 0, failed: 0, dropped: 0, noChange: 0, skipped: [], big: [], uncond: [], error: "", left: 0, manual: !!manual, inv: "" };
+  var i = 0, keys = [], budget = 0;
   var finish = function(fail) {
     if (fail) {
       stats.error = fail.msg;
@@ -3484,6 +4102,7 @@ function davRun(keys, budget, manual, done) {
       if (manual) { GM_setValue("eba_dav_halt", ""); }
     }
     stats.left = keys.length - i;
+    if (manual && !fail && stats.left === 0) { GM_setValue("eba_dav_full_" + srvKey(), new Date().getTime()); }
     davSaveStatus(stats);
     GM_setValue("eba_dav_busy", 0);
     if (done) { done(stats); }
@@ -3494,21 +4113,34 @@ function davRun(keys, budget, manual, done) {
     var key = keys[i++];
     stats.keys++;
     davSyncKey(key, stats, function(fail) {
-      if (fail && fail.kind !== "other") { return finish(fail); }
-      if (fail) { stats.skipped.push(fail.msg); }
+      if (progress) { try { progress(stats); } catch (err) {} }
+      // 412 und "other" betreffen nur diese Reihe: melden, mit den anderen weitermachen
+      if (fail && fail.kind !== "other" && fail.kind !== "412") { return finish(fail); }
+      if (fail) { stats.skipped.push(fail.msg); stats.failed++; }
       setTimeout(step, 300);
     });
   };
   GM_setValue("eba_dav_busy", new Date().getTime());
-  step();
+  var start = function(fail) {
+    if (fail && fail.kind !== "other") { return finish(fail); }
+    if (fail) { stats.skipped.push(fail.msg); }
+    keys = typeof keysArg === "function" ? keysArg() : keysArg;
+    budget = typeof budgetArg === "function" ? budgetArg(keys, stats) : budgetArg;
+    step();
+  };
+  if (pre) { pre(stats, start); } else { start(null); }
 }
 
-// Reihen für einen automatischen Lauf: zuerst alle mit lokalen Änderungen,
-// dann ein paar unveränderte im Rundlauf, damit auch Daten der anderen Geräte
-// irgendwann ankommen.
-function davAutoKeys() {
-  var all = davKeys(), dirty = [], idle = [];
-  $.each(all, function(i, k) { (davDirty(k) ? dirty : idle).push(k); });
+// Reihen für einen automatischen Lauf: zuerst alle mit lokalen Änderungen, dann
+// Reihen, die noch nie abgeglichen wurden (neu vom Server oder neu lokal; ein
+// neues Gerät holt so seine Reihen über mehrere Läufe), dann ein paar
+// unveränderte im Rundlauf, damit auch Daten der anderen Geräte irgendwann
+// ankommen. info.fresh meldet die Zahl der noch nie abgeglichenen.
+function davAutoKeys(info) {
+  var all = davAllKeys(), dirty = [], fresh = [], idle = [];
+  $.each(all, function(i, k) { (!davHasState(k) ? fresh : (davDirty(k) ? dirty : idle)).push(k); });
+  if (info) { info.fresh = fresh.length; }
+  dirty = dirty.concat(fresh);
   if (idle.length) {
     var rrKey = "eba_dav_rr_" + srvKey();
     var rr = GM_getValue(rrKey, 0) % idle.length;
@@ -3517,6 +4149,19 @@ function davAutoKeys() {
     GM_setValue(rrKey, (rr + n) % idle.length);
   }
   return dirty;
+}
+
+// Ein Lauf mit Server-Inventar. manual: alle Reihen, ohne Budget. Sonst das
+// Auto-Budget, bei noch nie abgeglichenen Reihen um EBA_DAV_NEW_BUDGET höher
+// (diese kosten meist nur einen GET); der Rest kommt beim nächsten Lauf.
+function davStart(manual, done, progress) {
+  var info = { fresh: 0 };
+  davRun(function() { return manual ? davAllKeys() : davAutoKeys(info); },
+    function(keys, stats) {
+      return manual ? Infinity : stats.requests + EBA_DAV_AUTO_BUDGET + (info.fresh ? EBA_DAV_NEW_BUDGET : 0);
+    },
+    manual, done, progress,
+    function(stats, next) { if (davInvDue(manual)) { davInventory(manual, stats, next); } else { next(null); } });
 }
 
 // Automatischer Abgleich: höchstens einmal pro Tick, nach Ende des Ticks,
@@ -3537,7 +4182,7 @@ function davAutoRun() {
   // Marker VOR dem Request setzen, sonst starten mehrere Tabs denselben Lauf
   GM_setValue(tickKey, tk.nowTick);
   GM_setValue("eba_dav_last_ms", now);
-  davRun(davAutoKeys(), EBA_DAV_AUTO_BUDGET, false, null);
+  davStart(false, null, null);
 }
 
 // Option "Historien per WebDAV abgleichen". Die Init-Schleife hat kein
@@ -3567,8 +4212,18 @@ function davTest(cb) {
       if (g.status === 200 && /^\s*</.test(g.body)) { return cb("Der Server liefert HTML statt Daten - leitet er auf eine Login-Seite um? URL prüfen."); }
       GM_setValue("eba_dav_ok_ms", new Date().getTime());
       GM_setValue("eba_dav_halt", "");
-      cb("Verbindung ok (Ordner HTTP " + f.status + ", " + probe + ".tsv HTTP " + g.status
-        + (g.etag ? ", ETag " + g.etag : (g.status === 200 ? ", OHNE ETag - konkurrierendes Schreiben ist nicht abgesichert" : "")) + ").");
+      var msg = "Verbindung ok (Ordner HTTP " + f.status + ", " + probe + ".tsv HTTP " + g.status
+        + (g.etag ? ", ETag " + g.etag : (g.status === 200 ? ", OHNE ETag - konkurrierendes Schreiben ist nicht abgesichert" : "")) + ").";
+      // Dateiliste prüfen: damit findet ein neues Gerät die Reihen der anderen
+      davList(function(l) {
+        if (l.fatal) { return cb(msg + " Dateiliste: " + l.fatal.msg); }
+        msg += l.keys ? " Dateiliste (PROPFIND) ok: " + l.keys.length + " Reihen dieses Servers im Ordner."
+                      : " PROPFIND nicht möglich (HTTP " + l.status + ") - die Index-Datei im Ordner ersetzt die Dateiliste.";
+        if (!GM_getValue("eba_dav_full_" + srvKey(), 0)) {
+          msg += " Noch kein vollständiger Abgleich auf diesem Gerät: Jetzt abgleichen holt alle Reihen des Servers.";
+        }
+        cb(msg);
+      });
     });
   });
 }
@@ -3611,6 +4266,7 @@ function davConfigHTML() {
   h += "<label><input type='checkbox' id='eba_dav_food'>Futter-Snapshots mit abgleichen (größter Anteil der Daten)</label>";
   h += "<div><button id='eba_dav_test' type='button'>Verbindung testen</button> ";
   h += "<button id='eba_dav_sync' type='button'>Jetzt abgleichen</button> ";
+  h += "<button id='eba_dav_restore' type='button'>Vergessene Reihen wieder zulassen</button> ";
   h += "<button id='eba_dav_overwrite' type='button'>Ungültige Remote-Dateien überschreiben</button> ";
   h += "<button id='eba_dav_clear' type='button'>Zugangsdaten löschen</button></div>";
   h += "<div id='eba_dav_info'></div><div id='eba_dav_status' style='font-size:0.9em;white-space:pre-wrap'></div>";
@@ -3621,6 +4277,11 @@ function davConfigBind() {
     $("#eba_dav_pass").val("").attr("placeholder", GM_getValue("eba_dav_pass", "") ? "gespeichert - leer lassen, um es zu behalten" : "");
   };
   var showStatus = function() { $("#eba_dav_status").text(davStatusText()); };
+  var showIgnored = function() {
+    var n = davIgnoredCount();
+    $("#eba_dav_restore").text("Vergessene Reihen wieder zulassen (" + n + ")").prop("disabled", !n);
+  };
+  showIgnored();
   $("#eba_dav_url").val(GM_getValue("eba_dav_url", "")).on("change", function() {
     GM_setValue("eba_dav_url", $.trim($(this).val()));
     GM_setValue("eba_dav_ok_ms", 0); // neue Adresse: erst wieder testen
@@ -3655,10 +4316,21 @@ function davConfigBind() {
       return;
     }
     $("#eba_dav_info").text("Gleiche ab ...");
-    davRun(davKeys(), Infinity, true, function(s) {
+    davStart(true, function(s) {
       $("#eba_dav_info").text(s.error ? "Abgebrochen: " + s.error : "Fertig.");
       showStatus();
+      showIgnored();
+    }, function() {
+      var pg = davProgress();
+      $("#eba_dav_info").text("Gleiche ab ... " + pg.done + " von " + pg.total + " Reihen");
     });
+  });
+  $("#eba_dav_restore").on("click", function() {
+    if (!window.confirm("Alle vergessenen Reihen (ehemalige Kolonien, die hier oder auf einem anderen Gerät vergessen bzw. umgezogen wurden) wieder in den Abgleich aufnehmen? Ihre Dateien liegen noch im Ordner und kommen beim nächsten Abgleich zurück.")) { return; }
+    var n = davRestoreIgnored();
+    GM_setValue("eba_dav_inv_ms_" + srvKey(), 0);
+    showIgnored();
+    $("#eba_dav_info").text(n + " Reihen wieder zugelassen.");
   });
   $("#eba_dav_overwrite").on("click", function() {
     var bad = davBadList();
@@ -3721,7 +4393,8 @@ function ebaNiceScale(min, max, n) {
 //   opts:      width, height, color, fmt(wert)->Text, compact (ohne Achsen),
 //              tooltip (bool), unit, extra: [{points, color, name}] weitere Linien,
 //              yMin/yMax (feste Achsengrenzen), multiTip (Tooltip zeigt alle Linien
-//              zum Zeitpunkt; exactTip: nur exakt gleicher Zeitpunkt, sonst Strich), tipText(punkt)->Text (Zusatz im Tooltip)
+//              zum Zeitpunkt; exactTip: nur exakt gleicher Zeitpunkt, sonst Strich), tipText(punkt)->Text (Zusatz im Tooltip),
+//              markFn(punkt)->bool (Punkt als Ring markieren)
 // Rückgabe: {min, max, last, first, count, from, to} oder null bei <2 Punkten.
 function ebaDrawLineChart(container, points, opts) {
   opts = opts || {};
@@ -3770,6 +4443,14 @@ function ebaDrawLineChart(container, points, opts) {
     $.each(l.points, function(i, p) { d += (i ? "L" : "M") + X(p[0]).toFixed(1) + " " + Y(p[1]).toFixed(1); });
     svg += '<path d="' + d + '" fill="none" stroke="' + l.color + '" stroke-width="' + (compact ? 1.5 : 2) + '" stroke-linejoin="round"/>';
   });
+  if (opts.markFn) {
+    $.each(points, function(i, p) {
+      if (opts.markFn(p)) {
+        svg += '<circle cx="' + X(p[0]).toFixed(1) + '" cy="' + Y(p[1]).toFixed(1) + '" r="3" fill="#0f2a17" stroke="'
+          + (opts.color || "#3CAC56") + '" stroke-width="1.5"/>';
+      }
+    });
+  }
   svg += '<circle class="eba_chart_marker" r="4" cx="-10" cy="-10" fill="#fff" stroke="#3CAC56" stroke-width="2"/>';
   svg += '</svg>';
   var wrap = $('<div class="eba_chart_wrap" style="position:relative;display:inline-block;max-width:100%"></div>');
@@ -4019,6 +4700,10 @@ function renderHistoryPage(rangeKey) {
   };
   add(page, "Geld (&euro;)", ebaGlobalSeries("money"), "money");
   add(page, "Punkte", ebaGlobalSeries("points"), "points");
+  add(page, "Punkte pro Tick", ebaPointsPerTickSeries(), "points", null, { color: "#E8963C",
+    fmt: function(v) { return ebaFmtNum(v, 1); },
+    chart: { markFn: function(p) { return p[2] > 1; },
+             tipText: function(p) { return p[2] > 1 ? "\u00D8 \u00FCber " + p[2] + " Ticks:" : ""; } } });
   add(page, "Tickl&auml;nge (Sekunden)", ebaGlobalSeries("tickdur"), "tickdur");
   var ids = ebaFormiIds();
   ids.sort(function(a, b) { return parseInt(a, 10) - parseInt(b, 10); });
@@ -4030,10 +4715,15 @@ function renderHistoryPage(rangeKey) {
   var open = ebaHistOpenLoad();
   var hs = "style='cursor:pointer;background:#14391f;color:#e6f5ea;border:1px solid #3CAC56;border-radius:3px;"
     + "padding:4px 8px;margin:4px 0;user-select:none'";
+  var act = ebaFormiActiveIds();
+  var activeList = [], formerList = [];
+  $.each(ids, function(i, id) { ((act && $.inArray(id, act) < 0) ? formerList : activeList).push(id); });
   var bar = $("<div style='margin:12px 0 4px'><b>Formicarien</b> "
     + "<button type='button' class='eba_formi_all' data-open='1'>alle aufklappen</button> "
     + "<button type='button' class='eba_formi_all' data-open='0'>alle zuklappen</button></div>");
   page.append(bar);
+  var activeBox = $("<div class='eba_formi_active'></div>");
+  page.append(activeBox);
   var drawGroup = function(g) {
     var id = g.attr("data-id"), body = g.find(".eba_formi_body");
     body.empty();
@@ -4063,27 +4753,71 @@ function renderHistoryPage(rangeKey) {
     if (isOpen) { drawGroup(g); open[id] = 1; } else { g.find(".eba_formi_body").empty(); delete open[id]; }
     ebaHistOpenSave(open);
   };
-  $.each(ids, function(i, id) {
+  var addGroup = function(target, id, former) {
     var kind = ebaFormiKind(id);
     var ants = ebaFormiSeries(id, "ants"), pts = ebaFormiSeries(id, "points");
     var cur = [];
     if (ants.length) { cur.push(ebaFmtNum(ants[ants.length - 1][1], 0) + " Arbeiterinnen"); }
     if (pts.length) { cur.push(ebaFmtNum(pts[pts.length - 1][1], 0) + " Punkte"); }
+    if (former) {
+      var rows = ebaFormiRows(id);
+      if (rows.length) { cur.push("zuletzt erfasst " + formatStatTime(rows[rows.length - 1].t)); }
+    }
     var g = $("<div class='eba_formi_group' data-id='" + id + "' data-open='0'></div>");
     g.append("<div class='eba_formi_head' " + hs + "><span class='eba_formi_arrow'>\u25B8</span> <b>Formicarium " + id
       + (kind ? " (" + $("<div>").text(kind).html() + ")" : "") + "</b>"
-      + (cur.length ? " <span style='color:#a8d5b3;font-size:0.9em'>&ndash; " + cur.join(" &middot; ") + "</span>" : "") + "</div>");
+      + (cur.length ? " <span style='color:#a8d5b3;font-size:0.9em'>&ndash; " + cur.join(" &middot; ") + "</span>" : "")
+      + (former ? " <button type='button' class='eba_formi_forget' data-id='" + id + "' style='float:right'>Vergessen</button>" : "")
+      + "</div>");
     g.append("<div class='eba_formi_body' style='display:none;padding-left:8px'></div>");
-    page.append(g);
-    if (open[id]) { setGroup(g, true); }
-  });
+    target.append(g);
+    if (!former && open[id]) { setGroup(g, true); }
+  };
+  $.each(activeList, function(i, id) { addGroup(activeBox, id, false); });
+  if (formerList.length) {
+    var fs = "style='cursor:pointer;background:#2a2a2a;color:#ddd;border:1px solid #777;border-radius:3px;"
+      + "padding:4px 8px;margin:12px 0 4px;user-select:none'";
+    var fSec = $("<div class='eba_former' data-open='0'></div>");
+    fSec.append("<div class='eba_former_head' " + fs + "><span class='eba_former_arrow'>\u25B8</span> <b>Ehemalige Kolonien ("
+      + formerList.length + ")</b></div>");
+    var fBody = $("<div class='eba_former_body' style='display:none;padding-left:8px'></div>");
+    fSec.append(fBody);
+    page.append(fSec);
+    $.each(formerList, function(i, id) { addGroup(fBody, id, true); });
+  }
   page.on("click", ".eba_formi_head", function() {
     var g = $(this).closest(".eba_formi_group");
     setGroup(g, g.attr("data-open") !== "1");
   });
+  page.on("click", ".eba_former_head", function() {
+    var sec = $(this).closest(".eba_former");
+    var isOpen = sec.attr("data-open") !== "1";
+    sec.attr("data-open", isOpen ? "1" : "0");
+    sec.find(".eba_former_arrow").text(isOpen ? "\u25BE" : "\u25B8");
+    sec.find(".eba_former_body").toggle(isOpen);
+    if (!isOpen) { return; }
+    sec.find(".eba_formi_group").each(function() {
+      var g = $(this);
+      if (open[g.attr("data-id")] && g.attr("data-open") !== "1") { setGroup(g, true); }
+    });
+  });
+  page.on("click", ".eba_formi_forget", function(e) {
+    e.stopPropagation();
+    var id = $(this).attr("data-id");
+    var kind = ebaFormiKind(id) || "unbekannte Art";
+    var n = ebaFormiRows(id).length;
+    if (!window.confirm("Ehemalige Kolonie vergessen?\n\n" + kind + ", Formicarium " + id + " (" + n + " Zeilen)\n\n"
+      + "Verlauf und Futterdaten werden auf diesem Gerät gelöscht. Das lässt sich nicht rückgängig machen.\n\n"
+      + "Eine Datei auf dem WebDAV-Server bleibt bestehen, andere Geräte behalten ihre Kopie. "
+      + "Der Abgleich lädt die Reihe nicht von selbst wieder herunter.")) { return; }
+    ebaForgetFormi(id);
+    delete open[id];
+    ebaHistOpenSave(open);
+    renderHistoryPage(cur);
+  });
   page.on("click", ".eba_formi_all", function() {
     var o = $(this).attr("data-open") === "1";
-    page.find(".eba_formi_group").each(function() { setGroup($(this), o); });
+    activeBox.find(".eba_formi_group").each(function() { setGroup($(this), o); });
   });
 }
 
