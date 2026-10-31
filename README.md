@@ -61,7 +61,7 @@ Die Konfiguration steht auf der Statistik-Seite des Spiels unter *openEBA*. Die 
 ### Komfort
 - *Auto-Reload ausschalten*: Keine automatische Neuladung nach Ende eines Jobs oder einer Forschung.
 - *Am Ende des Countdowns einen Sound abspielen*
-- *Jobs/Forschungen mit Informationen anreichern*: Stundenlohn und Dauer.
+- *Jobs/Forschungen mit Informationen anreichern*: Stundenlohn und Dauer; bei den Suchen die Endzeit in der Auswahl der Dauer.
 - *Forschungsstufe um 1 verringern*: Korrigiert die angezeigte Stufe.
 - *Notizblock*: Lokaler Notizblock.
 - *Bookmarks einblenden*: Eigene Links im Navigationsmenü.
