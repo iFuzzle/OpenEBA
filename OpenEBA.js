@@ -81,10 +81,10 @@ const configItems = {
   "eba_enable_global_statistic"              : [updateGlobalStatistic, "Geld, Punkte und Tickl&auml;nge historisieren", "Je Tick wird einmal der Geldbestand, die Punktzahl und die Dauer des letzten Ticks mit Zeitstempel festgehalten. Die Erfassung l&auml;uft auf jeder Spielseite (die Werte stehen in der Statusbox oben), aber immer nur einmal pro Tick."],
   "eba_enable_search_statistic"              : [updateSearchStatistic, "Futter- und Ameisensuchen vollst&auml;ndig historisieren", "Das Spiel zeigt nur die letzten Ergebnisse einer Futtersuche bzw. K&ouml;niginnensuche. Beim Aufruf der jeweiligen Seite wird die angezeigte Tabelle mit der gespeicherten Historie verschmolzen, sodass auch &auml;ltere Treffer erhalten bleiben."],
   "eba_enable_history_compaction"            : [function(){}, "Historien ausd&uuml;nnen, wenn sie zu gro&szlig; werden", "Ohne diese Option wachsen die Historien unbegrenzt (bisheriges Verhalten). Mit der Option wird in einer Reihe ab " + EBA_HIST_MAX_LINES + " Zeilen aus der <b>&auml;lteren H&auml;lfte</b> jede zweite Zeile entfernt. Die j&uuml;ngere H&auml;lfte und die Kopfzeile bleiben unangetastet. <b>Achtung:</b> Das entfernt alte Messpunkte unwiderruflich. Den aktuellen Speicherverbrauch zeigt die Zeile unten. Vertr&auml;gt sich nicht mit dem WebDAV-Abgleich, der ist bei eingeschalteter Kompaktierung gesperrt."],
-  "eba_enable_max_points"                    : [showMaxPoints, "Maximale Punktzahl in der Formicarien-&Uuml;bersicht anzeigen", "Hinter den Punkten jedes Formicariums erscheint die maximal erreichbare Punktzahl, z.B. <i>12.340 / 50.000</i>. Bei monogynen Arten ist das ein harter Wert, bei polygynen Arten wird der Zuwachs je weiterer K&ouml;nigin eingerechnet (auf dem Speedserver mit anderen Werten als auf dem Normalserver). Der Tooltip zeigt Arbeiterinnen-Maximum, Auslastung in Prozent und die Punkte je Arbeiterin laut Tabelle. Quelle der Werte ist die Spielhilfe; f&uuml;r zwei Arten ist der polygyne Zuwachs auf dem Speedserver dort unbekannt, dann erscheint ab zwei K&ouml;niginnen ein <i>?</i>."],
+  "eba_enable_max_points"                    : [showMaxPoints, "Maximale Punktzahl in der Formicarien-&Uuml;bersicht anzeigen", "Hinter den Punkten jedes Formicariums erscheint die maximal erreichbare Punktzahl, z.B. <i>12340 / 50000</i>, dahinter der Punktezuwachs im letzten Tick aus der Formicarien-Statistik, z.B. <i>12340 / 50000 +37</i> (gr&uuml;n, bei Verlust orange mit &minus;, ohne Zuwachs <i>&plusmn;0</i>). Liegen zwischen den beiden j&uuml;ngsten Statistikzeilen mehrere Ticks, steht der Durchschnitt je Tick mit <i>&#8960;</i>. Ohne Statistikdaten erscheint kein Zuwachs. Bei monogynen Arten ist das ein harter Wert, bei polygynen Arten wird der Zuwachs je weiterer K&ouml;nigin eingerechnet (auf dem Speedserver mit anderen Werten als auf dem Normalserver). Der Tooltip zeigt Arbeiterinnen-Maximum, Auslastung in Prozent und die Punkte je Arbeiterin laut Tabelle. Quelle der Werte ist die Spielhilfe; f&uuml;r zwei Arten ist der polygyne Zuwachs auf dem Speedserver dort unbekannt, dann erscheint ab zwei K&ouml;niginnen ein <i>?</i>."],
   "eba_enable_webdav_sync"                   : [enableWebdavSync, "Historien per WebDAV/Nextcloud zwischen Ger&auml;ten abgleichen", "Jede Zeitreihe (Formicarien, Futter, Geld, Punkte, Tickl&auml;nge, Suchen) liegt als eigene Datei in einem WebDAV-Ordner und wird mit den lokalen Daten verschmolzen, h&ouml;chstens einmal pro Tick und nur f&uuml;r den aktuellen Server. Lokal geht dabei nie etwas verloren. Einrichtung unten unter <i>Abgleich der Historien per WebDAV</i>; der automatische Abgleich startet erst nach einem erfolgreichen <i>Verbindung testen</i> auf diesem Ger&auml;t. Tampermonkey fragt dabei einmal, ob das Skript den Host erreichen darf. Ein Skriptmanager, der stattdessen hart blockt, braucht im Skriptkopf eine Zeile <i>// @connect &lt;host&gt;</i>. Optionen, Filter und Notizen werden nie abgeglichen. Vertr&auml;gt sich nicht mit der Kompaktierung."],
   "eba_enable_search_history_view"          : [showSearchHistory, "Alle gespeicherten Ergebnisse unter draussen.php?cat=3 anzeigen", "Zeigt unter jeder der beiden Ergebnistabellen des Spiels (Ameisensuche, Futtertiersuche; nur die letzten 10) eine einklappbare Tabelle mit den &auml;lteren gespeicherten Ergebnissen, neueste oben, samt kurzen Summen. Die Erfassung wird auf dieser Seite selbst angesto&szlig;en (Option <i>Futter- und Ameisensuchen vollst&auml;ndig historisieren</i> ist nicht n&ouml;tig, aber die Historie w&auml;chst nur, wenn die Seite aufgerufen wird). Wird keine Tabelle erkannt, erscheint ein kleiner Hinweis."],
-  "eba_enable_growth_percent"                : [showGrowthPercent, "Auswachszustand der Kolonien in Prozent anzeigen", "Hinter den Punkten (bei aktivierter maximaler Punktzahl dahinter) steht in Klammern der Auswachszustand, z.B. <i>4998 / 5.000 (99,9 %)</i> in Formicarien-&Uuml;bersicht und Einzelansicht: Arbeiterinnen geteilt durch die maximalen Arbeiterinnen der Art (bei polygynen Arten mit dem Zuwachs je K&ouml;nigin laut Polygynierechner wie bei der maximalen Punktzahl, bei unbekanntem Zuwachs ein <i>?</i>). Die Prozentzahl wird abgeschnitten, nicht gerundet. Die Farbe zeigt die Wachstumsphase: unter 24 % Anlaufphase (blau), 24&ndash;94 % Hauptwachstumsphase (gr&uuml;n), ab 94 % Endphase (gelb), 100 % ausgewachsen (hell, fett). Ist das Nest zu mehr als 75 % belegt, erscheint ein oranges <i>&#9888;</i>, denn das bremst das Wachstum (in der Einzelansicht mit der Belegung des Spiels, in der &Uuml;bersicht nur, wenn schon die Arbeiterinnen allein dar&uuml;ber liegen). Der Tooltip zeigt Phase, ob Nest oder Formicarium zuerst voll ist (z.B. <i>Nest voll bei ca. 5.000 Arbeiterinnen</i>) und die Belegung. Der Platzbedarf der Brut ist nicht eingerechnet."],
+  "eba_enable_growth_percent"                : [showGrowthPercent, "Auswachszustand der Kolonien in Prozent anzeigen", "Hinter den Punkten (bei aktivierter maximaler Punktzahl dahinter) steht in Klammern der Auswachszustand, z.B. <i>4998 / 5000 +37 (99,9 %)</i> (ohne maximale Punktzahl <i>4998 +37 (99,9 %)</i>; der Zuwachs im letzten Tick kommt aus der Formicarien-Statistik) in Formicarien-&Uuml;bersicht und Einzelansicht: Arbeiterinnen geteilt durch die maximalen Arbeiterinnen der Art (bei polygynen Arten mit dem Zuwachs je K&ouml;nigin laut Polygynierechner wie bei der maximalen Punktzahl, bei unbekanntem Zuwachs ein <i>?</i>). Die Prozentzahl wird abgeschnitten, nicht gerundet. Die Farbe zeigt die Wachstumsphase: unter 24 % Anlaufphase (blau), 24&ndash;94 % Hauptwachstumsphase (gr&uuml;n), ab 94 % Endphase (gelb), 100 % ausgewachsen (hell, fett). Ist das Nest zu mehr als 75 % belegt, erscheint ein oranges <i>&#9888;</i>, denn das bremst das Wachstum (in der Einzelansicht mit der Belegung des Spiels, in der &Uuml;bersicht nur, wenn schon die Arbeiterinnen allein dar&uuml;ber liegen). Der Tooltip zeigt Phase, ob Nest oder Formicarium zuerst voll ist (z.B. <i>Nest voll bei ca. 5.000 Arbeiterinnen</i>) und die Belegung. Der Platzbedarf der Brut ist nicht eingerechnet."],
   "eba_enable_history_charts"                : [enableHistoryCharts, "Verlaufsgrafiken f&uuml;r Geld, Punkte und Formicarien", "Beim &Uuml;berfahren von <i>Geld</i> und <i>Punkte</i> in der Kopfzeile erscheint eine kleine Kurve aus den gespeicherten Werten. Ein Klick darauf &ouml;ffnet unter <i>Statistik</i> die Seite <i>openEBA-Verlauf</i> mit gro&szlig;en Diagrammen (Geld, Punkte, Tickl&auml;nge, je Formicarium Arbeiterinnen, Punkte, Brut und Hunger). Die Kurven brauchen die Optionen <i>Geld, Punkte und Tickl&auml;nge historisieren</i> bzw. <i>Formicarien-Statistik</i>."]
 }
 const shopPriceLimits = {
@@ -3072,6 +3072,59 @@ function ebaPointsHost(td) {
   return (kids.length == 1) ? kids.last() : td;
 }
 
+// Punktezuwachs eines Formicariums im letzten Tick aus der Formi-Statistik:
+// Differenz der beiden jüngsten Zeilen. Liegt dazwischen mehr als ein Tick, ist es
+// der Durchschnitt je Tick (avg = true). Ist der jüngste Tick schon abgeschlossen,
+// aber (noch) nicht erfasst, zählt der aktuelle Punktestand der Seite als jüngste
+// Zeile. null = zu wenige Daten.
+function ebaPointsDelta(id, pagePoints) {
+  var rows = [];
+  $.each(ebaFormiRows(id), function(i, r) { if (r.points != null) { rows.push(r); } });
+  if (!rows.length) { return null; }
+  var tickMs = getTickMinutes() * 60000;
+  var tk = getTickInfo();
+  var last = rows[rows.length - 1];
+  if (tk.done && isFinite(pagePoints) && last.t < tk.nowTick - 1000) {
+    rows.push({t: tk.nowTick, points: pagePoints, time: formatStatTime(tk.nowTick)});
+  }
+  if (rows.length < 2) { return null; }
+  var a = rows[rows.length - 2], b = rows[rows.length - 1];
+  var ticks = Math.max(1, Math.round((b.t - a.t) / tickMs));
+  var raw = (b.points - a.points) / ticks;
+  var delta = (raw < 0 ? -1 : 1) * Math.round(Math.abs(raw));
+  var when = (b.time || formatStatTime(b.t)).replace(/^(\d\d\.\d\d)\.\d{4}/, "$1.");
+  return {delta: delta, ticks: ticks, avg: ticks > 1, when: when};
+}
+
+// Id des Formicariums: aus dem Hunger-Balken (Übersicht und Einzelansicht),
+// sonst aus der Adresse der Einzelansicht.
+function ebaColonyId(div) {
+  var sp = div.find("span[id^='sugarhunger']").first();
+  if (sp.length && /^\d+$/.test(sp.attr("id").substr(11))) { return sp.attr("id").substr(11); }
+  var m = /[?&]id=(\d+)/.exec(location.search);
+  return m ? m[1] : "";
+}
+
+// "+37" hinter Punkte/Maximum (vor der Prozentklammer), idempotent. Aufrufer
+// ist showMaxPoints() und showGrowthPercent(), je nachdem, welche Option an ist.
+function ebaShowPointsDelta(div, td, points) {
+  if (td.find("span.eba_ptdelta").length) { return; }
+  var id = ebaColonyId(div);
+  if (!id) { return; }
+  var d = ebaPointsDelta(id, points);
+  if (!d) { return; }
+  var txt = d.delta > 0 ? "+" + d.delta : (d.delta < 0 ? "−" + (-d.delta) : "±0");
+  if (d.avg) { txt += "⌀"; }
+  var color = d.delta > 0 ? "#6cc070" : (d.delta < 0 ? "#ff9a5c" : "#808080");
+  var tip = d.avg ? "Punkte je Tick, Ø über " + d.ticks + " Ticks (bis " + d.when + ")"
+                  : "Punkte im letzten Tick (" + d.when + ")";
+  var span = $("<span class='eba_ptdelta' style='white-space:nowrap'></span>")
+    .css("color", color).text(" " + txt).attr("title", tip);
+  var g = td.find("span.eba_growth").first();
+  var m = td.find("span.eba_maxpt").first();
+  if (g.length) { g.before(span); } else if (m.length) { m.after(span); } else { ebaPointsHost(td).append(span); }
+}
+
 // Hinter den Punkten jedes Formicariums das Maximum anzeigen: "12.340 / 50.000".
 // Die Prozentzahl steht absichtlich NICHT in der Spalte (zu schmal), sondern im
 // Tooltip des eigenen <span>. Das Tooltip hängt am <span> und nicht am <td>,
@@ -3138,12 +3191,13 @@ function showMaxPoints() {
         // Steht die Prozentklammer (showGrowthPercent) schon da, davor einsetzen.
         var td = c["Punkte"];
         var maxHtml = " <span class='eba_maxpt' style='color:#808080'>/ "
-                    + (max.unknown ? "?" : ebaFmtInt(max.points)) + "</span>";
+                    + (max.unknown ? "?" : max.points) + "</span>";
         var gSpan = td.find("span.eba_growth").first();
         if (gSpan.length) { gSpan.before(maxHtml); } else { ebaPointsHost(td).append(maxHtml); }
         // title per attr() statt inline, damit der Artname aus dem DOM nicht
         // escaped werden muss.
         div.find("span.eba_maxpt").last().attr("title", tip.join("\n"));
+        ebaShowPointsDelta(div, td, points);
       } catch (err) {}
     });
   } catch (err) {}
@@ -3362,10 +3416,12 @@ function showGrowthPercent() {
           var td = c["Punkte"];
           if (!td) { return; }
           var mSpan = td.find("span.eba_maxpt").first();
-          if (mSpan.length) { mSpan.after(html); } else { ebaPointsHost(td).append(html); }
+          var pSpan = td.find("span.eba_ptdelta").first();
+          if (pSpan.length) { pSpan.after(html); } else if (mSpan.length) { mSpan.after(html); } else { ebaPointsHost(td).append(html); }
           var gs = td.find("span.eba_growth").first();
           gs.attr("title", ebaGrowthTip(g, kind, workers, nestLabel, nestName, formiName, srv, space));
           if (warnTip) { gs.find("span.eba_nestwarn").attr("title", warnTip); }
+          ebaShowPointsDelta(div, td, parseInt(("" + td.text()).replace(/\./g, ""), 10));
         } catch (err) {}
       });
     } catch (err) {}
