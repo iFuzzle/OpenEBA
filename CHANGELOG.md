@@ -15,6 +15,13 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
 
 > **Hinweis vor dem Update:** Mehrere Versionen (31.1, 31.7, 31.9) wandeln gespeicherte Daten beim ersten Start automatisch um. Empfehlung: vorher in der openEBA-Konfiguration die Daten über *Exportieren* sichern.
 
+## 33.14 (01.11.2026)
+
+- Das Skript läuft nur noch auf `eatenbyants.de`, `www.eatenbyants.de` und `speed.eatenbyants.de`; auf dem Testserver (`test.eatenbyants.de`) und anderen Subdomains tut es nichts mehr und speichert nichts.
+- Einzelne Zeitzeilen löschen (🗑 mit Rückfrage): im openEBA-Verlauf unter „Datentabellen“ (standardmäßig alle Reihen dieses Zeitpunkts), in der Kolonie-Tabelle und bei den älteren Suchergebnissen. Gelöschte Zeilen werden per WebDAV auf allen Geräten gelöscht und kommen durch den Abgleich nicht zurück (Datei `eba_rowdel_list.tsv`).
+- Spielhilfe, Bilder: Keine automatischen Probe-Anfragen mehr. Unter Info → Bildersuche einmalig per Button prüfen, Ergebnis zum Kopieren.
+- Spielhilfe, Jobs: Dauer des Klojobs = ein Tick (1 h normal, 12 min Speed), andere Jobs ein Vielfaches; Speedserver-Werte rechnen die Dauern um. Die Länge unterscheidet die Jobs, der Lohn die Stufen; 12-h-Job als vermutliche Vorstufe der Exkursion gekennzeichnet.
+
 ## 33.13 (01.11.2026)
 
 - Spielhilfe, Forschungsbaum: von oben nach unten aufgebaut, mehr Abstand, Stufen-Plaketten direkt an der Zielkarte; bei schmaler Spalte seitlich scrollbar.
