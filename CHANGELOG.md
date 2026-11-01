@@ -15,6 +15,13 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
 
 > **Hinweis vor dem Update:** Mehrere Versionen (31.1, 31.7, 31.9) wandeln gespeicherte Daten beim ersten Start automatisch um. Empfehlung: vorher in der openEBA-Konfiguration die Daten über *Exportieren* sichern.
 
+## 33.13 (01.11.2026)
+
+- Spielhilfe, Forschungsbaum: von oben nach unten aufgebaut, mehr Abstand, Stufen-Plaketten direkt an der Zielkarte; bei schmaler Spalte seitlich scrollbar.
+- Spielhilfe, Bilder: Der Browser probiert je Forschung mehrere mögliche Dateinamen und merkt sich den Treffer (Futtertiere: `research_futter.jpg`); unter Info → „Bildersuche“ steht, was gefunden wurde und was fehlt.
+- Spielhilfe, Jobs: nach echter Arbeitsamt-Seite und Spielhilfe-Tabelle korrigiert – Museumsjob ist „Museum sucht versierten Myrmekologen“ (Ameisen finden und bestimmen Stufe 4), danach Verhaltensforscher-Forschung mit neuem Job (12 h, 30 €); Pizza mit Pümpel 25 €; Werbeplakate durch Abstimmen für EBA; Klo dauert 1 Tick; Job-IDs auf den Karten.
+- Spielhilfe: Hinweis, dass sich die Angaben auf eine Königin beziehen; Futter-Reiter mit den drei Sammelarten der Futtersuche.
+
 ## 33.12 (31.10.2026)
 
 - Spielhilfe, Wohnungen: in Spielreihenfolge (Zimmer bei den Eltern, Schuppen, Dachboden, Hochhaus, Haus, Schloss), zusätzlich sortierbar nach Punkten, Preis, Plätzen und € je Platz.
