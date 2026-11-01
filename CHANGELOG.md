@@ -15,6 +15,12 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
 
 > **Hinweis vor dem Update:** Mehrere Versionen (31.1, 31.7, 31.9) wandeln gespeicherte Daten beim ersten Start automatisch um. Empfehlung: vorher in der openEBA-Konfiguration die Daten über *Exportieren* sichern.
 
+## 33.33 (01.11.2026)
+
+- Spielhilfe, Futter: neue Rubrik „Relikte“ mit dem Osterei (nur während der Oster-Events 2009–2013 sammelbar, heute nur noch über Verkauf).
+- Spielhilfe, Info: neuer Abschnitt „Abzeichen“ (ausgewachsene Kolonie, Größenrekord, Auszug bei den Eltern, Gabelstaplerschein, Ostereiersuche, Sponsor, Speedserver-Medaillen).
+- Bildersuche (Entwickler-Werkzeug): neue Gruppen „Marsameise“ (wissenschaftlicher Name) und „Abzeichen“ (Speedserver-Medaillen).
+
 ## 33.32 (01.11.2026)
 
 - Vier Server getrennt: Normal (`www.`/ohne www), Speed (`speed.`), Testserver Normal (`test.`) und Testserver Speed (`testspeed.`). Jeder Server hat eigene Daten, eigene WebDAV-Dateien und einen eigenen Index; Testserver Speed rechnet wie Speed (12-Minuten-Tick). Bestehende Daten von Normal und Speed bleiben unverändert. Andere Subdomains (z. B. Forum) bleiben ausgeschlossen.
