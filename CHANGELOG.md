@@ -15,6 +15,11 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
 
 > **Hinweis vor dem Update:** Mehrere Versionen (31.1, 31.7, 31.9) wandeln gespeicherte Daten beim ersten Start automatisch um. Empfehlung: vorher in der openEBA-Konfiguration die Daten über *Exportieren* sichern.
 
+## 33.29 (01.11.2026)
+
+- Spielhilfe: Pheidologeton diversus zeigt das größte vorhandene Bild (`Pheidologeton_diversus2.jpg`).
+- Neue Datei `IDEEN.md` mit Vormerkungen für spätere Versionen (u. a. Saison-Effekte mit den Winter-Titelbildern des Spiels).
+
 ## 33.28 (01.11.2026)
 
 - Spielhilfe, Ameisen: bestätigte Bilder je Wachstumsstufe (Lasius niger, L. flavus, Formica fusca, Myrmica rubra, Camponotus herculeanus, C. ligniperda, Temnothorax nylanderi mit Haselnuss, Pheidole pallidula). Das Hauptbild zeigt die ausgewachsene Kolonie; unter Details eine Galerie „Bilder je Wachstumsstufe“, die erst beim Aufklappen lädt. Quelle: Spielerprofil mit gesammelten Bildpfaden.

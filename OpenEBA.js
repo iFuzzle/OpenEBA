@@ -10,7 +10,7 @@
 // @exclude        https://forum.eatenbyants.de/*
 // @exclude        http://test.eatenbyants.de/*
 // @exclude        https://test.eatenbyants.de/*
-// @version        33.28
+// @version        33.29
 // @require        http://ajax.googleapis.com/ajax/libs/jquery/1/jquery.min.js
 // @grant          GM_getValue
 // @grant          GM_setValue
@@ -6573,7 +6573,9 @@ const ebaShAntImgs = {
 const ebaShAntImgMain = {
   "Solenopsis fugax": "ants/Solenopsis_fugax_shop.jpg",
   "Acromyrmex spec.": "ants/Acromyrmex_spec3.jpg",
-  "Camponotus cruentatus": "ants/Camponotus_cruentatus3.jpg"
+  "Camponotus cruentatus": "ants/Camponotus_cruentatus3.jpg",
+  // größtes Bild der Art (auch bei 8 Königinnen und 275.000 Arbeiterinnen), höhere Stufen gibt es nicht
+  "Pheidologeton diversus": "ants/Pheidologeton_diversus2.jpg"
 };
 function ebaShAntImg(name, cls) {
   var l = ebaShAntImgs[name], b = "/img/ants/" + ebaShAntBase(name);
