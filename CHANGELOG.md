@@ -15,6 +15,10 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
 
 > **Hinweis vor dem Update:** Mehrere Versionen (31.1, 31.7, 31.9) wandeln gespeicherte Daten beim ersten Start automatisch um. Empfehlung: vorher in der openEBA-Konfiguration die Daten über *Exportieren* sichern.
 
+## 33.37 (02.11.2026)
+
+- Formicarium-Ansicht: Unter „Formicarium wechseln“ und „Nest wechseln“ steht jetzt, welches Formicarium bzw. Nest die Art höchstens braucht (✓, wenn deins schon reicht). Neue Option, der Tooltip zeigt die Rechnung; bei Arten mit mehreren Königinnen zählt deine Königinnenzahl.
+
 ## 33.36 (02.11.2026)
 
 - Jobs: Der Job „Verhaltensforscher für Studie gesucht“ zeigt jetzt sein Bild.
