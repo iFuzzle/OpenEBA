@@ -15,6 +15,10 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
 
 > **Hinweis vor dem Update:** Mehrere Versionen (31.1, 31.7, 31.9) wandeln gespeicherte Daten beim ersten Start automatisch um. Empfehlung: vorher in der openEBA-Konfiguration die Daten über *Exportieren* sichern.
 
+## 33.15 (01.11.2026)
+
+- Formicarien-Übersicht: Link „↻ aktuellen Tick neu erfassen“ unter der Überschrift. Verwirft (nach Rückfrage) die Statistik- und Futterzeilen des aktuellen Ticks aller Kolonien und erfasst sie nach dem Neuladen frisch, z. B. nach einem falschen Eintrag. Verworfen wird nur genau diese Fassung der Zeile (per WebDAV auch auf anderen Geräten), die neu erfasste bleibt.
+
 ## 33.14 (01.11.2026)
 
 - Das Skript läuft nur noch auf `eatenbyants.de`, `www.eatenbyants.de` und `speed.eatenbyants.de`; auf dem Testserver (`test.eatenbyants.de`) und anderen Subdomains tut es nichts mehr und speichert nichts.

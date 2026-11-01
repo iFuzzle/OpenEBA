@@ -10,7 +10,7 @@
 // @exclude        https://forum.eatenbyants.de/*
 // @exclude        http://test.eatenbyants.de/*
 // @exclude        https://test.eatenbyants.de/*
-// @version        33.14
+// @version        33.15
 // @require        http://ajax.googleapis.com/ajax/libs/jquery/1/jquery.min.js
 // @grant          GM_getValue
 // @grant          GM_setValue
@@ -883,6 +883,16 @@ function updateFormiStatistic() {
     if (/^\d+$/.test(aid) && $.inArray(aid, activeIds) < 0) { activeIds.push(aid); }
   });
   GM_setValue("eba_formi_active_" + srvKey(), getServerNow() + "\t" + activeIds.join(","));
+  if (tk.done && activeIds.length && !$("#eba_recapture").length) {
+    var rb = $("<div style='text-align:center;font-size:0.85em;margin:4px 0'><a id='eba_recapture' href='javascript:void(0)' title='Verwirft die Statistik- und Futterzeilen des aktuellen Ticks aller Kolonien dieser Seite (auch auf anderen Ger\u00E4ten per WebDAV) und erfasst sie neu.'>\u21BB aktuellen Tick neu erfassen</a></div>");
+    $("h3:contains('Deine Formicarien')").first().after(rb);
+    rb.find("a").on("click", function(e) {
+      e.preventDefault();
+      if (!confirm("Statistik- und Futterzeilen des aktuellen Ticks f\u00FCr " + activeIds.length + " Kolonien verwerfen und neu erfassen?")) { return; }
+      ebaRecaptureTick(activeIds);
+      location.reload();
+    });
+  }
   $("div[id='shopitem']:contains('Larven')").each(function(i, e) {
     var div = $(this);
     var long_str = ["Reagenzglas", "Mini Arena", "kleines Formicarium", "mittleres Formicarium", "großes Formicarium", "mittlere Anlage",
@@ -2196,11 +2206,52 @@ function ebaRowDelFilter(key, text, set) {
     var line = lines[i];
     if (!line || (kind === "search" && line.indexOf("H\t") === 0)) { out.push(line); continue; }
     var rk = ebaRowDelRowKey(kind, base, line);
-    if (rk !== null && set[prefix + rk] === true) { changed = true; continue; }
+    if (rk !== null && (set[prefix + rk] === true || set[prefix + rk + "#" + ebaRowContentHash(kind, line)] === true)) { changed = true; continue; }
     out.push(line);
   }
   return changed ? out.join("\n") : text;
 }
+// Inhalts-Fingerabdruck einer Zeile (ohne Zeitspalte; bei Kolonien auch ohne
+// Uhrzeit am Ende). Ein Tombstone "Zeitpunkt#Hash" entfernt nur genau diese
+// Fassung der Zeile, eine neu erfasste andere Zeile zum selben Tick bleibt.
+function ebaRowContentHash(kind, line) {
+  var tab = line.indexOf("\t");
+  var rest = tab >= 0 ? line.substr(tab + 1) : line;
+  if (kind === "formi") { var c = rest.lastIndexOf("\t"); if (c > 0) { rest = rest.substr(0, c); } }
+  var h = 5381;
+  for (var i = 0; i < rest.length; i++) { h = ((h * 33) ^ rest.charCodeAt(i)) >>> 0; }
+  return h.toString(36);
+}
+// Aktuellen Tick der Kolonien neu erfassen: die Zeilen dieses Ticks (Statistik
+// und Futter) werden per Inhalts-Tombstone verworfen (auch auf anderen Geräten
+// per WebDAV), danach lädt die Seite neu und erfasst den Tick frisch.
+function ebaRecaptureTick(ids) {
+  var tk = getTickInfo(), entries = [];
+  $.each(ids, function(i, id) {
+    var key = "eba_statistic_" + srvKey() + id, saved = GM_getValue(key, "");
+    if (typeof saved === "string" && saved) {
+      var lines = saved.split("\n"), base = parseInt(lines[0], 10);
+      if (!isNaN(base)) {
+        var nowEl = elapsedHours(base, tk.nowTick);
+        for (var q = 1; q < lines.length; q++) {
+          if (Math.abs(parseFloat(lines[q]) - nowEl) < 0.005) {
+            entries.push([key, ebaRowDelRowKey("formi", base, lines[q]) + "#" + ebaRowContentHash("formi", lines[q])]);
+          }
+        }
+      }
+    }
+    var fkey = "eba_food_" + srvKey() + id, fsaved = GM_getValue(fkey, "");
+    if (typeof fsaved === "string" && fsaved) {
+      var tm = "" + (tk.nowTick / 60000);
+      $.each(fsaved.split("\n"), function(j, l) {
+        if (l && l.split("\t")[0] === tm) { entries.push([fkey, tm + "#" + ebaRowContentHash("food", l)]); }
+      });
+    }
+  });
+  if (entries.length) { ebaRowDelRemove(entries); }
+  return entries.length;
+}
+
 // Alle lokalen Reihen dieses Servers bereinigen (nach Löschen, Abgleich, Import)
 function ebaRowDelApplyAll() {
   var set = ebaRowDelSet(), n = 0;
