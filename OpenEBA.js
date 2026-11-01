@@ -10,7 +10,7 @@
 // @exclude        https://forum.eatenbyants.de/*
 // @exclude        http://test.eatenbyants.de/*
 // @exclude        https://test.eatenbyants.de/*
-// @version        33.25
+// @version        33.27
 // @require        http://ajax.googleapis.com/ajax/libs/jquery/1/jquery.min.js
 // @grant          GM_getValue
 // @grant          GM_setValue
@@ -67,7 +67,7 @@ const configItems = {
   "eba_enable_always_show_shop_prices"       : [alwaysShowShopPrices, "Ameisenshop-Preise immer zeigen", "Links neben dem Ameisenshop-Men&uuml;eintrag. Kann sein, dass nicht jeder Browser das richtig (verkleinert) darstellt."],
   "eba_enable_highlight_shop_prices"         : [highlightShopPrices, "Ameisenshop-Preise f&auml;rben", "Preise ab 95 % des H&ouml;chstpreises gelb, ab 98 % sanft rot, bei 100 % dunkelrot mit wei&szlig;er Schrift."],
   "eba_enable_stat_beautify"                 : [statBeautify, "Statistik verbessern", "Einf&uuml;gen von 1.000er-Trennzeichen und Tooltips, die die Differenz zu den eigenen Punkten anzeigen. Das Avatar-Bild oben rechts bekommt als Tooltip die eigene Punkte-Entwicklung pro Stunde."],
-  "eba_enable_process_jobs"                  : [processJobOffers, "Jobs/Forschungen mit Informationen anreichern", "Stundenlohn und Dauer (nach Abschluss der aktuellen Aktion) anzeigen und bei den Suchen die Endzeit in der Auswahl der Dauer."],
+  "eba_enable_process_jobs"                  : [processJobOffers, "Jobs/Forschungen mit Informationen anreichern", "Stundenlohn und Dauer (nach Abschluss der aktuellen Aktion) anzeigen und bei den Suchen die Endzeit in der Auswahl der Dauer. Die laufende Aktion (Internet-Startseite, Arbeitsamt, Forschung) bekommt ebenfalls die Endzeit, ein laufender Job zus&auml;tzlich den Stundenlohn (sobald die Jobdauer bekannt ist)."],
   "eba_enable_formi_statistic"               : [updateFormiStatistic, "Formicarien-Statistik", "Wird aktualisiert bei jedem Aufruf der Formicarien-&Uuml;bersicht. Aufzurufen dort mit dem Link <i>Statistik</i> bei jedem Formicarium. Optimiert zum Kopieren und Einf&uuml;gen in Excel und Co. Die Werte werden auch genutzt, um die Entwicklung von Eiern, Larven, Puppen, Ameisen und Punkten pro Stunde als jeweiligen Tooltip anzuzeigen."],
   "eba_enable_food_snapshot"                 : [ebaFoodSnapshotDetail, "Futterbestand und Ausbruchschutz pro Tick festhalten", "Beim ersten Aufruf der Formicarien-&Uuml;bersicht nach einem Tick wird die Futtertabelle jedes Formicariums samt Ausbruchschutz (Typ und Prozent, z.B. <i>PTFE 97,4</i>) im Hintergrund aus der Detailansicht geholt und in der Formicarien-Statistik erg&auml;nzt. Wird die Detailansicht des Formicariums vorher aufgerufen, wird der Bestand direkt beim Laden bzw. unmittelbar vor dem F&uuml;ttern erfasst (Zustand vor dem F&uuml;ttern). Funktioniert nur zusammen mit der Formicarien-Statistik."],
   "eba_enable_mark_shop_messages"            : [enableMarkShopMessages, "Option zum Markieren von Kleinanzeigen-Nachrichten einblenden"],
@@ -3632,8 +3632,60 @@ function ebaSpielhilfeEverywhere() {
   if (!host.length || $("#eba_sh_start").length) { return; }
   host.append("<hr style='margin:6px 0'>").append("<a id='eba_sh_start' href='/lexikon.php#eba-spielhilfe'>openEBA: Spielhilfe</a>");
 }
+// Stundenlohn aus Lohn in Cent und Dauer in Sekunden (wie bisher bei den Angeboten: auf Cent abgeschnitten)
+function ebaHourlyWage(cents, sec) { return parseFloat(parseInt(cents / (sec / 3600))) / 100; }
+function ebaEndText(ms) {
+  var weekday = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"];
+  var end = ebaBerlinParts(ms);
+  return " [Endet " + weekday[end.wd] + ", " + ("0" + end.h).slice(-2) + ":" + ("0" + end.mi).slice(-2) + "]";
+}
+// Feste Jobdauer in Sekunden aus der Spielhilfe (ebaShJobs, nach Jobname); Speedserver = 1/5; null = unbekannt
+function ebaJobDuration(name) {
+  var n = $.trim(name || "").toLowerCase(), found = null;
+  var sec = function(j) {
+    if (j[2] === "tick") { return getTickMinutes() * 60; }
+    return typeof j[2] === "number" ? j[2] * 3600 / (isSpeedServer() ? 5 : 1) : null;
+  };
+  $.each(ebaShJobs, function(i, fam) {
+    $.each(fam[1], function(k, j) {
+      var s = sec(j);
+      if (s === null) { return true; }
+      if (found === null && n && (n.indexOf(fam[0].toLowerCase()) >= 0 || n.indexOf(j[0].toLowerCase()) >= 0)) { found = s; }
+    });
+  });
+  return found;
+}
+// Laufende Aktion (internet.php: Startseite, Forschung, Arbeitsamt): "[Endet ...]" neben den Countdown,
+// bei laufendem Job zusätzlich "[Stundenlohn ...]" hinter den Lohn.
+function ebaRunningAction() {
+  if (!/internet\.php$/.test(location.pathname)) { return; }
+  var base = getServerNow(); // Restsekunden des taskcounter gelten ab Seitenaufruf
+  $("form").each(function() {
+    var form = $(this), tc = form.find("#taskc").first();
+    if (!tc.length || form.find(".eba-runend").length) { return; }
+    var rest = null;
+    form.find("script").each(function() {
+      var m = /taskcounter\(\s*(["'])taskc\1\s*,\s*(["'])(?:(?!\2)[^\\]|\\.)*\2\s*,\s*(\d+)/.exec(this.text || this.textContent || "");
+      if (m) { rest = parseInt(m[3], 10); return false; }
+    });
+    if (rest === null) { return; }
+    var end = $("<span class='eba-runend'></span>").text(ebaEndText(base + rest * 1000));
+    tc.css("display", "inline").after(end);
+    var next = end.nextAll("script").last();
+    (next.length ? next : end).after("<br class='eba-runend-br'>");
+    // Stundenlohn nur bei laufendem Job (Lohn statt Kosten)
+    var lohn = form.contents().filter(function() { return this.nodeType === 3 && /Lohn:\s*[\d.]*\d,\d\d/.test(this.nodeValue); }).first();
+    if (!lohn.length) { return; }
+    var r = /Lohn:\s*([\d.]*\d),(\d\d)/.exec(lohn[0].nodeValue);
+    var cents = parseInt(r[1].replace(/\./g, ""), 10) * 100 + parseInt(r[2], 10);
+    var sec = ebaJobDuration(form.find("b").first().text());
+    if (!(sec > 0)) { return; }
+    lohn[0].nodeValue = lohn[0].nodeValue.replace(/\s*$/, "") + " [Stundenlohn " + ebaHourlyWage(cents, sec) + "] ";
+  });
+}
 function processJobOffers() {
   ebaSearchEndTimes();
+  ebaRunningAction();
   if(!($("h3:contains('Aktionen')").length || $("h3:contains('Forschung')").length || $("h3:contains('Arbeitsamt')").length)) {return}
   const weekday = new Array("Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag");
   //start from now
@@ -3649,6 +3701,7 @@ function processJobOffers() {
       return result;
     }).get();
     if (nodes.length!=2) return true; //not found correctly => try next
+    if (nodes[0].nodeValue.indexOf("[Endet")>=0) return true; //schon angereichert
     //duration nodes[0]
     var result = /(\d+):(\d+):(\d+)/.exec(nodes[0].nodeValue.substring(7));
     var sec = parseInt(result[1])*60*60 + parseInt(result[2])*60 + parseInt(result[3]);
@@ -7620,10 +7673,10 @@ function ebaCollFillPx(px, m) {
 function ebaCollExport() {
   var cur = ebaCollGet(), groups = { 1: [], 2: [], 3: [] }, m = ebaCollMeasurer();
   $.each(antcat, function(name, c) { groups[c].push(name); });
-  var out = [];
+  var out = [], w = 0;
+  // eine gemeinsame Spaltenbreite über alle Gruppen, damit die | überall bündig stehen
+  $.each(antcat, function(n) { w = Math.max(w, m ? m(n) : n.length); });
   $.each([1, 2, 3], function(i, c) {
-    var w = 0;
-    $.each(groups[c], function(j, n) { w = Math.max(w, m ? m(n) : n.length); });
     out.push("== " + ebaShCollGroupNames[c] + " ==");
     $.each(groups[c], function(j, n) {
       var st = cur[n] || "open", pad = "";

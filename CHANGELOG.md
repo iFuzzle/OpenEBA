@@ -15,6 +15,14 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
 
 > **Hinweis vor dem Update:** Mehrere Versionen (31.1, 31.7, 31.9) wandeln gespeicherte Daten beim ersten Start automatisch um. Empfehlung: vorher in der openEBA-Konfiguration die Daten über *Exportieren* sichern.
 
+## 33.27 (01.11.2026)
+
+- Jobs/Forschungen anreichern: auch die laufende Aktion bekommt die Endzeit („[Endet Montag, 05:50]“) – auf der Internet-Startseite („Momentane Aktion“), im Arbeitsamt und in der Forschung. Laufende Jobs zeigen zusätzlich den Stundenlohn (feste Jobdauern, Speedserver ÷5). Wunsch aus der Community.
+
+## 33.26 (01.11.2026)
+
+- Sammlung, Profil-Export: Die Trennstriche stehen jetzt über alle drei Gruppen auf gleicher Höhe (eine gemeinsame Spaltenbreite).
+
 ## 33.25 (01.11.2026)
 
 - Spielhilfe, Sammlung: Button „Alle Stati einlesen“ – liest das eigene Profil (Abzeichen „ausgewachsene … Kolonie“ → done, Formicarien → active) und das Lager (→ ready) und zeigt eine Vorschau; übernommen wird per Klick, nichts wird herabgestuft. Die Einzelvorschläge nutzen die Profildaten mit.
