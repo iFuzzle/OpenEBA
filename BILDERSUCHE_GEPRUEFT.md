@@ -30,7 +30,8 @@ Weitere bestätigte Bilder (nicht Forschung):
 - `/img/items/food_osterei.jpg` (Futter Osterei; steht in der Spielhilfe unter Futter → Relikte)
 - `/img/awards/Sponsor_gold.png` (Abzeichen für frühere finanzielle Unterstützung des Spiels)
 - `/img/awards/speed1.png`, `speed2.png`, `speed3.png`, `speed4.png` (Medaillen für Teilnahmen an Speedserver-Events; Stufen 1–4 bekannt, weitere nicht gefunden)
-- Weitere in der Spielhilfe (Info → Abzeichen) verwendete Abzeichen: `award_star_gold_1.png`, `award_star_bronze_3.png`, `house_gold.png`, `house_schloss.png`, `award_asw_bronze.png`, `award_aswmonhtly_silver.png` (Tippfehler „monhtly“ im Spiel), `marsameise.png`, `forklift.png`, `osterei.png`
+- Weitere in der Spielhilfe (Info → Abzeichen) verwendete Abzeichen: `award_star_gold_1.png`, `award_star_bronze_3.png`, `house_gold.png`, `house_schloss.png`, `house_schuppen.png`, `house_silver.png`, `house_bronze.png`, `award_asw_gold.png`, `award_asw_silver.png`, `award_asw_bronze.png`, `award_aswmonhtly_gold.png`, `award_aswmonhtly_silver.png`, `award_aswmonhtly_bronze.png` (Tippfehler „monhtly“ im Spiel), `marsameise.png`, `forklift.png`, `osterei.png`
+- Jobbilder: `/img/tasks/job_verhaltensforscher.jpg`, `/img/tasks/job_weihnachtsmann.jpg`
 
 ## Geprüft, nicht gefunden
 
@@ -177,20 +178,30 @@ Weitere bestätigte Bilder (nicht Forschung):
 
 Insgesamt über 170 verschiedene Dateinamen in der Historie, davon 16 Forschungsbilder bestätigt.
 
-## Noch ungeprüft (aktuelle Kandidaten der Bildersuche)
+## Letzte Runde (im Spiel geprüft)
 
-Nur noch nie geprüfte Namen; Ergebnis nach dem Prüfen oben eintragen.
+Gefunden:
 
-- `ausb` (Pulverfläschchen/Talkum): `research_puder`, `research_pulver`, `research_powder`, `research_flasche`, `research_talk`
-- `bio` (anatomische Zeichnung einer Ameise): `research_gaster`, `research_hautfluegler`, `research_hymenoptera`, `research_anatomie`, `research_koerper`, `research_zeichnung`
+- Job „Verhaltensforscher für Studie gesucht“: `/img/tasks/job_verhaltensforscher.jpg`
+- Job Weihnachtsmann: `/img/tasks/job_weihnachtsmann.jpg`
+- Abzeichen ASW-Statistik: `/img/awards/award_asw_gold.png`, `award_asw_silver.png` (+ `award_asw_bronze.png`)
+- Abzeichen ASW-Statistik letzter Monat: `/img/awards/award_aswmonhtly_gold.png`, `award_aswmonhtly_bronze.png` (+ `award_aswmonhtly_silver.png`)
+- Auszug-Abzeichen: `/img/awards/house_schuppen.png`, `house_silver.png`, `house_bronze.png` (+ `house_gold.png`, `house_schloss.png`); Zuordnung zur Wohnung bis auf Schuppen und Schloss unbekannt
+
+Nicht gefunden:
+
+- `ausb`: `research_puder`, `research_pulver`, `research_powder`, `research_flasche`, `research_talk`
+- `bio`: `research_gaster`, `research_hautfluegler`, `research_hymenoptera`, `research_anatomie`, `research_koerper`, `research_zeichnung`
 - `form`: `research_glas`, `research_acryl`, `research_beton`, `research_plexiglas`
 - `nest`: `research_lehm`, `research_erde`, `research_sand`, `research_holz`
-- Handwerkliches Geschick, zweites Bild (`ha2`): `research_basteln`, `research_kleber`, `research_bauen`, `research_werkzeug2`, `research_handwerk2`, `research_bastel`
-- Job Verhaltensforscher für Studie gesucht (`jvj`, unter `img/tasks/`): `job_verhaltensforscher`, `job_studie`, `job_uni`, `job_universitaet`, `job_forscher`, `job_verhalten`
-- Job Weihnachtsmann (`jwm`): `job_weihnachtsmann`, `job_santa`, `job_nikolaus`, `job_xmas`
-- Abzeichen-Varianten (unter `/img/awards/`, alle `.png`; alle Treffer werden gemeldet): `award_asw_gold`, `award_asw_silver`, `award_aswmonhtly_gold`, `award_aswmonhtly_bronze`, `award_aswmonthly_gold`, `award_aswmonthly_silver`, `award_aswmonthly_bronze`; Wohnungs-Abzeichen `house_eltern`, `house_schuppen`, `house_dachboden`, `house_hochhaus`, `house_haus`, `house_silver`, `house_bronze`
+- `ha2` (Handwerkliches Geschick, zweites Bild): `research_basteln`, `research_kleber`, `research_bauen`, `research_werkzeug2`, `research_handwerk2`, `research_bastel`
+- Abzeichen (unter `/img/awards/`): `award_aswmonthly_gold.png`, `award_aswmonthly_silver.png`, `award_aswmonthly_bronze.png` (korrekt geschrieben), `house_eltern.png`, `house_dachboden.png`, `house_hochhaus.png`, `house_haus.png`
 
-(alle `.jpg`, unter `/img/tasks/`)
+(Forschungsbilder alle `.jpg` unter `/img/tasks/`.)
+
+## Offene Kandidaten
+
+Keine. Die Forschungsbilder `ausb`, `bio`, `form`, `nest`, `ha2`, `jk`, `jv` bleiben unbekannt; es werden keine neuen Namen mehr geraten. Die Bildersuche zeigt nur noch die Statusliste.
 
 ## Ameisen-Stufenbilder
 

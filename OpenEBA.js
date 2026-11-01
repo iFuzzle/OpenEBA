@@ -7044,17 +7044,17 @@ function ebaShWohnTab() {
 // nacheinander geprobt, das erste ladbare gilt), Gruppe, Zweige. Steht nur ein Name da, ist die Datei vom Nutzer im Spiel
 // bestätigt und wird normal geladen; die übrigen sind GESCHÄTZTE Namen (das Namensschema im Spiel ist gemischt deutsch/englisch).
 // Der Knoten "jobs" hat keine eigenen Kandidaten: er zeigt das erste gefundene Bild von jk/jv/jf (ebaShImgExtra).
-// Alle erfolglos geprüften Kandidaten (ausb, bio, form, nest, jk, jv, Saison Halloween) stehen in BILDERSUCHE_GEPRUEFT.md und werden
-// nicht erneut geprüft; Knoten mit leerer Liste gelten als "nicht gefunden" (Buchstabe statt Bild). allg (research_allgemeinwissen.jpg)
+// Alle erfolglos geprüften Kandidaten (ausb, bio, form, nest, ha2, jk, jv, Saison Halloween, Abzeichen-Varianten) stehen in BILDERSUCHE_GEPRUEFT.md und werden
+// nicht erneut geprüft; Knoten mit leerer Liste gelten als "nicht gefunden" (es gibt keine offenen Kandidaten mehr) (Buchstabe statt Bild). allg (research_allgemeinwissen.jpg)
 // und jf (research_gabelstapler.jpg) sind vom Nutzer im Spiel bestätigt. Osterei-Futter: img/items/food_osterei.jpg (bestätigt, kommt in der Spielhilfe nicht vor).
 // Kandidaten mit "img/..." sind Pfade ab Wurzel (z. B. img/awards/...), alle anderen liegen unter /img/tasks/.
 var ebaShNodes = [
   ["allg", "Allgemeines\nüber Ameisen", ["research_allgemeinwissen.jpg"], "t", ["allg"]],
   ["einh", "Einheimische\nArten", ["research_ameisen_einheimisch.jpg"], "a", ["einh"]],
-  ["ausb", "Ausbruchschutz", ["research_puder.jpg", "research_pulver.jpg", "research_powder.jpg", "research_flasche.jpg", "research_talk.jpg"], "f", ["ausb"]],
+  ["ausb", "Ausbruchschutz", [], "f", ["ausb"]],
   ["futt", "Futtertiere", ["research_futter.jpg"], "f", ["futt"]],
   ["bonus", "Forschungs-\nbonus", ["research_forschungsbonus.jpg"], "b", ["bonus"]],
-  ["bio", "Biologie der\nAmeisen", ["research_gaster.jpg", "research_hautfluegler.jpg", "research_hymenoptera.jpg", "research_anatomie.jpg", "research_koerper.jpg", "research_zeichnung.jpg"], "b", ["bio"]],
+  ["bio", "Biologie der\nAmeisen", [], "b", ["bio"]],
   ["hand", "Handwerkliches\nGeschick", ["research_werkzeug.jpg"], "h", ["hand"]],
   ["find", "Ameisen finden\nund bestimmen", ["research_ameisenfinden.jpg"], "a", ["find"]],
   ["jobs", "Jobver-\nbesserungen", [], "j", ["jk", "jv", "jf"]],
@@ -7064,8 +7064,8 @@ var ebaShNodes = [
   ["zucker", "Zuckerwasser\nselbst\nherstellen", ["research_sugarwater.jpg"], "f", ["zucker"]],
   ["poly", "Polygynie", ["research_polygyny.jpg"], "b", ["poly"]],
   ["wachs", "Ameisen-\nwachstum", ["research_wachstum.jpg"], "b", ["wachs"]],
-  ["form", "Formicarien-\nbau", ["research_glas.jpg", "research_acryl.jpg", "research_beton.jpg", "research_plexiglas.jpg"], "h", ["form"]],
-  ["nest", "Nestbau", ["research_lehm.jpg", "research_erde.jpg", "research_sand.jpg", "research_holz.jpg"], "h", ["nest"]],
+  ["form", "Formicarien-\nbau", [], "h", ["form"]],
+  ["nest", "Nestbau", [], "h", ["nest"]],
   ["asw", "Ameisen-\nschutzwarte", ["research_asw.jpg"], "j", ["asw"]],
   ["exot", "Exotische\nArten", ["research_ameisen_exotisch.jpg"], "a", ["exot"]],
   ["blaetter", "Blätter-\nsammeln", ["research_blaetter.jpg"], "f", ["blaetter"]]
@@ -7076,15 +7076,8 @@ var ebaShImgExtra = [
   ["jk", "Jobverbesserung:\nKloputz (Pümpel)", [], "j", []],
   ["jv", "Jobverbesserung:\nVerhaltensforscher", [], "j", []],
   ["jf", "Jobverbesserung:\nGabelstaplerschein", ["research_gabelstapler.jpg"], "j", []],
-  // Weitere Bilder (nur Bildersuche): zweites Bild von Handwerkliches Geschick (Stufe 2), Job Verhaltensforscher, Job Weihnachtsmann
-  ["ha2", "Handwerkliches Geschick:\nzweites Bild", ["research_basteln.jpg", "research_kleber.jpg", "research_bauen.jpg", "research_werkzeug2.jpg", "research_handwerk2.jpg", "research_bastel.jpg"], "x", []],
-  ["jvj", "Job:\nVerhaltensforscher f\u00FCr Studie", ["job_verhaltensforscher.jpg", "job_studie.jpg", "job_uni.jpg", "job_universitaet.jpg", "job_forscher.jpg", "job_verhalten.jpg"], "x", []],
-  ["jwm", "Job:\nWeihnachtsmann", ["job_weihnachtsmann.jpg", "job_santa.jpg", "job_nikolaus.jpg", "job_xmas.jpg"], "x", []],
-  // Abzeichen-Varianten (Gruppe "y", unter /img/awards/): alle Kandidaten prüfen und alle Treffer melden (n[5] = true)
-  ["yasw", "Abzeichen:\nASW-Statistik Gold/Silber", ["img/awards/award_asw_gold.png", "img/awards/award_asw_silver.png"], "y", [], true],
-  ["yaswm", "Abzeichen:\nASW-Statistik Monat (Tippfehler)", ["img/awards/award_aswmonhtly_gold.png", "img/awards/award_aswmonhtly_bronze.png"], "y", [], true],
-  ["yaswm2", "Abzeichen:\nASW-Statistik Monat (korrekt)", ["img/awards/award_aswmonthly_gold.png", "img/awards/award_aswmonthly_silver.png", "img/awards/award_aswmonthly_bronze.png"], "y", [], true],
-  ["yhouse", "Abzeichen:\nAuszug je Wohnung", ["img/awards/house_eltern.png", "img/awards/house_schuppen.png", "img/awards/house_dachboden.png", "img/awards/house_hochhaus.png", "img/awards/house_haus.png", "img/awards/house_silver.png", "img/awards/house_bronze.png"], "y", [], true],
+  // Weiteres Bild (nur Bildersuche): zweites Bild von Handwerkliches Geschick (Stufe 2); nicht gefunden, keine Kandidaten mehr
+  ["ha2", "Handwerkliches Geschick:\nzweites Bild", [], "x", []]
 ];
 // Raster von oben nach unten: id -> [Spalte, Zeile, eingerückt]. Zeile 0 = Zweige unter der Wurzel,
 // darunter hängen deren Folge-Forschungen (eingerückt, Ast links daneben) bzw. stehen bei Ketten direkt darunter;
@@ -7420,7 +7413,7 @@ var ebaShJobs = [
   ["Museum sucht versierten Myrmekologen", [
     ["Museum sucht versierten Myrmekologen", "job_museum.jpg", 3, 8, 8 / 3, "Forschung Ameisen finden und bestimmen, Stufe 4 („Wo sind die besten Chancen?“)", "", 305]]],
   ["Verhaltensforscher für Studie gesucht", [
-    ["Verhaltensforscher für Studie gesucht", null, 12, 30, 2.5, "150-mal den Museumsjob, Allgemeines über Ameisen Stufe 11, dann Forschung Verhaltensforscher für Studie (Lehrbücher kaufen, auswendig lernen, Prüfung ablegen)", "", null]]],
+    ["Verhaltensforscher für Studie gesucht", "job_verhaltensforscher.jpg", 12, 30, 2.5, "150-mal den Museumsjob, Allgemeines über Ameisen Stufe 11, dann Forschung Verhaltensforscher für Studie (Lehrbücher kaufen, auswendig lernen, Prüfung ablegen)", "", null]]],
   ["Werbeplakate kleben", [
     ["Werbeplakate kleben", "job_plakate.jpg", 10, 25, 2.5, "Je 40 Klicks auf die Werbebanner (Abstimmen für EBA) gibt es einen Job ‚Werbeplakate kleben‘. Ob sich mehrere ansammeln, ist unklar.", "", 315]]],
   ["Betreuer bei studentischer Biologie-Exkursion", [
@@ -7572,7 +7565,7 @@ function ebaShFoodTab() {
     + "Waren w&auml;hrend der Oster-Events 2009, 2010, 2011, 2012 und 2013 sammelbar und sind nicht mehr im Spiel erh&auml;ltlich (au&szlig;er &uuml;ber Verkauf). "
     + "Zersetzungsrate: die geringste aller Protein-Futter, genauer Wert unbekannt.</div></div></div></div>";
   h += "<h4>Fr&uuml;here Events</h4><ul class='sh-list'><li>Oster-Events 2009&ndash;2013 (Ostereiersuche, Osterei als Futter)</li>"
-    + "<li>Weihnachtsaktion mit Job als Weihnachtsmann (Jahr/Details unbekannt)</li></ul><p class='sh-small'>Ob die Events wiederkommen, ist offen.</p>";
+    + "<li>Weihnachtsaktion mit Job als Weihnachtsmann (Jahr/Details unbekannt) " + ebaShImg(["/img/tasks/job_weihnachtsmann.jpg"], "sh-jimg", "Job Weihnachtsmann") + "</li></ul><p class='sh-small'>Ob die Events wiederkommen, ist offen.</p>";
   h += "<h4>Futtersuche (Drau&szlig;en &rarr; Futter suchen)</h4><div class='sh-jobs sh-ffind'>";
   $.each([["Futtertiere sammeln", "findfood.jpg", "Dauer 15, 30, 45 oder 60 Minuten. L\u00E4ngere Suchen geben weniger Ertrag pro Minute. Kosten 0 \u20AC. Liefert Futtertiere.", "Forschung Futtertiere, Stufe 2 (Futtertiersuche)"],
           ["K\u00F6rner und Samen sammeln", "findfood_loewensamen.jpg", "Dauer 15, 30, 45 oder 60 Minuten. L\u00E4ngere Suchen geben weniger Ertrag pro Minute. Kosten 0 \u20AC. Liefert K\u00F6rner und Samen.", "Forschung Futtertiere, Stufe 6 (Samensuche)", "nach 5000 gefundenen Samen und mit Futtertiere Stufe 10, Forschung Samensammeln, erh\u00F6ht den Ertrag."],
@@ -7587,15 +7580,13 @@ function ebaShFoodTab() {
 
 function ebaShImgInfoHtml() {
   var h = "<table class='liste sh-tab sh-imgtab'><tr><th>Forschung</th><th>Ergebnis</th><th>geprobte Dateien</th></tr>", n = 0, found = 0, report = [], running = false, seenGrp = {}, cache = ebaShImgCacheLoad();
-  $.each(ebaShImgList(), function(i, nd) {
+  // Knoten mit Dateinamen sowie eigene Knoten ohne Kandidaten (= nicht gefunden); abgeleitete Knoten (jobs) entfallen
+  var rows = $.grep(ebaShNodes.concat(ebaShImgExtra), function(nd) { return nd[2].length > 0 || nd[4].length === 0 || nd[4][0] === nd[0]; });
+  $.each(rows, function(i, nd) {
     var r = ebaShImgRes[nd[0]], known = ebaShImgKnown[nd[0]];
     if (nd[3] === "x" && !seenGrp.x) {
       seenGrp.x = true;
-      h += "<tr><th colspan='3'>Weitere Bilder (zweites Bild Handwerkliches Geschick, Jobs; nur Entwickler-Suche, " + ebaShImgProbeCount("x") + " Anfragen)</th></tr>";
-    }
-    if (nd[3] === "y" && !seenGrp.y) {
-      seenGrp.y = true;
-      h += "<tr><th colspan='3'>Abzeichen-Varianten (unter img/awards; alle Treffer werden gemeldet; nur Entwickler-Suche, " + ebaShImgProbeCount("y") + " Anfragen)</th></tr>";
+      h += "<tr><th colspan='3'>Weitere Bilder (zweites Bild Handwerkliches Geschick)</th></tr>";
     }
     if (nd[3] !== "x" && nd[3] !== "y") { n++; if (r) { found++; } }
     if (ebaShImgRun[nd[0]]) { running = true; }
@@ -7604,13 +7595,16 @@ function ebaShImgInfoHtml() {
     h += "<tr><td>" + ebaShE(nd[1].replace(/\n/g, " ")) + "</td><td class='" + (r ? "ok" : (r === "" ? "no" : "")) + "'>"
       + (r === undefined ? (ebaShImgRun[nd[0]] ? "wird gesucht &hellip;" : "nicht gepr&uuml;ft")
         : (r ? (known && !ebaShImgDone ? "bekannt: " : "gefunden: ") + ebaShE(r) : "nicht gefunden"))
-      + "</td><td class='sh-small'>" + (known ? "&ndash;" : ebaShE(nd[2].join(", "))) + "</td></tr>";
+      + "</td><td class='sh-small'>" + (known ? "&ndash;" : (nd[2].length ? ebaShE(nd[2].join(", ")) : "siehe BILDERSUCHE_GEPRUEFT.md")) + "</td></tr>";
   });
   var out = "<div class='sh-small'>" + found + " von " + n + " Forschungsbildern bekannt. Es gibt keine automatische Suche: Bilder mit festem Dateinamen werden normal geladen, "
     + "bei den &uuml;brigen steht ein Buchstabe. Der Knopf pr&uuml;ft einmal die Dateinamen der noch unbekannten Bilder im Browser (die bekannten werden nicht angefragt); gefundene Bilder merkt sich der Browser danach f&uuml;r dich. "
     + "Die Jobverbesserungen werden einzeln gesucht; der Baumknoten zeigt das erste gefundene der drei.</div>"
-    + "<p><button type='button' class='sh-chip sh-imgre'" + (running ? " disabled" : "") + ">Bildnamen jetzt einmal pr&uuml;fen</button> "
-    + "<span class='sh-small'>Macht ca. " + ebaShImgProbeCount() + " Anfragen an den Spielserver (davon " + (ebaShImgProbeCount("x") + ebaShImgProbeCount("y")) + " f&uuml;r weitere Bilder).</span></p>" + h + "</table>";
+    + (ebaShImgProbeCount() > 0
+      ? "<p><button type='button' class='sh-chip sh-imgre'" + (running ? " disabled" : "") + ">Bildnamen jetzt einmal pr&uuml;fen</button> "
+        + "<span class='sh-small'>Macht ca. " + ebaShImgProbeCount() + " Anfragen an den Spielserver.</span></p>"
+      : "<p class='sh-small'>Keine offenen Kandidaten: alle bisher geratenen Dateinamen sind gepr&uuml;ft (siehe BILDERSUCHE_GEPRUEFT.md).</p>")
+    + h + "</table>";
   if (report.length && !running) {
     out += "<p class='sh-small'>Ergebnis zum Kopieren (bitte dem Entwickler schicken; &ndash; = nicht gefunden):<br>"
       + "<textarea class='sh-imgreport' readonly rows='" + Math.min(report.length + 1, 12) + "' style='width:100%;font-family:monospace'>"
@@ -7633,9 +7627,9 @@ function ebaShBadgesHtml() {
     + "<p class='sh-small'>Abzeichen im Profil (Bilder vom Spielserver, nur bekannte Dateien).</p><ul class='sh-list sh-abzlist'>"
     + it(["award_star_gold_1.png"], "ausgewachsene &lt;Art&gt; Kolonie", "Je Art einmal; z&auml;hlt f&uuml;r die Sammlung als erledigt.")
     + it(["award_star_bronze_3.png"], "&lt;Art&gt; Kolonie mit N Arbeiterinnen", "Gr&ouml;&szlig;enrekord.")
-    + it(["house_gold.png", "house_schloss.png"], "bei den Eltern ausgezogen", "Bild je nach Wohnung.")
-    + it(["award_asw_bronze.png"], "Platz 3 in der ASW-Statistik", "Gold und Silber analog vermutet.")
-    + it(["award_aswmonhtly_silver.png"], "Platz 2 in der ASW-Statistik des letzten Monats", "Der Dateiname hat im Spiel einen Tippfehler (<i>monhtly</i>).")
+    + it(["house_schuppen.png", "house_silver.png", "house_bronze.png", "house_gold.png", "house_schloss.png"], "bei den Eltern ausgezogen", "Bild je nach Wohnung (Zuordnung bis auf Schuppen und Schloss unbekannt).")
+    + it(["award_asw_gold.png", "award_asw_silver.png", "award_asw_bronze.png"], "Platz 1&ndash;3 in der ASW-Statistik", "Gold, Silber, Bronze.")
+    + it(["award_aswmonhtly_gold.png", "award_aswmonhtly_silver.png", "award_aswmonhtly_bronze.png"], "Platz 1&ndash;3 in der ASW-Statistik des letzten Monats", "Der Dateiname hat im Spiel einen Tippfehler (<i>monhtly</i>).")
     + it(["marsameise.png"], "Marsameise als N. gefunden am &lt;Datum&gt;", "")
     + it(["forklift.png"], "Gabelstaplerschein bestanden", "")
     + it(["osterei.png"], "Platzierung bei der Ostereiersuche", "Events 2009&ndash;2013.")
