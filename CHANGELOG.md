@@ -15,6 +15,14 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
 
 > **Hinweis vor dem Update:** Mehrere Versionen (31.1, 31.7, 31.9) wandeln gespeicherte Daten beim ersten Start automatisch um. Empfehlung: vorher in der openEBA-Konfiguration die Daten über *Exportieren* sichern.
 
+## 33.19 (01.11.2026)
+
+- Spielhilfe, Forschungsbaum: „Handwerkliches Geschick“ steht links unter „Zuckerwasser selbst herstellen“, der Baum passt ohne Seitenscrollen in die Lexikon-Spalte; Karten und Schrift etwas größer.
+- Spielhilfe, Bilder: 14 im Spiel bestätigte Forschungsbilder fest eingetragen (u. a. `research_werkzeug.jpg` für Handwerkliches Geschick, `research_sugarwater.jpg`). Die Bildersuche unter Info prüft nur noch die unbekannten (Allgemeines, Ausbruchschutz, Biologie, Formicarienbau, Nestbau und die drei Jobverbesserungen einzeln).
+- Spielhilfe: Forschungsbaum vollständig gegen die Spielhilfe-Tabelle geprüft (keine Abweichungen). Klargestellt: „Körner und Samen sammeln“ gibt es ab Futtertiere Stufe 6, die Forschung Samensammeln erhöht nur den Ertrag.
+- Spielhilfe, Vergleich: Filter „Alle / im Shop kaufbar / nicht im Shop“ (Shop-Arten sind ebenfalls findbar). Steckbriefe zeigen die Fundorte.
+- Neue Option: Auf „Ameisen suchen“ steht bei jedem Suchort, welche Arten dort laut Spielhilfe findbar sind.
+
 ## 33.18 (01.11.2026)
 
 - Kolonie-Verlauf: Arbeiterinnen und Punkte in einem Diagramm (Punkte auf eigener rechter Achse), direkt darunter neu der Punktezuwachs je Tick (bei Lücken Durchschnitt je Tick, Nulllinie). Untertitel nennt die fehlenden Punkte bis zum Maximum und wie lange die Kolonie schon ohne Zuwachs ist – hilft zu entscheiden, ob sich das Weiterwachsen noch lohnt.
