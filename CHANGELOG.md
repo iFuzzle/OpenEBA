@@ -15,6 +15,10 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
 
 > **Hinweis vor dem Update:** Mehrere Versionen (31.1, 31.7, 31.9) wandeln gespeicherte Daten beim ersten Start automatisch um. Empfehlung: vorher in der openEBA-Konfiguration die Daten über *Exportieren* sichern.
 
+## 33.31 (01.11.2026)
+
+- Bildersuche (Entwickler-Werkzeug): zweiter Button „Ameisen-Stufenbilder prüfen“ – prüft für alle 35 Arten die Bilder Stufe 0–15 und `_shop` (ca. 595 Anfragen, nur per Klick, abbrechbar) und liefert eine Liste zum Kopieren.
+
 ## 33.30 (01.11.2026)
 
 - Einstellungsseite: oben „openEBA Version X“, damit man im Spiel sieht, welche Version geladen ist.
