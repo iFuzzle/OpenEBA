@@ -6554,9 +6554,43 @@ function ebaShImg(chain, cls, alt) {
     + "' alt='" + ebaShE(alt || "") + "' loading='lazy'>";
 }
 function ebaShAntBase(name) { return name.replace(/\./g, "").replace(/\s+/g, "_"); }
+// Bestätigte Bildpfade (echte Pfade aus einem Spielerprofil) je Art in Stufenreihenfolge
+// (Bildnummer steigt mit der Koloniegröße); [vollständig?, Pfade ab /img/]. Die letzte Datei
+// ist die ausgewachsene Kolonie. Formica fusca: 4 fehlt in der Liste, Myrmica rubra evtl. unvollständig.
+const ebaShAntImgs = {
+  "Camponotus herculeanus": [true, ["ants/Camponotus_herculeanus1.jpg", "ants/Camponotus_herculeanus2.jpg"]],
+  "Camponotus ligniperda": [true, ["ants/Camponotus_ligniperda1.jpg", "ants/Camponotus_ligniperda2.jpg", "ants/Camponotus_ligniperda3.jpg"]],
+  "Formica fusca": [false, ["ants/Formica_fusca1.jpg", "ants/Formica_fusca2.jpg", "ants/Formica_fusca3.jpg", "ants/Formica_fusca5.jpg", "ants/Formica_fusca6.jpg",
+    "ants/Formica_fusca7.jpg", "ants/Formica_fusca8.jpg", "ants/Formica_fusca9.jpg", "ants/Formica_fusca10.jpg", "ants/Formica_fusca11.jpg"]],
+  "Lasius flavus": [true, ["ants/Lasius_flavus1.jpg", "ants/Lasius_flavus2.jpg", "ants/Lasius_flavus3.jpg", "ants/Lasius_flavus4.jpg", "ants/Lasius_flavus5.jpg", "ants/Lasius_flavus6.jpg"]],
+  "Lasius niger": [true, ["ants/Lasius_niger1.jpg", "ants/Lasius_niger2.jpg", "ants/Lasius_niger3.jpg", "ants/Lasius_niger4.jpg", "ants/Lasius_niger5.jpg",
+    "ants/Lasius_niger6.jpg", "ants/Lasius_niger7.jpg", "ants/Lasius_niger8.jpg", "ants/Lasius_niger9.jpg", "ants/Lasius_niger10.jpg"]],
+  "Myrmica rubra": [false, ["ants/Myrmica_rubra1.jpg", "ants/Myrmica_rubra2.jpg", "ants/Myrmica_rubra3.jpg", "ants/Myrmica_rubra4.jpg"]],
+  "Temnothorax nylanderi": [true, ["items/item_haselnuss.jpg", "ants/Temnothorax_nylanderi2.jpg", "ants/Temnothorax_nylanderi3.jpg", "ants/Temnothorax_nylanderi4.jpg", "ants/Temnothorax_nylanderi5.jpg"]],
+  "Pheidole pallidula": [true, ["ants/Pheidole_pallidula1.jpg", "ants/Pheidole_pallidula2.jpg", "ants/Pheidole_pallidula_shop.jpg"]]
+};
+// Nur ein bestätigtes Bild (ausgewachsen), keine Stufenreihe bekannt: nur als Hauptbild
+const ebaShAntImgMain = {
+  "Solenopsis fugax": "ants/Solenopsis_fugax_shop.jpg",
+  "Acromyrmex spec.": "ants/Acromyrmex_spec3.jpg",
+  "Camponotus cruentatus": "ants/Camponotus_cruentatus3.jpg"
+};
 function ebaShAntImg(name, cls) {
-  var b = "/img/ants/" + ebaShAntBase(name);
+  var l = ebaShAntImgs[name], b = "/img/ants/" + ebaShAntBase(name);
+  if (l) { return ebaShImg(["/img/" + l[1][l[1].length - 1]], cls, name); }
+  if (ebaShAntImgMain[name]) { return ebaShImg(["/img/" + ebaShAntImgMain[name]], cls, name); }
   return ebaShImg([b + "_shop.jpg", b + "1.jpg"], cls, name);
+}
+// Galerie "Bilder je Wachstumsstufe" (nur Arten mit bestätigter Liste); Stufe = Zahl im Dateinamen, sonst Position
+function ebaShAntStages(name) {
+  var l = ebaShAntImgs[name];
+  if (!l) { return ""; }
+  var h = "<div class='sh-galbox'><b>Bilder je Wachstumsstufe</b>" + (l[0] ? "" : " <small>(Liste evtl. unvollst&auml;ndig)</small>") + "<div class='sh-gal'>";
+  $.each(l[1], function(i, f) {
+    var m = /(\d+)\.jpg$/.exec(f), st = m ? m[1] : i + 1;
+    h += "<img src='/img/" + f + "' data-gal='1' title='Stufe " + st + "' alt='Stufe " + st + "' loading='lazy'>";
+  });
+  return h + "</div></div>";
 }
 // Fehlerbehandlung für alle Bilder der Ansicht (error bubbelt nicht -> Capture)
 function ebaShImgError(e) {
@@ -6652,7 +6686,8 @@ function ebaShAntCard(r, maxP) {
       h += "<div class='sh-calc' data-name='" + ebaShE(n) + "'>K&ouml;niginnen: <input type='number' class='sh-q' min='1' max='99' value='"
         + (ebaShState.open[n].q || 2) + "'> <span class='sh-calc-out'></span></div>";
     }
-    h += "<div class='sh-galbox'><button type='button' class='sh-gal-btn'>Entwicklungsstufen-Bilder laden</button><div class='sh-gal'></div></div>";
+    h += ebaShAntImgs[n] ? ebaShAntStages(n)
+      : "<div class='sh-galbox'><button type='button' class='sh-gal-btn'>Entwicklungsstufen-Bilder laden</button><div class='sh-gal'></div></div>";
   }
   return h + "</div>";
 }
