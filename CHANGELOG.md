@@ -15,6 +15,10 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
 
 > **Hinweis vor dem Update:** Mehrere Versionen (31.1, 31.7, 31.9) wandeln gespeicherte Daten beim ersten Start automatisch um. Empfehlung: vorher in der openEBA-Konfiguration die Daten über *Exportieren* sichern.
 
+## 33.21 (01.11.2026)
+
+- Spielhilfe: Regalplätze für alle 35 Arten berechnet (Platzbedarf je Arbeiterin × maximale Arbeiterinnen → kleinstes passendes Nest und Formicarium; das Formicarium zieht mit der Nestgröße nach; bei Nestbecken zählen beide Formicarien). Neue sortierbare Spalte im Vergleich mit Rechnung im Tooltip, Zeile „Benötigt“ im Steckbrief. Hinweis auf die riesige Anlage (0 Regalplätze, gewollt). Abweichungen zur Spielhilfe-Tabelle sind mit ‡ markiert, die Tabelle hat Vorrang.
+
 ## 33.20 (01.11.2026)
 
 - Spielhilfe: neuer Reiter „ASW“ mit den Aktionen der Ameisenschutzwarte (riesige Anlage, Riesen-YTong-Nest, Käferlarven) samt Bild, Dauer, Kosten und verbrauchten ASW-Punkten; ASW-Punkte gibt es fürs Auswildern.
