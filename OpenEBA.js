@@ -6394,7 +6394,7 @@ function ebaShAntRows() {
 // ---- Reiter: Ameisen --------------------------------------------------------
 
 function ebaShAntCard(r, maxP) {
-  var m = r.m, a = r.a, n = r.name, speed = ebaShSpeed(), dev = a[7] ? a[7].split("/") : null;
+  var m = r.m, a = r.a, n = r.name, rg = ebaShRegal(n), speed = ebaShSpeed(), dev = a[7] ? a[7].split("/") : null;
   var w = Math.max(3, Math.round(100 * Math.sqrt(m.p / maxP))), open = ebaShState.open[n];
   var zuw = !m.poly ? "monogyn" : "polygyn, +" + ebaShN(speed ? m.ps : m.pn) + " je weiterer K&ouml;nigin"
     + (speed ? " (Speed)" : " (normal)");
@@ -6412,7 +6412,9 @@ function ebaShAntCard(r, maxP) {
     + "<tr><td>Koloniegr&ouml;&szlig;e</td><td>" + zuw + "</td></tr>"
     + "<tr><td>Fundorte</td><td>" + (a[2] ? ebaShE(a[2]) : "&ndash;") + "</td></tr>"
     + "<tr><td>ASW-Punkte</td><td>" + ebaShN(a[4]) + "</td></tr>"
-    + "<tr><td>Verkaufspreis</td><td>" + (a[5] ? ebaShE(a[5]) + "&nbsp;&euro;" : "&ndash;") + "</td></tr></table>"
+    + "<tr><td>Verkaufspreis</td><td>" + (a[5] ? ebaShE(a[5]) + "&nbsp;&euro;" : "&ndash;") + "</td></tr>"
+    + "<tr><td>Ben&ouml;tigt</td><td class='sh-regal' title='" + (rg ? ebaShE(ebaShRegalTip(rg)) : "") + "'>"
+    + (rg ? "Nest " + ebaShE(rg.nest) + ", Formicarium " + ebaShE(rg.form) + ", <b>" + ebaShN(rg.shelf, 1) + (rg.shelf === 1 ? " Regalplatz" : " Regalpl&auml;tze") + "</b>" + (rg.dev.length ? " <sup>&Dagger;</sup>" : "") : "&ndash;") + "</td></tr></table>"
     + "<div class='sh-more'>" + (open ? "&#9650; weniger" : "&#9660; Details") + "</div>";
   if (open) {
     var ph = (m.n != null ? m.n / m.a : null), pf = (m.f != null ? m.f / m.a : null), nestImg = "";
@@ -6489,19 +6491,84 @@ function ebaShAntsTab() {
 
 // ---- Reiter: Vergleich (alle Arten; Shopameisen mit Verkaufsrechnung) -------
 
+// Regalplätze je Art (alle Arten). Regel: Platzbedarf = Platzbedarf je Arbeiterin x max. Arbeiterinnen
+// (antmax.n bzw. antmax.f, Brut nicht eingerechnet wie im Blatt Ameisen) -> kleinstes passendes Nest bzw.
+// Formicarium (Kapazitäten: nestCapacity/formiCapacity). Nest und Formicarium gehören paarweise zusammen
+// (Excel: Reagenzglas/Mini Arena, kleines Nest/kleines Formi, mittleres Nest/mittleres Formi, großes Nest/großes Formi,
+// mittleres Ytong/mittlere Anlage, großes Ytong/große Anlage, riesiges Ytong/riesige Anlage): Ist das Nest größer als
+// das Formicarium, zieht das Formicarium auf die Klasse des Nests nach (z.B. Lasius flavus, Anochetus).
+// Nester belegen keine Regalplätze (im Excel haben nur Formicarien einen Regalwert); jedes Formicarium belegt seine.
+// Das Excel hat Vorrang (min. Nest / min. Formi, bei Shopameisen auch die Regalplätze); Abweichungen der Rechnung
+// werden in .dev gesammelt. Ist als min. Nest ein Formicarium genannt (Nestbecken: Acromyrmex, Polyrhachis),
+// zählen beide Formicarien. Riesige Anlage: Regalplätze 0 (Absicht: braucht eigenen Platz in der Wohnung).
+var ebaShNestSteps = [["Reagenzglas", "reagenzglas", "Mini Arena"], ["kleines Nest", "kleines nest", "kleines Formicarium"],
+  ["mittleres Nest", "mittleres nest", "mittleres Formicarium"], ["großes Nest", "großes nest", "großes Formicarium"],
+  ["mittleres Ytong Nest", "mittleres ytong nest", "mittlere Anlage"], ["großes Ytong Nest", "großes ytong nest", "große Anlage"],
+  ["riesiges Ytong Nest", "riesiges ytong nest", "riesige Anlage"]];
+var ebaShFormiSteps = [["Mini Arena", 0.5], ["kleines Formicarium", 1], ["mittleres Formicarium", 2], ["großes Formicarium", 3],
+  ["mittlere Anlage", 4], ["große Anlage", 6], ["riesige Anlage", 0]];
+function ebaShFormiIdx(nm) {
+  var k = ("" + nm).toLowerCase().replace(/formi$/, "formicarium");
+  for (var i = 0; i < ebaShFormiSteps.length; i++) { if (ebaShFormiSteps[i][0].toLowerCase() === k) { return i; } }
+  return -1;
+}
+function ebaShNestIdx(nm) {
+  var k = ("" + nm).toLowerCase().replace(/ytong$/, "ytong nest");
+  for (var i = 0; i < ebaShNestSteps.length; i++) { if (ebaShNestSteps[i][1] === k) { return i; } }
+  return -1;
+}
+function ebaShRegal(name) {
+  var m = antmax[name], a = ebaShAnts[name];
+  if (!m || !a || m.n == null || m.f == null) { return null; }
+  var i, ni = -1, fi = -1;
+  for (i = ebaShNestSteps.length - 1; i >= 0; i--) { if (nestCapacity[ebaShNestSteps[i][1]] >= m.n) { ni = i; } }
+  for (i = ebaShFormiSteps.length - 1; i >= 0; i--) { if (formiCapacity[ebaShFormiSteps[i][0].toLowerCase()] >= m.f) { fi = i; } }
+  if (ni < 0 || fi < 0) { return null; }
+  var pair = ebaShFormiIdx(ebaShNestSteps[ni][2]), pulled = pair > fi;
+  if (pulled) { fi = pair; }
+  var rule = { nest: ebaShNestSteps[ni][0], form: ebaShFormiSteps[fi][0], shelf: ebaShFormiSteps[fi][1] };
+  // Excel (Blatt Ameisen): min. Nest / min. Formicarium, Nestbecken = Formicarium als Nest
+  var xf = ebaShFormiIdx(a[0]), xnF = ebaShFormiIdx(a[1]), xn = ebaShNestIdx(a[1]), dev = [];
+  var form = xf >= 0 ? ebaShFormiSteps[xf][0] : rule.form, formNest = xnF >= 0, nest;
+  if (formNest) { nest = ebaShFormiSteps[xnF][0]; } else if (xn >= 0) { nest = ebaShNestSteps[xn][0]; } else { nest = a[1] || rule.nest; }
+  var shelf = (xf >= 0 ? ebaShFormiSteps[xf][1] : rule.shelf) * (formNest ? 2 : 1);
+  var s = ebaShShop[name], shelfRule = shelf;
+  if (nest !== rule.nest && !formNest) { dev.push("Nest: Rechnung " + rule.nest + ", Excel " + nest); }
+  if (formNest) { dev.push("Nest: Rechnung " + rule.nest + ", Excel " + nest + " (Formicarium als Nest)"); }
+  if (form !== rule.form) { dev.push("Formicarium: Rechnung " + rule.form + ", Excel " + form); }
+  if (s && s[1] != null && s[1] !== shelf) {
+    dev.push("Regalplätze: Spielhilfe-Blatt Shopameisen " + s[1] + ", Rechnung " + shelf);
+    shelf = s[1];
+  }
+  var rn = m.n / m.a, rf = m.f / m.a, fm = function(x) { return ebaShN(x, 4); };
+  return { nest: nest, form: form, formNest: formNest, shelf: shelf, shelfCalc: shelfRule, dev: dev, pulled: pulled,
+           nestNeed: m.n, formNeed: m.f, shopExcel: !!(s && s[1] != null),
+           calc: fm(rn) + " Nest und " + fm(rf) + " Formicarium je Arbeiterin × " + ebaShN(m.a) + " = Nest " + ebaShN(m.n, 2)
+             + ", Formicarium " + ebaShN(m.f, 2) + (pulled ? "; Formicarium zieht auf die Klasse des Nests nach" : "")
+             + (formNest ? "; Formicarium dient als Nest, beide zählen" : "") };
+}
+function ebaShRegalTip(g) {
+  var t = "Nest " + g.nest + ", Formicarium " + g.form + " (Rechnung: " + g.calc + ")."
+    + " Regalplätze " + ebaShN(g.shelf, 1) + (g.formNest ? " (Rechnung mit beiden Formicarien: 2 × " + ebaShN(g.shelfCalc / 2, 1) + " = " + ebaShN(g.shelfCalc, 1) + ")" : "") + "; Nester belegen keinen Regalplatz."
+    + (g.formNeed <= 200000 ? " Mit riesiger Anlage (ASW-Aktion: 150 ASW-Punkte + 1 Regal) 0 Regalplätze; sie braucht einen eigenen Platz in der Wohnung (Bedarf " + ebaShN(g.formNeed, 2) + " ≤ 200.000: passt)." : "");
+  if (g.dev.length) { t += " Abweichung: " + g.dev.join("; ") + "."; }
+  return t;
+}
+function ebaShRegalTxt(g) { return g ? ebaShE(g.nest) + ", " + ebaShE(g.form) + ", " + ebaShN(g.shelf, 1) + " Regalplätze" : "&ndash;"; }
+
 // Zeilen für ALLE Arten. Werte, die es nur für Shopameisen gibt (Blatt "Shopameisen":
-// Tage, Regalplätze, Verkaufserlös), bleiben bei den übrigen Arten null (Anzeige "–").
+// Tage, Verkaufserlös), bleiben bei den übrigen Arten null (Anzeige "–"). Regalplätze: ebaShRegal().
 // Punkte, Kolonie, Pt/A und min. Formi gelten für alle Arten (Blatt "Ameisen", Pt/A = Punkte / Kolonie).
 function ebaShShopRows() {
   var out = [];
   $.each(ebaShAnts, function(name, a) {
-    var m = antmax[name], s = ebaShShop[name], d = s ? s[0] : null, g = s ? s[3] : null;
-    out.push({ name: name, cat: antcat[name] || 0, hid: $.inArray(name, ebaShHidden) >= 0, buyable: shopPriceLimits[name] != null,
-               days: d, shelf: s ? s[1] : null, pmin: s ? s[2] : null, pmax: g, buy: shopPriceLimits[name],
+    var m = antmax[name], s = ebaShShop[name], d = s ? s[0] : null, g = s ? s[3] : null, rg = ebaShRegal(name), sh = rg ? rg.shelf : null;
+    out.push({ rg: rg, name: name, cat: antcat[name] || 0, hid: $.inArray(name, ebaShHidden) >= 0, buyable: shopPriceLimits[name] != null,
+               days: d, shelf: sh, pmin: s ? s[2] : null, pmax: g, buy: shopPriceLimits[name],
                p: m.p, a: m.a, pta: m.p / m.a, minf: a[0],
-               ppd: d ? m.p / d : null, ppds: d ? m.p / d / s[1] : null,
-               gpd: d ? g / d : null, gpds: d ? g / d / s[1] : null,
-               asw: a[4], aswd: d ? a[4] / d : null, aswds: d ? a[4] / d / s[1] : null, awe: a[6] ? a[4] / a[6] : null });
+               ppd: d ? m.p / d : null, ppds: d && sh ? m.p / d / sh : null,
+               gpd: d ? g / d : null, gpds: d && sh ? g / d / sh : null,
+               asw: a[4], aswd: d ? a[4] / d : null, aswds: d && sh ? a[4] / d / sh : null, awe: a[6] ? a[4] / a[6] : null });
   });
   return out;
 }
@@ -6512,7 +6579,7 @@ var ebaShVCols = [
   ["a", "Kolonie &dagger;", "Maximale Arbeiterinnen bei einer Königin (Blatt Ameisen, alle Arten)", false],
   ["pta", "Pt/A &dagger;", "Punkte je Arbeiterin = Punkte / Kolonie; aus Blatt Ameisen gerechnet, alle Arten", false],
   ["asw", "ASW-Pt &dagger;", "Punkte f\u00FCr die Ameisenschutzwarte (Blatt Ameisen, Spalte ASW Pt; alle Arten)", false],
-  ["shelf", "Regal", "Regalplätze; nur für Shopameisen bekannt", true],
+  ["shelf", "Regalpl&auml;tze", "Regalplätze = Regalplätze der Formicarien, die die Art bei voller Kolonie braucht (Rechnung im Tooltip der Zeile); Excel hat Vorrang; &Dagger; = Abweichung zur Rechnung", true],
   ["minf", "min. Formi &dagger;", "Mindest-Formicarium (Blatt Ameisen, alle Arten); sortiert nach Kapazität", true],
   ["pmax", "Verkauf (&euro;)", "Erlös einer ausgewachsenen Kolonie im Shop; nur für Shopameisen bekannt", false],
   ["buy", "Ankauf max./Ameise", "Höchster Ankaufspreis je Ameise; nur für Shopameisen bekannt", false],
@@ -6563,8 +6630,10 @@ function ebaShShopTab() {
     h += "<button type='button' class='sh-chip" + (s.vcat === c[0] ? " on" : "") + "' data-f='vcat' data-v='" + c[0] + "'>" + c[1] + "</button>";
   });
   h += "</div><p class='sh-note sh-polynote'><b>Polygynie:</b> Die meisten Angaben beziehen sich auf eine K&ouml;nigin; bei polygynen Arten bringt jede K&ouml;nigin denselben Zuwachs an Arbeiterinnen.</p><p class='sh-note'>Vergleich aller Arten. <b>Im Shop kaufbar</b> = die Art wird im Shop angeboten (auch diese Arten lassen sich in der Natur finden), <b>nicht im Shop</b> = kein Shop-Angebot. Fundorte stehen im Steckbrief (Reiter Ameisen). "
-    + "<b>Tage</b> (Auswachszeit bei h&ouml;chster Stufe <i>Ameisenwachstum</i>), <b>Regal</b>, <b>Verkauf</b> und <b>Ankauf</b> gibt es in der Spielhilfe nur f&uuml;r Shopameisen, "
+    + "<b>Tage</b> (Auswachszeit bei h&ouml;chster Stufe <i>Ameisenwachstum</i>), <b>Verkauf</b> und <b>Ankauf</b> gibt es in der Spielhilfe nur f&uuml;r Shopameisen, "
     + "sonst steht &bdquo;&ndash;&ldquo; (beim Sortieren immer am Ende); die davon abh&auml;ngigen Spalten (Pkt/Tag, &euro;/Tag, &hellip;) ebenso. "
+    + "<b>Regalpl&auml;tze</b> gibt es f&uuml;r alle Arten: Platzbedarf je Arbeiterin &times; max. Arbeiterinnen, abgebildet auf das kleinste passende Nest bzw. Formicarium; das Formicarium ist mindestens so gro&szlig; wie die Klasse des Nests, nur Formicarien belegen Regalpl&auml;tze (bei Formicarium als Nest beide). Rechnung im Tooltip. <sup>&Dagger;</sup> = Abweichung der Rechnung zur Spielhilfe (Spielhilfe hat Vorrang). "
+    + "Mit der <i>riesigen Anlage</i> (ASW-Aktion, 150 ASW-Punkte + 1 Regal) w&auml;ren es 0 Regalpl&auml;tze, sie braucht aber einen eigenen Platz in der Wohnung (Absicht); sie fasst jede Art. "
     + "<b>&dagger;</b> = f&uuml;r alle Arten aus dem Blatt <i>Ameisen</i> (Pt/A = Punkte je Arbeiterin, gerechnet; ASW-Pt = Punkte f&uuml;r die Ameisenschutzwarte). "
     + "<b>ASW/Tag</b> und <b>ASW/Tag/Platz</b> gibt es nur, wo die Auswachszeit bekannt ist, <b>ASW je &euro; Kauf</b> nur f&uuml;r Arten mit Shop-Kaufpreis. "
     + "Gold = Top 3 nach &euro;/Tag, <span class='sh-top2'>gr&uuml;n</span> = Top 3 nach Pkt/Tag, jeweils innerhalb der gezeigten Arten. "
@@ -6582,7 +6651,7 @@ function ebaShShopTab() {
     }
     var g = $.inArray(r.name, top.gpd), pp = $.inArray(r.name, top.ppd);
     h += "<tr><td><i>" + ebaShE(r.name) + "</i>" + (r.hid ? " <small title='versteckte Art'>(versteckt)</small>" : "") + "</td><td>" + (r.days != null ? r.days : "&ndash;")
-      + "</td><td>" + ebaShN(r.p) + "</td><td>" + ebaShN(r.a) + "</td><td>" + ebaShN(r.pta, 2) + "</td><td>" + ebaShN(r.asw) + "</td><td>" + (r.shelf != null ? r.shelf : "&ndash;")
+      + "</td><td>" + ebaShN(r.p) + "</td><td>" + ebaShN(r.a) + "</td><td>" + ebaShN(r.pta, 2) + "</td><td>" + ebaShN(r.asw) + "</td><td title='" + (r.rg ? ebaShE(ebaShRegalTip(r.rg)) : "") + "'>" + (r.rg ? ebaShN(r.shelf, 1) + (r.rg.dev.length ? " <sup>&Dagger;</sup>" : "") : "&ndash;")
       + "</td><td>" + ebaShE(r.minf) + "</td><td>" + (r.pmax == null ? "&ndash;" : (r.pmin != null ? ebaShN(r.pmin, 2) + " &ndash; " : "?? &ndash; ") + ebaShN(r.pmax, 2))
       + "</td><td>" + ebaShEuro(r.buy) + "</td><td class='" + (pp >= 0 ? "sh-top2" : "") + "'>" + ebaShN(r.ppd, 1) + "</td><td>" + ebaShN(r.ppds, 1)
       + "</td><td class='" + (g >= 0 ? "sh-top1" : "") + "'>" + ebaShN(r.gpd, 2) + (g >= 0 ? " <small>#" + (g + 1) + "</small>" : "")
