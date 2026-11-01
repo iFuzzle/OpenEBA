@@ -91,7 +91,7 @@ const configItems = {
   "eba_enable_history_charts"                : [enableHistoryCharts, "Verlaufsgrafiken f&uuml;r Geld, Punkte und Formicarien", "Beim &Uuml;berfahren von <i>Geld</i> und <i>Punkte</i> in der Kopfzeile erscheint eine kleine Kurve aus den gespeicherten Werten. Ein Klick darauf &ouml;ffnet unter <i>Statistik</i> die Seite <i>openEBA-Verlauf</i> mit gro&szlig;en Diagrammen (Geld, Punkte, Tickl&auml;nge, je Formicarium Arbeiterinnen, Punkte, Brut und Hunger). Die Kurven brauchen die Optionen <i>Geld, Punkte und Tickl&auml;nge historisieren</i> bzw. <i>Formicarien-Statistik</i>."],
   "eba_enable_overview_escape_bar"           : [ebaNoop, "Ausbruchschutz in der &Uuml;bersicht mit Prozentbalken", "Zeigt in der Zeile <i>Ausbruchschutz</i> zus&auml;tzlich einen Prozentbalken vor dem Text. Wirkt nur, wenn die Option <i>Ausbruchschutz in der Formicarien-&Uuml;bersicht anzeigen</i> aktiv ist; ohne diese Option erscheint nur der Text (z.B. <i>97,4 % PTFE</i>)."],
   "eba_enable_overview_escape"               : [showOverviewEscape, "Ausbruchschutz in der Formicarien-&Uuml;bersicht anzeigen", "Unter dem Hunger (Proteine) bzw. dem Pilzstatus jeder Kolonie erscheint eine Zeile <i>Ausbruchschutz</i> mit Balken, Prozentwert (z.B. <i>97,4 %</i>; die Art, z.B. PTFE, steht im Tooltip). Das Spiel zeigt ihn in der &Uuml;bersicht nicht; der Wert stammt aus der zuletzt festgehaltenen Futter-Historie (daf&uuml;r muss die Option <i>Futterbestand und Ausbruchschutz pro Tick festhalten</i> aktiv sein). Stammt der Wert nicht aus dem aktuellen Tick, erscheint er blasser und kursiv, der Tooltip nennt den Zeitpunkt; solange ein Abruf aussteht, erscheint dahinter ein &#9203;. Sobald der Hintergrundabruf den neuen Wert geholt hat, wird die Zeile automatisch normal dargestellt. Den Prozentbalken schaltet die separate Option <i>mit Prozentbalken</i> zu. Unter 20 % orange, unter 10 % rot."],
-  "eba_enable_spielhilfe"                    : [enableSpielhilfe, "Spielhilfe im Lexikon anzeigen (Community-Daten)", "F&uuml;gt unter <i>lexikon.php</i> den Men&uuml;punkt <i>openEBA: Spielhilfe</i> ein: Ameisen-Steckbriefe mit Bildern, Artenvergleich (Arten im Shop und nicht im Shop), Wohnungen, Forschungsbaum als Grafik, Forschungsziele und -bonus, Jobs, Futter. Die Daten stammen aus der Community-Spielhilfe (Excel) und Lexikon-Tabellen und sind <b>nicht vom Spielbetreiber</b>. Bilder werden vom Spielserver geladen, der Reiter l&auml;dt sie erst beim Anzeigen."],
+  "eba_enable_spielhilfe"                    : [enableSpielhilfe, "Spielhilfe im Lexikon anzeigen (Community-Daten)", "F&uuml;gt unter <i>lexikon.php</i> den Men&uuml;punkt <i>openEBA: Spielhilfe</i> ein: Ameisen-Steckbriefe mit Bildern, Artenvergleich (Arten im Shop und nicht im Shop), Wohnungen, Forschungsbaum als Grafik, Forschungsziele und -bonus, Jobs, ASW-Aktionen, Futter. Die Daten stammen aus der Community-Spielhilfe (Excel, hat Vorrang) und erg&auml;nzend aus Lexikon-Tabellen (nur wo die Excel nichts hat) und sind <b>nicht vom Spielbetreiber</b>. Bilder werden vom Spielserver geladen, der Reiter l&auml;dt sie erst beim Anzeigen."],
   "eba_enable_search_species"               : [ebaSearchSpecies, "Findbare Arten bei den Suchorten anzeigen (Ameisen suchen)", "F&uuml;gt unter <i>nach Drau&szlig;en &rarr; Ameisen suchen</i> bei jedem Suchort zwischen Beschreibung und Dauer eine kleine Zeile <i>Findbare Arten</i> ein. Die Zuordnung stammt aus der Community-Spielhilfe (Excel), ist <b>nicht vom Spielbetreiber</b> und kann unvollst&auml;ndig sein; Arten im Shop sind getrennt aufgef&uuml;hrt. Es werden keine zus&auml;tzlichen Anfragen gestellt."]
 }
 const shopPriceLimits = {
@@ -6254,7 +6254,8 @@ $(window).on("hashchange", function() {
 });
 
 // Daten der Spielhilfe, abgeleitet aus dem Community-Excel (Blätter Ameisen, Shopameisen,
-// Wohnungen, Forschungsbaum) und den Lexikon-Tabellen (Entwicklungszeiten, Futter).
+// Wohnungen, Forschungsbaum) und ergänzend den Lexikon-Tabellen (Entwicklungszeiten, Shop-Preis, Futter).
+// Vorrang: Die Excel gilt vor dem Lexikon (das Lexikon ist eingeschränkt/veraltet); Lexikon-Felder wie "Schon_findbar" werden nicht ausgewertet.
 // ebaShAnts:  Art -> [min. Formicarium, min. Nest, Fundorte, Futter, ASW-Punkte, Verkaufspreis (Text),
 //                     Shop-Preis Lexikon, "Ei/Larve/Puppe" in Stunden oder null]
 //             (Punkte, Koloniegröße, Platzbedarf, Polygynie stehen in antmax; Kategorie in antcat)
@@ -6298,7 +6299,7 @@ const ebaShTree = [["allg","Allgemeines über Ameisen","","",[["Erste Schritte",
 
 var ebaShState = { tab: "ameisen", speed: null, cat: 0, shop: false, poly: false, hid: false, q: "", sort: "name", shopSort: "gpd", shopDir: "desc", vmode: "all", vcat: 0, sortDir: null, open: {}, wsort: "spiel", fsort: "def", fdir: "asc", fart: "", fshop: "all" };
 var ebaShTabs = [["ameisen", "Ameisen"], ["shop", "Vergleich"], ["wohn", "Wohnungen"], ["baum", "Forschungsbaum"],
-                 ["ziele", "Ziele &amp; Bonus"], ["jobs", "Jobs"], ["futter", "Futter"], ["info", "Info"]];
+                 ["ziele", "Ziele &amp; Bonus"], ["jobs", "Jobs"], ["asw", "ASW"], ["futter", "Futter"], ["info", "Info"]];
 var ebaShCatNames = { 1: "Einheimisch", 2: "Südeuropäisch", 3: "Exotisch" };
 // Arten, die laut Spielhilfe "versteckt" (gelb markiert) sind.
 var ebaShHidden = ["Ponera coarctata", "Anochetus ghilianii", "Camponotus lateralis"];
@@ -6423,9 +6424,9 @@ function ebaShAntCard(r, maxP) {
       + "<tr><td>Mindest-Formicarium</td><td>" + ebaShE(a[0]) + "</td></tr>"
       + (m.b != null ? "<tr><td>Brut (nur im Nest)</td><td>" + ebaShN(m.b, 3) + " Platz je Arbeiterin</td></tr>" : "")
       + "<tr><td>Futter</td><td>" + ebaShE(a[3]) + "</td></tr>"
-      + "<tr><td>Entwicklung (Lexikon)</td><td>" + (dev ? "Ei " + dev[0] + " h &middot; Larve " + dev[1] + " h &middot; Puppe " + dev[2] + " h <small>(&Sigma; "
+      + "<tr><td>Entwicklung (Lexikon, erg&auml;nzend)</td><td>" + (dev ? "Ei " + dev[0] + " h &middot; Larve " + dev[1] + " h &middot; Puppe " + dev[2] + " h <small>(&Sigma; "
           + (+dev[0] + +dev[1] + +dev[2]) + " h)</small>" : "&ndash;") + "</td></tr>"
-      + "<tr><td>Shop-Preis (Lexikon)</td><td>" + ebaShEuro(a[6]) + "</td></tr>"
+      + "<tr><td>Shop-Preis (Lexikon, erg&auml;nzend)</td><td>" + ebaShEuro(a[6]) + "</td></tr>"
       + "<tr><td>Freischaltung</td><td>" + (ebaShUnlock(n) ? ebaShE(ebaShUnlock(n)) : "&ndash;") + "</td></tr></table>";
     if (m.poly) {
       h += "<div class='sh-calc' data-name='" + ebaShE(n) + "'>K&ouml;niginnen: <input type='number' class='sh-q' min='1' max='99' value='"
@@ -6882,6 +6883,7 @@ function ebaShTreeSvg() {
     $.each(n[4], function(j, sid) { var q = ebaShSum(sid); t.n += q.n; t.pts += q.pts; t.cost += q.cost; t.min += q.min; });
     var pr = ebaShSec(n[4][0])[2], dur = ebaShDur(t.min, speed).replace(/&nbsp;/g, " ");
     ebaShTitleBase[n[0]] = lines.join(" ") + " - " + t.n + " Stufen, " + t.pts + " Punkte, " + ebaShN(t.cost, 2) + " €, " + dur + (pr ? "; Voraussetzung: " + pr : "")
+      + (n[0] === "asw" ? "; Aktionen der ASW (riesige Anlage, Riesen YTong Nest, Käferlarven) im Reiter ASW" : "")
       + (n[0] === "samen" ? "; erhöht nur den Ertrag, die Aktion Körner und Samen sammeln gibt es schon mit Futtertiere Stufe 6" : "");
     svg += "<g class='sh-nodeg' data-nid='" + n[0] + "' transform='translate(" + p.x + " " + p.y + ")'><title>" + ebaShE(ebaShTitleBase[n[0]] + " | " + ebaShImgStatus(n)) + "</title>"
       + "<rect class='sh-node' width='" + NW + "' height='" + NH + "' rx='6' stroke='" + c + "'/>"
@@ -7024,6 +7026,40 @@ function ebaShJobsTab() {
   return h;
 }
 
+// ---- Reiter: ASW (Ameisenschutzwarte) ---------------------------------------
+
+// Aktionen unter Draußen > Ameisenschutzwarte > Aktionen (echte Seite, Bilder vom Spielserver).
+// [Name, Bild, benötigte ASW-Punkte, Sonstiges Benötigtes, Dauer in Minuten (Normalserver), Kosten in EUR, taketask-ID, Beschreibung]
+var ebaShAswActions = [
+  ["riesige Anlage herstellen", "/img/tasks/action_MakeRiesenAnlage.jpg", 150, "1 Regal", 350, 20, 708,
+   "Die Experten bei der Ameisenschutzwarte helfen dir, ein Regal so umzubauen, dass man es als riesiges Formicarium nutzen kann."],
+  ["Riesen YTong Nest herstellen", "/img/items/item_riesenYTongNest.jpg", 100, "", 480, 60, 709,
+   "Im Baumarkt gibt es YTong zu kaufen; mit deinem Werkzeug bastelst du leicht G\u00E4nge und Kammern f\u00FCr deine Ameisen."],
+  ["K\u00E4ferlarven abholen", "/img/items/food_kaeferlarve.jpg", 5, "", 5, 0, 710,
+   "Wegen einer Maik\u00E4ferplage wurden K\u00E4ferlarven gesammelt; die Ameisenschutzwarte gibt dir einen Haufen davon ab."]
+];
+function ebaShAswTab() {
+  var speed = ebaShSpeed();
+  var h = "<p class='sh-note'><b>Ameisenschutzwarte (ASW)</b> findest du unter <i>Drau&szlig;en &rarr; Ameisenschutzwarte</i> mit den Unterseiten "
+    + "<i>Statistik</i>, <i>Kolonie auswildern</i>, <i>ehemalige Kolonien</i> und <i>Aktionen</i>. Die Mitgliedschaft schaltet die Forschung <i>Ameisenschutzwarte (ASW)</i> frei (siehe Forschungsbaum). "
+    + "<b>ASW-Punkte</b> erh&auml;ltst du, indem du Kolonien auswilderst (<i>Kolonie auswildern</i>); f&uuml;r nicht einheimische Arten f&auml;llt dabei eine Geb&uuml;hr an. "
+    + "Wie viele Punkte welche Art bringt, steht in den Ameisen-Karten und im Vergleich (Spalte ASW-Punkte).</p>"
+    + "<p class='sh-note'><b>Dauer:</b> Die Angaben im Spiel gelten f&uuml;r den Normalserver. "
+    + (speed ? "Der Schalter &bdquo;Speedserver-Werte&ldquo; ist an: die Dauern sind mit Faktor 1/5 umgerechnet (wie bei den Jobs), die Kosten bleiben gleich. "
+             : "Mit dem Schalter &bdquo;Speedserver-Werte&ldquo; oben werden die Dauern mit Faktor 1/5 umgerechnet (wie bei den Jobs), die Kosten bleiben gleich. ")
+    + "<b>Die ASW-Punkte werden beim Herstellen verbraucht</b> (Angabe aus der Spielerschaft); der Spieltext sagt &bdquo;Ben&ouml;tigt &hellip;&ldquo;.</p>"
+    + "<h4>Aktionen (Drau&szlig;en &rarr; Ameisenschutzwarte &rarr; Aktionen)</h4><div class='sh-jobs'>";
+  $.each(ebaShAswActions, function(i, a) {
+    h += "<div class='sh-card sh-jcard sh-aswcard' data-asw='" + a[6] + "'>" + ebaShImg([a[1]], "sh-jimg", a[0])
+      + "<div><b>" + ebaShE(a[0]) + "</b> <small class='sh-jid' title='taketask-ID im Formular der Seite'>taketask " + a[6] + "</small>"
+      + "<div class='sh-small'>" + ebaShE(a[7]) + "</div>"
+      + "<table class='sh-kv'><tr><td>Verbraucht</td><td><b>" + a[2] + "&nbsp;ASW-Punkte</b>" + (a[3] ? " (+ " + ebaShE(a[3]) + ")" : "") + "</td></tr>"
+      + "<tr><td>Dauer</td><td>" + ebaShDur(a[4], speed) + (speed ? " <small>(Normalserver " + ebaShDur(a[4], false) + ")</small>" : "") + "</td></tr>"
+      + "<tr><td>Kosten</td><td>" + ebaShEuro(a[5]) + "</td></tr></table></div></div>";
+  });
+  return h + "</div>";
+}
+
 // ---- Reiter: Futter ---------------------------------------------------------
 
 // Freischaltung: Forschungsstufe laut Baum, sonst Sonderfälle laut Excel/Lexikon
@@ -7076,7 +7112,7 @@ function ebaShFoodTab() {
   $.each([["all", "alle"], ["shop", "im Shop"], ["noshop", "nicht im Shop"]], function(i, c) {
     h += "<button type='button' class='sh-chip" + (st.fshop === c[0] ? " on" : "") + "' data-f='fshop' data-v='" + c[0] + "'>" + c[1] + "</button>";
   });
-  h += "</div><p class='sh-note'>Futter laut Lexikon-Tabelle (unvollst&auml;ndig). Die Zersetzungsrate je Tick bestimmt, wie schnell Futter verdirbt; Freischaltung aus dem Forschungsbaum. "
+  h += "</div><p class='sh-note'>Futter laut Lexikon-Tabelle als Erg&auml;nzung (die Excel enth&auml;lt keine Futterliste; unvollst&auml;ndig). Die Zersetzungsrate je Tick bestimmt, wie schnell Futter verdirbt; Freischaltung aus dem Forschungsbaum. "
     + "Spalte anklicken = sortieren, nochmal klicken = umkehren; fehlende Werte (&bdquo;&ndash;&ldquo;) stehen immer am Ende.</p>"
     + "<table class='liste sh-tab sh-food'><tr>";
   $.each(ebaShFCols, function(i, c) {
@@ -7143,7 +7179,8 @@ function ebaShInfoTab() {
     + "<li>Brut verbraucht nur Platz im <b>Nest</b>, nicht im Formicarium.</li>"
     + "<li>Polygyne Arten: Arbeiterinnen = Basis + (K&ouml;niginnen &minus; 1) &times; Zuwachs (Normal- und Speedserver unterschiedlich); den Rechner gibt es in den Details der polygynen Arten.</li></ul>"
     + "<h4>Legende</h4><p><span class='sh-tag shop'>im Shop</span> die Art ist im Shop kaufbar (blau in der Tabelle) &nbsp; <span class='sh-tag hid'>versteckt</span> versteckte Art (gelb)</p></div>"
-    + "<div class='sh-card'><h4>Quelle und Dank</h4><p><b>Drittanbieter-Daten:</b> Die Inhalte stammen aus der Community-Spielhilfe (Excel) und aus Lexikon-Tabellen, "
+    + "<div class='sh-card'><h4>Quelle und Dank</h4><p><b>Drittanbieter-Daten:</b> Die Inhalte stammen aus der Community-Spielhilfe (Excel) und, nur wo die Excel nichts hat (Entwicklungszeiten, Shop-Preis, Futterliste), aus Lexikon-Tabellen. "
+    + "<b>Bei Abweichungen gilt die Excel</b>; das Lexikon ist eingeschr&auml;nkt und teils veraltet. Die Inhalte "
     + "sind <b>nicht vom Spielbetreiber</b> und k&ouml;nnen veraltet oder fehlerhaft sein. Die Auswertung (Karten, Baum, Summen) macht openEBA.</p>"
     + "<p><b>Speziellen Dank an:</b></p><ul class='sh-list'><li>Pepper (f&uuml;r das openEBA-Skript)</li>"
     + "<li>Benni93 / l3oodix (f&uuml;r den polygynen Zuwachs auf dem Speedserver)</li><li>Arthuriel (f&uuml;r den Forschungsbaum)</li>"
@@ -7236,9 +7273,9 @@ function ebaShRender(tab) {
   $.each(ebaShTabs, function(i, t) { tabs += "<button type='button' data-t='" + t[0] + "'" + (s.tab === t[0] ? " class='on'" : "") + ">" + t[1] + "</button>"; });
   ebaShImgInit(); // nur Cache und feste Namen, keine Anfragen
   var body = { ameisen: ebaShAntsTab, shop: ebaShShopTab, wohn: ebaShWohnTab, baum: ebaShTreeTab, ziele: ebaShGoalsTab,
-               jobs: ebaShJobsTab, futter: ebaShFoodTab, info: ebaShInfoTab }[s.tab] || ebaShAntsTab;
+               jobs: ebaShJobsTab, asw: ebaShAswTab, futter: ebaShFoodTab, info: ebaShInfoTab }[s.tab] || ebaShAntsTab;
   root.html("<h3>openEBA: Spielhilfe</h3>"
-    + "<div class='sh-banner'><b>Community-Daten, nicht vom Spielbetreiber.</b> Zusammengetragen von Spielern (Spielhilfe-Tabelle, Lexikon-Auszug), ohne Gew&auml;hr; Quellen unter <a href='#' class='sh-tolinfo'>Info</a>. "
+    + "<div class='sh-banner'><b>Community-Daten, nicht vom Spielbetreiber.</b> Zusammengetragen von Spielern (Spielhilfe-Tabelle vorrangig, Lexikon-Auszug als Erg&auml;nzung), ohne Gew&auml;hr; Quellen unter <a href='#' class='sh-tolinfo'>Info</a>. "
     + "<label style='white-space:nowrap'><input type='checkbox' class='sh-speed'" + (ebaShSpeed() ? " checked" : "") + "> Speedserver-Werte</label></div>"
     + "<div class='sh-tabs'>" + tabs + "</div><div class='sh-body'>" + body() + "</div>"
     + "<p class='sh-thanks'>Danke an Martin f&uuml;r EBA!</p>");
