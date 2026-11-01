@@ -6429,7 +6429,7 @@ const ebaShTree = [["allg","Allgemeines über Ameisen","","",[["Erste Schritte",
 // die Entwicklungsstufen-Galerie erst auf Klick.
 // ---------------------------------------------------------------------------
 
-var ebaShState = { tab: "ameisen", speed: null, cat: 0, shop: false, poly: false, hid: false, q: "", sort: "name", shopSort: "gpd", shopDir: "desc", vmode: "all", vcat: 0, sortDir: null, open: {}, wsort: "spiel", fsort: "def", fdir: "asc", fart: "", fshop: "all" };
+var ebaShState = { tab: "ameisen", speed: null, cat: 0, shop: false, poly: false, hid: false, q: "", sort: "name", shopSort: "gpd", shopDir: "desc", vmode: "all", vcat: 0, sortDir: null, open: {}, wsort: "spiel", fsort: "def", fdir: "asc", fart: "", fshop: "all", fzucht: false };
 var ebaShTabs = [["ameisen", "Ameisen"], ["shop", "Vergleich"], ["wohn", "Wohnungen"], ["baum", "Forschungsbaum"],
                  ["ziele", "Ziele &amp; Bonus"], ["jobs", "Jobs"], ["asw", "ASW"], ["futter", "Futter"], ["samm", "Sammlung"], ["info", "Info"]];
 var ebaShCatNames = { 1: "Einheimisch", 2: "Südeuropäisch", 3: "Exotisch" };
@@ -6500,11 +6500,11 @@ function ebaShImgError(e) {
 
 // Freischaltung einer Art in der Forschung (aus dem Baum abgeleitet)
 function ebaShUnlock(name) {
-  if (name === "Marsameise") { return "Ameisen finden und bestimmen, Stufe 16"; }
+  if (name === "Marsameise") { return "Ameisen finden und bestimmen 16"; }
   var base = name.replace(/\.$/, ""), res = null;
   $.each([["einh", "Einheimische Arten"], ["sued", "Südeuropäische Arten"], ["exot", "Exotische Arten"]], function(i, s) {
     $.each(ebaShSec(s[0])[4], function(j, l) {
-      if ((l[5] + " " + l[0]).indexOf(base) >= 0) { res = s[1] + ", Stufe " + (j + 1); return false; }
+      if ((l[5] + " " + l[0]).indexOf(base) >= 0) { res = s[1] + " " + (j + 1); return false; }
     });
     if (res) { return false; }
   });
@@ -6528,9 +6528,15 @@ function ebaShAntRows() {
 function ebaShAntCard(r, maxP) {
   var m = r.m, a = r.a, n = r.name, rg = ebaShRegal(n), speed = ebaShSpeed(), dev = a[7] ? a[7].split("/") : null;
   var w = Math.max(3, Math.round(100 * Math.sqrt(m.p / maxP))), open = ebaShState.open[n];
-  var zuw = !m.poly ? "monogyn" : "polygyn, +" + ebaShN(speed ? m.ps : m.pn) + " je weiterer K&ouml;nigin"
-    + (speed ? " (Speed)" : " (normal)");
-  if (m.poly && (speed ? m.ps : m.pn) == null) { zuw = "polygyn, Zuwachs unbekannt"; }
+  var pv = speed ? m.ps : m.pn;
+  var zuw = !m.poly ? "nein" : (pv == null ? "ja, Zuwachs unbekannt" : ebaShN(pv) + "&nbsp;A je K");
+  var platz = "&ndash;", nestImg = "";
+  if (n === "Temnothorax nylanderi") { nestImg = " <img class='sh-mini' src='/img/items/item_haselnuss.jpg' data-gal='1' alt=''>"; }
+  if (rg) {
+    platz = rg.formNest ? ebaShN(rg.shelf - rg.nestShelf, 1) + " + " + ebaShN(rg.nestShelf, 1) + " (Nestbecken) Regalpl&auml;tze"
+      : ebaShN(rg.shelf, 1) + (rg.shelf === 1 ? " Regalplatz" : " Regalpl&auml;tze");
+    platz = "<b>" + platz + "</b>" + (rg.dev.length ? " <sup>&Dagger;</sup>" : "");
+  }
   var tags = "<span class='sh-tag c" + r.cat + "'>" + ebaShCatNames[r.cat] + "</span>"
     + "<span class='sh-tag " + (m.poly ? "poly" : "mono") + "'>" + (m.poly ? "poly" : "mono") + "</span>"
     + (r.shop ? "<span class='sh-tag shop'>im Shop</span>" : "") + (r.hid ? "<span class='sh-tag hid'>versteckt</span>" : "");
@@ -6538,25 +6544,22 @@ function ebaShAntCard(r, maxP) {
     + "<div class='sh-card-h'>" + ebaShAntImg(n, "sh-ant") + "<div class='sh-card-t'><b><i>" + ebaShE(n) + "</i></b><div>" + tags + "</div>"
     + "<div class='sh-bar' title='Anteil an der h&ouml;chsten Maximalpunktzahl (Wurzelskala)'><span style='width:" + w + "%'></span></div></div></div>"
     + "<table class='sh-kv'>"
-    + "<tr><td>Punkte (voll, 1 K&ouml;nigin)</td><td><b>" + ebaShN(m.p) + "</b></td></tr>"
-    + "<tr><td>Max. Kolonie</td><td>" + ebaShN(m.a) + " Arbeiterinnen</td></tr>"
-    + "<tr><td>Punkte / Arbeiterin</td><td>" + ebaShN(r.ppa, 3) + "</td></tr>"
-    + "<tr><td>Koloniegr&ouml;&szlig;e</td><td>" + zuw + "</td></tr>"
-    + "<tr><td>Fundorte</td><td>" + (a[2] ? ebaShE(a[2]) : "&ndash;") + "</td></tr>"
+    + "<tr><td>Max. Punkte</td><td><b>" + ebaShN(m.p) + "</b></td></tr>"
+    + "<tr><td>Max. Kolonie</td><td>" + ebaShN(m.a) + "&nbsp;A</td></tr>"
     + "<tr><td>ASW-Punkte</td><td>" + ebaShN(a[4]) + "</td></tr>"
     + "<tr><td>Verkaufspreis</td><td>" + (a[5] ? ebaShE(a[5]) + "&nbsp;&euro;" : "&ndash;") + "</td></tr>"
-    + "<tr><td>Ben&ouml;tigt</td><td class='sh-regal' title='" + (rg ? ebaShE(ebaShRegalTip(rg)) : "") + "'>"
-    + (rg ? ebaShE(rg.nestWord) + " " + ebaShE(rg.nest) + ", Formicarium " + ebaShE(rg.form) + ", <b>" + ebaShN(rg.shelf, 1) + (rg.shelf === 1 ? " Regalplatz" : " Regalpl&auml;tze") + "</b>" + (rg.dev.length ? " <sup>&Dagger;</sup>" : "")
-      + (rg.alt ? "<br><span class='sh-note'>Haselnuss-Variante (selten): " + ebaShE(rg.alt.nest) + ", " + ebaShE(rg.alt.form) + ", <b>" + ebaShN(rg.alt.shelf, 1) + " Regalpl&auml;tze</b></span>" : "") : "&ndash;") + "</td></tr></table>"
+    + "<tr><td>Max. Nest</td><td>" + ebaShE(a[1]) + nestImg + "</td></tr>"
+    + "<tr><td>Max. Formi</td><td>" + ebaShE(a[0]) + "</td></tr>"
+    + "<tr><td>Platzbedarf</td><td class='sh-regal' title='" + (rg ? ebaShE(ebaShRegalTip(rg)) : "") + "'>" + platz + "</td></tr></table>"
     + "<div class='sh-more'>" + (open ? "&#9650; weniger" : "&#9660; Details") + "</div>";
   if (open) {
-    var ph = (m.n != null ? m.n / m.a : null), pf = (m.f != null ? m.f / m.a : null), nestImg = "";
-    if (n === "Temnothorax nylanderi") { nestImg = " <img class='sh-mini' src='/img/items/item_haselnuss.jpg' data-gal='1' alt=''>"; }
+    var ph = (m.n != null ? m.n / m.a : null), pf = (m.f != null ? m.f / m.a : null);
     h += "<table class='sh-kv sh-det'>"
+      + "<tr><td>Polygyn</td><td>" + zuw + "</td></tr>"
+      + "<tr><td>Punkte / Arbeiterin</td><td>" + ebaShN(r.ppa, 3) + "</td></tr>"
+      + "<tr><td>Fundorte</td><td>" + (a[2] ? ebaShE(a[2]) : "&ndash;") + "</td></tr>"
       + "<tr><td>Platzbedarf Nest</td><td>" + ebaShN(m.n, 2) + " <small>(" + ebaShN(ph, 4) + " je Arbeiterin)</small></td></tr>"
       + "<tr><td>Platzbedarf Formicarium</td><td>" + ebaShN(m.f, 2) + " <small>(" + ebaShN(pf, 4) + " je Arbeiterin)</small></td></tr>"
-      + "<tr><td>Mindest-Nest</td><td>" + ebaShE(a[1]) + nestImg + "</td></tr>"
-      + "<tr><td>Mindest-Formicarium</td><td>" + ebaShE(a[0]) + "</td></tr>"
       + (m.b != null ? "<tr><td>Brut (nur im Nest)</td><td>" + ebaShN(m.b, 3) + " Platz je Arbeiterin</td></tr>" : "")
       + "<tr><td>Futter</td><td>" + ebaShE(a[3]) + "</td></tr>"
       + "<tr><td>Entwicklung (Lexikon, erg&auml;nzend)</td><td>" + (dev ? "Ei " + dev[0] + " h &middot; Larve " + dev[1] + " h &middot; Puppe " + dev[2] + " h <small>(&Sigma; "
@@ -6779,7 +6782,7 @@ function ebaShShopTab() {
   });
   h += "</div><p class='sh-note sh-polynote'><b>Polygynie:</b> Die meisten Angaben beziehen sich auf eine K&ouml;nigin; bei polygynen Arten bringt jede K&ouml;nigin denselben Zuwachs an Arbeiterinnen.</p><p class='sh-note'>Vergleich aller Arten. <b>Im Shop kaufbar</b> = die Art wird im Shop angeboten (auch diese Arten lassen sich in der Natur finden), <b>nicht im Shop</b> = kein Shop-Angebot. Fundorte stehen im Steckbrief (Reiter Ameisen). "
     + "<b>Tage</b> (Auswachszeit bei h&ouml;chster Stufe <i>Ameisenwachstum</i>), <b>Verkauf</b> und <b>Ankauf</b> gibt es in der Spielhilfe nur f&uuml;r Shopameisen, "
-    + "sonst steht &bdquo;&ndash;&ldquo; (beim Sortieren immer am Ende); die davon abh&auml;ngigen Spalten (Pkt/Tag, &euro;/Tag, &hellip;) ebenso. "
+    + "sonst steht &bdquo;&ndash;&ldquo;; die davon abh&auml;ngigen Spalten (Pkt/Tag, &euro;/Tag, &hellip;) ebenso. "
     + "<b>Regalpl&auml;tze</b> gibt es f&uuml;r alle Arten: Platzbedarf je Arbeiterin &times; max. Arbeiterinnen, abgebildet auf das kleinste passende Nest bzw. Formicarium; das Formicarium ist mindestens so gro&szlig; wie die Klasse des Nests, nur Formicarien belegen Regalpl&auml;tze; ein <i>Nestbecken</i> (Acromyrmex, Polyrhachis dives) ist ein eigenes Formicarium neben dem Formicarium, unabh&auml;ngig von dessen Gr&ouml;&szlig;e, und z&auml;hlt zus&auml;tzlich. Temnothorax nylanderi: Normalfall kleines Nest + kleines Formicarium, in einer Haselnuss gefunden (selten) Mini Arena. Rechnung im Tooltip. <sup>&Dagger;</sup> = Abweichung zur Spielhilfe (Erkl&auml;rung im Tooltip). "
     + "Mit der <i>riesigen Anlage</i> (ASW-Aktion, 150 ASW-Punkte + 1 Regal) w&auml;ren es 0 Regalpl&auml;tze, sie braucht aber einen eigenen Platz in der Wohnung (Absicht); sie fasst jede Art. "
     + "<b>&dagger;</b> = f&uuml;r alle Arten aus dem Blatt <i>Ameisen</i> (Pt/A = Punkte je Arbeiterin, gerechnet; ASW-Pt = Punkte f&uuml;r die Ameisenschutzwarte). "
@@ -6843,15 +6846,16 @@ function ebaShWohnTab() {
 // nacheinander geprobt, das erste ladbare gilt), Gruppe, Zweige. Steht nur ein Name da, ist die Datei vom Nutzer im Spiel
 // bestätigt und wird normal geladen; die übrigen sind GESCHÄTZTE Namen (das Namensschema im Spiel ist gemischt deutsch/englisch).
 // Der Knoten "jobs" hat keine eigenen Kandidaten: er zeigt das erste gefundene Bild von jk/jv/jf (ebaShImgExtra).
-// Die früheren Kandidatenlisten (research_general, _ameisen, _escape, _biology, _craft, _nests, _job u. a.) sind im Spiel erfolglos
-// geprüft und entfernt; die Listen unten sind die neue Runde.
+// Die früheren Kandidatenlisten (research_general, _ameisen, _escape, _biology, _craft, _nests, _job, _allgemeines, _grundlagen,
+// _talkum, _koerperbau, _formicarienbau, _ytong, _puempel, _lehrbuch u. a.) sind im Spiel erfolglos geprüft und entfernt; die Listen
+// unten sind die neue Runde. jf (research_gabelstapler.jpg) ist vom Nutzer im Spiel bestätigt.
 var ebaShNodes = [
-  ["allg", "Allgemeines\nüber Ameisen", ["research_allgemeines.jpg", "research_grundlagen.jpg", "research_ameisenkunde.jpg"], "t", ["allg"]],
+  ["allg", "Allgemeines\nüber Ameisen", ["research_ameisen_allgemein.jpg", "research_basics2.jpg", "research_ameisenwissen.jpg", "research_ant_basics.jpg", "research_general2.jpg"], "t", ["allg"]],
   ["einh", "Einheimische\nArten", ["research_ameisen_einheimisch.jpg"], "a", ["einh"]],
-  ["ausb", "Ausbruchschutz", ["research_ausbruchsschutz.jpg", "research_talkum.jpg", "research_ptfe.jpg"], "f", ["ausb"]],
+  ["ausb", "Ausbruchschutz", ["research_protection.jpg", "research_escape_protection.jpg", "research_ausbruchsicherung.jpg", "research_barrier.jpg", "research_fluon.jpg"], "f", ["ausb"]],
   ["futt", "Futtertiere", ["research_futter.jpg"], "f", ["futt"]],
   ["bonus", "Forschungs-\nbonus", ["research_forschungsbonus.jpg"], "b", ["bonus"]],
-  ["bio", "Biologie der\nAmeisen", ["research_biologie_ameisen.jpg", "research_koerperbau.jpg", "research_systematik.jpg"], "b", ["bio"]],
+  ["bio", "Biologie der\nAmeisen", ["research_ameisenbiologie.jpg", "research_ant_biology.jpg", "research_biologie2.jpg", "research_biology_ants.jpg", "research_antbiology.jpg"], "b", ["bio"]],
   ["hand", "Handwerkliches\nGeschick", ["research_werkzeug.jpg"], "h", ["hand"]],
   ["find", "Ameisen finden\nund bestimmen", ["research_ameisenfinden.jpg"], "a", ["find"]],
   ["jobs", "Jobver-\nbesserungen", [], "j", ["jk", "jv", "jf"]],
@@ -6861,8 +6865,8 @@ var ebaShNodes = [
   ["zucker", "Zuckerwasser\nselbst\nherstellen", ["research_sugarwater.jpg"], "f", ["zucker"]],
   ["poly", "Polygynie", ["research_polygyny.jpg"], "b", ["poly"]],
   ["wachs", "Ameisen-\nwachstum", ["research_wachstum.jpg"], "b", ["wachs"]],
-  ["form", "Formicarien-\nbau", ["research_formicarienbau.jpg", "research_formikarium.jpg", "research_miniformicarium.jpg"], "h", ["form"]],
-  ["nest", "Nestbau", ["research_ytong.jpg", "research_nestbau.jpg", "research_ytongnest.jpg"], "h", ["nest"]],
+  ["form", "Formicarien-\nbau", ["research_terrarium.jpg", "research_formicarium_bau.jpg", "research_formicary_building.jpg", "research_formicarienbau2.jpg", "research_behaelter.jpg"], "h", ["form"]],
+  ["nest", "Nestbau", ["research_nest_bau.jpg", "research_nestbau2.jpg", "research_ytong_bau.jpg", "research_nest_building.jpg", "research_gasbeton.jpg"], "h", ["nest"]],
   ["asw", "Ameisen-\nschutzwarte", ["research_asw.jpg"], "j", ["asw"]],
   ["exot", "Exotische\nArten", ["research_ameisen_exotisch.jpg"], "a", ["exot"]],
   ["blaetter", "Blätter-\nsammeln", ["research_blaetter.jpg"], "f", ["blaetter"]]
@@ -6870,9 +6874,9 @@ var ebaShNodes = [
 // Die drei Jobverbesserungen einzeln (nur Bildsuche, kein eigener Baumknoten): Kloputz-Ausrüstung (Pümpel),
 // Verhaltensforscher (Lehrbücher), Online-Fahrschule (Gabelstaplerschein).
 var ebaShImgExtra = [
-  ["jk", "Jobverbesserung:\nKloputz (Pümpel)", ["research_puempel.jpg", "research_pumpel.jpg", "research_kloputz.jpg", "research_klo.jpg"], "j", []],
-  ["jv", "Jobverbesserung:\nVerhaltensforscher", ["research_verhaltensforscher.jpg", "research_lehrbuch.jpg", "research_lehrbuecher.jpg", "research_studie.jpg"], "j", []],
-  ["jf", "Jobverbesserung:\nGabelstaplerschein", ["research_gabelstapler.jpg", "research_gabelstaplerschein.jpg", "research_fahrschule.jpg"], "j", []]
+  ["jk", "Jobverbesserung:\nKloputz (Pümpel)", ["research_p%C3%BCmpel.jpg", "research_plunger.jpg", "research_toilet.jpg", "research_toilette.jpg", "research_klo2.jpg"], "j", []],
+  ["jv", "Jobverbesserung:\nVerhaltensforscher", ["research_behavior.jpg", "research_books.jpg", "research_buecher.jpg", "research_verhalten.jpg", "research_behaviour.jpg"], "j", []],
+  ["jf", "Jobverbesserung:\nGabelstaplerschein", ["research_gabelstapler.jpg"], "j", []]
 ];
 // Raster von oben nach unten: id -> [Spalte, Zeile, eingerückt]. Zeile 0 = Zweige unter der Wurzel,
 // darunter hängen deren Folge-Forschungen (eingerückt, Ast links daneben) bzw. stehen bei Ketten direkt darunter;
@@ -7033,10 +7037,10 @@ function ebaShPill(cx, cy, text, col, dash, title) {
 }
 
 function ebaShTreeSvg() {
-  var NW = 136, NH = 66, IND = 14, RP = NH + 24, PADX = 4, ROOTY = 3, BUSY = 80, Y1 = 104, speed = ebaShSpeed(), pos = {}, gut = { 2: 60 }, hasInd = {}, colX = [PADX], ncol = 0;
+  var NW = 136, NH = 66, IND = 14, RP = NH + 24, PADX = 4, ROOTY = 3, BUSY = 80, Y1 = 104, speed = ebaShSpeed(), pos = {}, gut = { 2: 46 }, hasInd = {}, colX = [PADX], ncol = 0;
   $.each(ebaShLay, function(id, l) { if (l[2]) { hasInd[l[0]] = true; } ncol = Math.max(ncol, l[0] + 1); });
   for (var c = 0; c < ncol; c++) { colX[c + 1] = colX[c] + NW + (hasInd[c] ? IND : 0) + (gut[c] != null ? gut[c] : 10); }
-  var W = colX[ncol - 1] + NW + PADX, maxR = 0;
+  var W = colX[ncol - 1] + NW + (hasInd[ncol - 1] ? IND : 0) + PADX, maxR = 0;
   $.each(ebaShNodes, function(i, n) {
     var l = ebaShLay[n[0]];
     pos[n[0]] = { x: colX[l[0]] + (l[2] ? IND : 0), y: l[1] < 0 ? ROOTY : Y1 + l[1] * RP, n: n };
@@ -7186,32 +7190,31 @@ function ebaShGoalsTab() {
 // Jobs: Familie -> Lohnstufen. Prinzip: Die Joblänge unterscheidet die Jobs, das Gehalt die Stufen je Länge
 // (ein Job = eine Länge; Verbesserungen erhöhen nur den Lohn).
 // Stufe: [Name, Bild (oder null), Dauer in h (oder "tick" = Länge eines Ticks), Lohn in EUR (gesamt), Stundenlohn, Freischaltung, Hinweis,
-//         takejob-ID (oder null), Verknüpfung [Text, Familie] (oder fehlt)]
+//         (ID, nicht angezeigt), Verknüpfung [Text, Familie] (oder fehlt)]
 // Dauern gelten für den Normalserver; Speedserver = 1/5. null = unbekannt (wird so angezeigt). Quellen: Nutzerangaben und echte Seite des Arbeitsamts (haben Vorrang) und Blatt Forschungsbaum.
 var ebaShJobs = [
   ["Kloputzer", [
-    ["Kloputzer", "klo.jpg", "tick", 3, 3, "von Anfang an", "Dauer = Länge eines Ticks (Normalserver 1 h, Speedserver 12 min). Lohn 3 € je Tick.", 301],
-    ["Kloputzer mit Pümpel", "klo2.jpg", "tick", 4, 4, "Forschung Pümpel (frei nach 200 geputzten Klos)", "Dauer = Länge eines Ticks (Normalserver 1 h, Speedserver 12 min). Lohn 4 € je Tick.", 301]]],
-  ["Pizza ausfahren", [
-    ["Pizza ausfahren", "job_pizza.jpg", 5, 20, 4, "von Anfang an", "Auf dem Server gibt es den Job einmal je 12 aktive Spieler; er dauert 5 Stunden und wird nach 4 Stunden wieder angeboten (dann kann ihn ein anderer Spieler nehmen).", null],
-    ["Pizza ausfahren mit Pümpel", "job_pizza.jpg", 5, 25, 5, "Forschung Pümpel (wie beim Kloputzer)", "Laut Spielhilfe bringt der Pizzajob nach dem Pümpel 25 € statt 20 € je fünf Stunden.", null]]],
+    ["Kloputzer", "klo.jpg", "tick", 3, 3, "von Anfang an", "Nach 200 geputzten Klos kann man einen Pümpel kaufen.", 301],
+    ["Kloputzer mit Pümpel", "klo2.jpg", "tick", 4, 4, "mit gekauftem Pümpel", "", 301]]],
+  ["Pizzeria Omerta sucht Pizzaboten", [
+    ["Pizzeria Omerta sucht Pizzaboten", "job_pizza.jpg", 5, 20, 4, "von Anfang an", "Spieltext: „Gesucht wird eine freundliche, gut aussehende Person, die per Moped die Pizza an den Besteller liefert. Bei verspäteter Lieferung gibt es Lohnabzug.“ (Einen Lohnabzug gibt es im Spiel nie.) Auf dem Server gibt es den Job einmal je 12 aktive Spieler; er dauert 5 Stunden und wird nach 4 Stunden wieder angeboten (dann kann ihn ein anderer Spieler nehmen).", null],
+    ["Pizzeria Omerta sucht Pizzaboten", "job_pizza.jpg", 5, 25, 5, "Forschung Pümpel (wie beim Kloputzer)", "Pizzeria Omerta zahlt mehr als beim Kloputzen. Dein Lohn steigt deswegen ebenfalls an.", null]]],
   ["Regale einräumen", [
-    ["Regale einräumen", "supermarkt.jpg", null, null, null, "von Anfang an", "Dauer und Lohn der Grundstufe sind unbekannt.", 302],
+    ["Regale einräumen", "supermarkt.jpg", 8, null, null, "von Anfang an", "Der Grundlohn ist unbekannt.", 302],
     ["Regale einräumen mit Gabelstaplerschein", "supermarkt2.jpg", 8, 20, 2.5, "Forschung Gabelstaplerschein (Online-Fahrschule, frei nach 75 eingeräumten Regalen)", "", 302]]],
   ["Museum sucht versierten Myrmekologen", [
-    ["Museum sucht versierten Myrmekologen", "job_museum.jpg", 3, 8, 8 / 3, "Forschung Ameisen finden und bestimmen, Stufe 4 („Wo sind die besten Chancen?“; laut Spielhilfe)", "Das ist der Museumsjob; eine frühere Museumsstufe gibt es nicht.", 305]]],
+    ["Museum sucht versierten Myrmekologen", "job_museum.jpg", 3, 8, 8 / 3, "Forschung Ameisen finden und bestimmen, Stufe 4 („Wo sind die besten Chancen?“)", "", 305]]],
   ["Job nach der Verhaltensforscher-Studie", [
-    ["Neuer Job (Name unbekannt)", null, 12, 30, 2.5, "150-mal den Museumsjob, Allgemeines über Ameisen Stufe 11, dann Forschung Verhaltensforscher für Studie (Lehrbücher kaufen, auswendig lernen, Prüfung ablegen)", "Eigener Job. Name und Bild sind unbekannt (Spieltext der Forschung: „Neuer Job, Dauer 12:00:00, Verdienst 30 €“).", null]]],
+    ["Neuer Job (Name unbekannt)", null, 12, 30, 2.5, "150-mal den Museumsjob, Allgemeines über Ameisen Stufe 11, dann Forschung Verhaltensforscher für Studie (Lehrbücher kaufen, auswendig lernen, Prüfung ablegen)", "", null]]],
   ["Werbeplakate kleben", [
-    ["Werbeplakate kleben", "job_plakate.jpg", 10, 25, 2.5, "häufiges Abstimmen für EBA (Voting-Links), Anzahl unbekannt", "Spieltext: „Da du immer fleißig für EBA abgestimmt hast …“. Ob der Job einmalig oder dauerhaft freigeschaltet wird, ist unbekannt.", 315]]],
+    ["Werbeplakate kleben", "job_plakate.jpg", 10, 25, 2.5, "verfügbar nach ca. 10 Abstimmungen für EBA {?}", "Spieltext: „Da du immer fleißig für EBA abgestimmt hast …“.", 315]]],
   ["Betreuer bei studentischer Biologie-Exkursion", [
-    ["Betreuer bei studentischer Biologie Exkursion", "job_exkursion.jpg", 20, 50, 2.5, "Forschung Biologie der Ameisen, Stufe 4 (Kolonie mit 250 Ameisen)", "Zuordnung der Freischaltung laut Spielhilfe-Excel; Dauer und Lohn laut Arbeitsamt.", 304]]]
+    ["Betreuer bei studentischer Biologie Exkursion", "job_exkursion.jpg", 20, 50, 2.5, "Forschung Biologie der Ameisen, Stufe 4", "", 304]]]
 ];
 function ebaShJobsTab() {
   var speed = ebaShSpeed();
   var h = "<p class='sh-note'>Jobs mit Bild je Lohnstufe, Dauer, Lohn und Stundenlohn. Nicht bekannte Werte stehen als &bdquo;unbekannt&ldquo;. "
-    + "Quelle: Angaben aus der Spielerschaft, Arbeitsamt im Spiel und Spielhilfe (Forschungsbaum); die Liste ist nicht zwingend vollst&auml;ndig. "
-    + "Klein neben dem Namen: die Job-ID (<i>takejob</i>) aus dem Formular des Arbeitsamts.</p>"
+    + "Quelle: Angaben aus der Spielerschaft, Arbeitsamt im Spiel und Spielhilfe (Forschungsbaum); die Liste ist nicht zwingend vollst&auml;ndig.</p>"
     + "<p class='sh-note'><b>Prinzip:</b> Die Joblänge unterscheidet die Jobs, das Gehalt die Stufen je Länge. Ein Job hat also eine feste Länge; "
     + "Verbesserungen (z.&nbsp;B. P&uuml;mpel, Gabelstaplerschein) erh&ouml;hen nur den Lohn. "
     + "<b>Jobdauern gelten f&uuml;r den Normalserver.</b> Auf dem Speedserver entspricht 1&nbsp;h = 12&nbsp;min (Faktor 1/5); "
@@ -7221,18 +7224,17 @@ function ebaShJobsTab() {
   var u = "<i class='sh-unk'>unbekannt</i>";
   $.each(ebaShJobs, function(i, fam) {
     $.each(fam[1], function(k, j) {
-      var dur = j[2] == null ? u : (j[2] === "tick" ? (speed ? "12&nbsp;min" : "1&nbsp;h") + " (1&nbsp;Tick)"
+      var dur = j[2] == null ? u : (j[2] === "tick" ? (speed ? "12&nbsp;min" : "1&nbsp;h")
         : (typeof j[2] === "string" ? ebaShE(j[2]) : (speed ? ebaShDur(j[2] * 60, true) : j[2] + "&nbsp;h")));
       h += "<div class='sh-card sh-jcard' data-job='" + ebaShE(fam[0]) + "' data-stage='" + (k + 1) + "'>"
         + (j[1] ? ebaShImg(["/img/tasks/" + j[1]], "sh-jimg", j[0]) : "<span class='sh-ph sh-jimg'>?</span>")
         + "<div><b>" + ebaShE(j[0]) + "</b>" + (fam[1].length > 1 ? " <small>(Lohnstufe " + (k + 1) + " von " + fam[1].length + ")</small>" : "")
-        + (j[7] ? " <small class='sh-jid' title='takejob-ID im Arbeitsamt'>takejob " + j[7] + "</small>" : "")
         + (j[8] ? "<div class='sh-small'><i>" + ebaShE(j[8][0]) + "</i> <a href='#' class='sh-jlink' data-target='" + ebaShE(j[8][1]) + "'>"
                   + ebaShE(j[8][1] === "Job nach der Verhaltensforscher-Studie" ? "Neuer Job (12 h, 30 €)" : j[8][1]) + "</a></div>" : "")
         + "<table class='sh-kv'><tr><td>Dauer</td><td>" + dur + "</td></tr>"
         + "<tr><td>Lohn</td><td>" + (j[3] != null ? ebaShEuro(j[3]) : u) + "</td></tr>"
         + "<tr><td>Stundenlohn</td><td>" + (j[4] != null ? "<b>" + ebaShEuro(j[4]) + "</b> je " + (speed ? "Spielstunde" : "Stunde") : u) + "</td></tr></table>"
-        + "<div class='sh-small'><b>" + (k ? "Verbesserung (nur Lohn)" : "Freischaltung") + ":</b> " + ebaShE(j[5]) + (j[6] ? "<br>" + ebaShE(j[6]) : "") + "</div></div></div>";
+        + "<div class='sh-small'><b>" + (k ? "Verbesserung (nur Lohn)" : "Freischaltung") + ":</b> " + ebaShE(j[5]).replace("{?}", "<span class='sh-qm' title='unsicher. K&ouml;nnten auch mehr oder weniger sein.'>?</span>") + (j[6] ? "<br>" + ebaShE(j[6]) : "") + "</div></div></div>";
     });
   });
   h += "</div><h4>Jobverbesserungen (Forschung)</h4>";
@@ -7260,11 +7262,12 @@ function ebaShAswTab() {
   var h = "<p class='sh-note'><b>Ameisenschutzwarte (ASW)</b> findest du unter <i>Drau&szlig;en &rarr; Ameisenschutzwarte</i> mit den Unterseiten "
     + "<i>Statistik</i>, <i>Kolonie auswildern</i>, <i>ehemalige Kolonien</i> und <i>Aktionen</i>. Die Mitgliedschaft schaltet die Forschung <i>Ameisenschutzwarte (ASW)</i> frei (siehe Forschungsbaum). "
     + "<b>ASW-Punkte</b> erh&auml;ltst du, indem du Kolonien auswilderst (<i>Kolonie auswildern</i>); f&uuml;r nicht einheimische Arten f&auml;llt dabei eine Geb&uuml;hr an. "
-    + "Wie viele Punkte welche Art bringt, steht in den Ameisen-Karten und im Vergleich (Spalte ASW-Punkte).</p>"
+    + "Wie viele Punkte welche Art bringt, steht in den Ameisen-Karten und im Vergleich (Spalte ASW-Punkte). "
+    + "<b>Faustformel:</b> ASW-Punkte &asymp; 1,57 &times; &#8731;(Punkte der ausgewachsenen Kolonie); sie stimmt bei Arten bis ca. 75.000 Punkte auf &plusmn;1; bei sehr gro&szlig;en Kolonien liegt der echte Wert h&ouml;her (bis +11).</p>"
     + "<p class='sh-note'><b>Dauer:</b> Die Angaben im Spiel gelten f&uuml;r den Normalserver. "
     + (speed ? "Der Schalter &bdquo;Speedserver-Werte&ldquo; ist an: die Dauern sind mit Faktor 1/5 umgerechnet (wie bei den Jobs), die Kosten bleiben gleich. "
              : "Mit dem Schalter &bdquo;Speedserver-Werte&ldquo; oben werden die Dauern mit Faktor 1/5 umgerechnet (wie bei den Jobs), die Kosten bleiben gleich. ")
-    + "<b>Die ASW-Punkte werden beim Herstellen verbraucht</b> (Angabe aus der Spielerschaft); der Spieltext sagt &bdquo;Ben&ouml;tigt &hellip;&ldquo;.</p>"
+    + "<b>Die ASW-Punkte werden beim Herstellen verbraucht</b>; der Spieltext sagt &bdquo;Ben&ouml;tigt &hellip;&ldquo;.</p>"
     + "<h4>Aktionen (Drau&szlig;en &rarr; Ameisenschutzwarte &rarr; Aktionen)</h4><div class='sh-jobs'>";
   $.each(ebaShAswActions, function(i, a) {
     h += "<div class='sh-card sh-jcard sh-aswcard' data-asw='" + a[6] + "'>" + ebaShImg([a[1]], "sh-jimg", a[0])
@@ -7283,7 +7286,7 @@ function ebaShAswTab() {
 var ebaShFoodOther = {
   "Mehlwürmer": "von Beginn an (Shop)", "Zuckerwasser": "von Beginn an (Shop)", "Grassamen": "von Beginn an (Shop)",
   "gemixtes Zuckerwasser": "Zuckerwasser selbst herstellen, Stufe 1 (Mixer)",
-  "Brombeerblätter": "unbekannt (vermutlich Blättersammeln)"
+  "Brombeerblätter": "Blättersammeln"
 };
 function ebaShFoodUnlock(name) {
   var res = null;
@@ -7302,7 +7305,7 @@ function ebaShFoodRows() {
   $.each(ebaShFood, function(i, f) {
     var fr = ebaShFoodUnlock(f[0]), m = /Stufe (\d+)/.exec(fr || "");
     out.push({ i: i, f: f, name: f[0], art: f[3], zers: f[4], verm: f[5], menge: f[2], preis: f[1], shop: f[1] != null,
-               pg: f[1] != null && f[2] ? f[1] / f[2] : null, unlock: fr,
+               pg: f[1] != null && f[2] ? f[1] / f[2] : null, unlock: fr, zucht: !!f[6],
                frei: /Beginn/.test(fr || "") ? 0 : (m && /^Futtertiere/.test(fr) ? +m[1] : null) });
   });
   return out;
@@ -7311,7 +7314,7 @@ function ebaShFoodTab() {
   var st = ebaShState, maxZ = 0, cols = { Protein: "#d96a8a", Zuckerhaltig: "#E8963C", "Körner": "#d9c34a", "Blätter": "#3CAC56" };
   $.each(ebaShFood, function(i, f) { maxZ = Math.max(maxZ, f[4]); });
   var all = ebaShFoodRows(), rows = $.grep(all, function(r) {
-    return (!st.fart || r.art === st.fart) && (st.fshop === "all" || (st.fshop === "shop") === r.shop);
+    return (!st.fart || r.art === st.fart) && (st.fshop === "all" || (st.fshop === "shop") === r.shop) && (!st.fzucht || r.zucht);
   });
   var k = st.fsort, dir = st.fdir === "asc" ? 1 : -1;
   rows.sort(function(x, y) {
@@ -7329,8 +7332,9 @@ function ebaShFoodTab() {
   $.each([["all", "alle"], ["shop", "im Shop"], ["noshop", "nicht im Shop"]], function(i, c) {
     h += "<button type='button' class='sh-chip" + (st.fshop === c[0] ? " on" : "") + "' data-f='fshop' data-v='" + c[0] + "'>" + c[1] + "</button>";
   });
+  h += " <button type='button' class='sh-chip" + (st.fzucht ? " on" : "") + "' data-f='fzucht' title='Futtertiere, die man mit der Forschung Futtertierzucht selbst z&uuml;chten kann'>z&uuml;chtbar</button>";
   h += "</div><p class='sh-note'>Futter laut Lexikon-Tabelle als Erg&auml;nzung (die Excel enth&auml;lt keine Futterliste; unvollst&auml;ndig). Die Zersetzungsrate je Tick bestimmt, wie schnell Futter verdirbt; Freischaltung aus dem Forschungsbaum. "
-    + "Spalte anklicken = sortieren, nochmal klicken = umkehren; fehlende Werte (&bdquo;&ndash;&ldquo;) stehen immer am Ende.</p>"
+    + "Spalte anklicken = sortieren, nochmal klicken = umkehren.</p>"
     + "<table class='liste sh-tab sh-food'><tr>";
   $.each(ebaShFCols, function(i, c) {
     h += "<th class='sh-th' data-fs='" + c[0] + "'" + (c[2] ? " title='" + c[2] + "'" : "") + ">" + c[1] + (k === c[0] ? (dir > 0 ? " &#9650;" : " &#9660;") : "") + "</th>";
@@ -7348,11 +7352,11 @@ function ebaShFoodTab() {
   });
   h += "</table><p class='sh-note'>" + rows.length + " von " + all.length + " Futtersorten.</p>";
   h += "<h4>Futtersuche (Drau&szlig;en &rarr; Futter suchen)</h4><div class='sh-jobs sh-ffind'>";
-  $.each([["Futtertiere sammeln", "findfood.jpg", "Dauer 15 bis 60 Minuten, Kosten 0 \u20AC. Liefert Futtertiere.", "Forschung Futtertiere, Stufe 2 (Futtertiersuche)"],
-          ["K\u00F6rner und Samen sammeln", "findfood_loewensamen.jpg", "Dauer 15 bis 60 Minuten, Kosten 0 \u20AC. Liefert K\u00F6rner und Samen.", "Forschung Futtertiere, Stufe 6 (Samensuche). Die sp\u00E4tere Forschung Samensammeln (5000 gefundene Samen, Futtertiere Stufe 10) erh\u00F6ht nur den Ertrag."],
-          ["Bl\u00E4tter sammeln", "findfood_brombeere.jpg", "Feste Dauer 15 Minuten, Kosten 0 \u20AC. Liefert Bl\u00E4tter f\u00FCr Blattschneiderameisen.", "Forschung Exotische Arten, Stufe 3 (Bl\u00E4ttersammeln, mit Futtertiere Stufe 10)"]], function(i, f) {
+  $.each([["Futtertiere sammeln", "findfood.jpg", "Dauer 15, 30, 45 oder 60 Minuten. L\u00E4ngere Suchen geben weniger Ertrag pro Minute. Kosten 0 \u20AC. Liefert Futtertiere.", "Forschung Futtertiere, Stufe 2 (Futtertiersuche)"],
+          ["K\u00F6rner und Samen sammeln", "findfood_loewensamen.jpg", "Dauer 15, 30, 45 oder 60 Minuten. L\u00E4ngere Suchen geben weniger Ertrag pro Minute. Kosten 0 \u20AC. Liefert K\u00F6rner und Samen.", "Forschung Futtertiere, Stufe 6 (Samensuche)", "nach 5000 gefundenen Samen und mit Futtertiere Stufe 10, Forschung Samensammeln, erh\u00F6ht den Ertrag."],
+          ["Bl\u00E4tter sammeln", "findfood_brombeere.jpg", "Feste Dauer 15 Minuten, Kosten 0 \u20AC. Liefert Bl\u00E4tter f\u00FCr Blattschneiderameisen.", "Forschung Exotische Arten, Stufe 3 (Bl\u00E4ttersammeln, mit Futtertiere Stufe 10)", "nach 2000 gefundenen Bl\u00E4ttern, Exotische Arten Stufe 3 und Futtertiere Stufe 10, Forschung Bl\u00E4ttersammeln (Werkzeug kaufen, dann drei Ertragsstufen), erh\u00F6ht den Ertrag."]], function(i, f) {
     h += "<div class='sh-card sh-jcard'>" + ebaShImg(["/img/tasks/" + f[1]], "sh-jimg", f[0]) + "<div><b>" + ebaShE(f[0]) + "</b><div class='sh-small'>" + ebaShE(f[2])
-      + "<br><b>Freischaltung:</b> " + ebaShE(f[3]) + "</div></div></div>";
+      + "<br><b>Freischaltung:</b> " + ebaShE(f[3]) + (f[4] ? "<br><i>Verbesserung</i>: " + ebaShE(f[4]) : "") + "</div></div></div>";
   });
   return h + "</div>";
 }
@@ -7402,11 +7406,11 @@ function ebaShInfoTab() {
     + "<p><b>Speziellen Dank an:</b></p><ul class='sh-list'><li>Pepper (f&uuml;r das openEBA-Skript)</li>"
     + "<li>Benni93 / l3oodix (f&uuml;r den polygynen Zuwachs auf dem Speedserver)</li><li>Arthuriel (f&uuml;r den Forschungsbaum)</li>"
     + "<li>Mr_kokonut (Wachstum und &Uuml;bersicht der Ameisen)</li><li>brambob (f&uuml;r den Ankaufspreis der <i>Acromyrmex spec.</i>)</li>"
-    + "<li>Telas (Mod und Korrektur der Formeln in der Spielhilfe)</li></ul>"
+    + "<li><a href='https://www.eatenbyants.de/profil.php?id=101011'>Telas</a> (Mod und Korrektur der Formeln in der Spielhilfe)</li></ul>"
     + "<p><b>N&uuml;tzliche Links:</b></p><ul class='sh-list'>"
-    + "<li><a href='https://www.github.com/ifuzzle/openEBA' target='_blank' rel='noopener noreferrer'>openEBA auf GitHub</a> (Quelltext, Fehler melden)</li>"
-    + "<li>Discord: <a href='https://discord.gg/Vy2kRC3' target='_blank' rel='noopener noreferrer'>https://discord.gg/Vy2kRC3</a></li>"
-    + "<li><a href='https://pastebin.com/raw/MZkjZPUW#.user.js' target='_blank' rel='noopener noreferrer'>openEBA-Userscript von Pepper</a> (Pepper ist nicht mehr aktiv)</li></ul></div>";
+    + "<li><a href='https://discord.gg/Vy2kRC3' target='_blank' rel='noopener noreferrer'>Discord</a></li>"
+    + "<li><a href='https://www.github.com/ifuzzle/openEBA' target='_blank' rel='noopener noreferrer'>openEBA auf GitHub</a> von <a href='https://www.eatenbyants.de/profil.php?id=2577'>iFuzzle</a>"
+    + "<ul class='sh-list'><li>Geforkt von <a href='https://pastebin.com/raw/MZkjZPUW#.user.js' target='_blank' rel='noopener noreferrer'>openEBA-Userscript</a> von Pepper (leider nicht mehr aktiv)</li></ul></li></ul></div>";
 }
 
 // ---- Reiter: Sammlung (Arten abhaken) ---------------------------------------
@@ -7599,7 +7603,7 @@ var ebaShCss = "#shopitem.ebash{background:#0e2415;color:#e6f5ea;border:1px soli
   + ".ebash .sh-cl-star{color:#ffd75e;font-weight:bold;cursor:help}.ebash .sh-cl-sug{background:none;border:1px dashed #c9a800;border-radius:10px;color:#ffd75e;padding:0 7px;cursor:pointer;font-size:11px}"
   + ".ebash textarea.sh-cl-txt{background:#0b1c11;color:#e6f5ea;border:1px solid #2a6a3a;border-radius:3px;font-size:12px}.ebash .sh-note .sh-cl-st{cursor:default;min-width:0}"
   + ".ebash .sh-cl-top{margin-bottom:6px}.ebash .sh-cl-prog{font-size:15px;color:#fff}"
-  + ".ebash .sh-imgtab td.ok{color:#8fe3a4}.ebash .sh-imgtab td.no{color:#ff8a7a}.ebash .sh-jid{font-size:10px;color:#6fae80;font-weight:normal}"
+  + ".ebash .sh-imgtab td.ok{color:#8fe3a4}.ebash .sh-imgtab td.no{color:#ff8a7a}.ebash .sh-qm{display:inline-block;font-size:10px;line-height:12px;width:12px;text-align:center;border:1px solid #8fb39a;border-radius:50%;color:#8fb39a;cursor:help;margin-left:3px}.ebash .sh-jid{font-size:10px;color:#6fae80;font-weight:normal}"
   + ""
   + "@media screen and (max-width:700px){.ebash .sh-grid,.ebash .sh-goals,.ebash .sh-jobs{grid-template-columns:1fr}.ebash .sh-body{overflow-x:auto}}";
 
