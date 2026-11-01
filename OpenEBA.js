@@ -6585,34 +6585,50 @@ function ebaShImg(chain, cls, alt) {
     + "' alt='" + ebaShE(alt || "") + "' loading='lazy'>";
 }
 function ebaShAntBase(name) { return name.replace(/\./g, "").replace(/\s+/g, "_"); }
-// Bestätigte Bildpfade (echte Pfade aus einem Spielerprofil) je Art in Stufenreihenfolge
-// (Bildnummer steigt mit der Koloniegröße); [vollständig?, Pfade ab /img/]. Die letzte Datei
-// ist die ausgewachsene Kolonie. Formica fusca: 4 fehlt in der Liste, Myrmica rubra evtl. unvollständig.
+// Bestätigte Bildpfade je Art (Scan-Ergebnis, img/ants/) in Stufenreihenfolge (Bildnummer steigt mit der
+// Koloniegröße, "_shop" am Ende); [vollständig?, Pfade ab /img/]. Die letzte Datei ist das Hauptbild. false = Lücken
+// in der Nummerierung oder keine Stufenbilder: können echt fehlen oder durch Server-Drosselung beim Scan verloren gegangen
+// sein ("unsicher", der Stufen-Scan unter Info prüft sie erneut). Temnothorax nylanderi: Stufe 1 = items/item_haselnuss.jpg.
 const ebaShAntImgs = {
-  "Camponotus herculeanus": [true, ["ants/Camponotus_herculeanus1.jpg", "ants/Camponotus_herculeanus2.jpg"]],
-  "Camponotus ligniperda": [true, ["ants/Camponotus_ligniperda1.jpg", "ants/Camponotus_ligniperda2.jpg", "ants/Camponotus_ligniperda3.jpg"]],
-  "Formica fusca": [false, ["ants/Formica_fusca1.jpg", "ants/Formica_fusca2.jpg", "ants/Formica_fusca3.jpg", "ants/Formica_fusca5.jpg", "ants/Formica_fusca6.jpg",
-    "ants/Formica_fusca7.jpg", "ants/Formica_fusca8.jpg", "ants/Formica_fusca9.jpg", "ants/Formica_fusca10.jpg", "ants/Formica_fusca11.jpg"]],
-  "Lasius flavus": [true, ["ants/Lasius_flavus1.jpg", "ants/Lasius_flavus2.jpg", "ants/Lasius_flavus3.jpg", "ants/Lasius_flavus4.jpg", "ants/Lasius_flavus5.jpg", "ants/Lasius_flavus6.jpg"]],
-  "Lasius niger": [true, ["ants/Lasius_niger1.jpg", "ants/Lasius_niger2.jpg", "ants/Lasius_niger3.jpg", "ants/Lasius_niger4.jpg", "ants/Lasius_niger5.jpg",
-    "ants/Lasius_niger6.jpg", "ants/Lasius_niger7.jpg", "ants/Lasius_niger8.jpg", "ants/Lasius_niger9.jpg", "ants/Lasius_niger10.jpg"]],
-  "Myrmica rubra": [false, ["ants/Myrmica_rubra1.jpg", "ants/Myrmica_rubra2.jpg", "ants/Myrmica_rubra3.jpg", "ants/Myrmica_rubra4.jpg"]],
-  "Temnothorax nylanderi": [true, ["items/item_haselnuss.jpg", "ants/Temnothorax_nylanderi2.jpg", "ants/Temnothorax_nylanderi3.jpg", "ants/Temnothorax_nylanderi4.jpg", "ants/Temnothorax_nylanderi5.jpg"]],
-  "Pheidole pallidula": [true, ["ants/Pheidole_pallidula1.jpg", "ants/Pheidole_pallidula2.jpg", "ants/Pheidole_pallidula_shop.jpg"]]
-};
-// Nur ein bestätigtes Bild (ausgewachsen), keine Stufenreihe bekannt: nur als Hauptbild
-const ebaShAntImgMain = {
-  "Solenopsis fugax": "ants/Solenopsis_fugax_shop.jpg",
-  "Acromyrmex spec.": "ants/Acromyrmex_spec3.jpg",
-  "Camponotus cruentatus": "ants/Camponotus_cruentatus3.jpg",
-  // größtes Bild der Art (auch bei 8 Königinnen und 275.000 Arbeiterinnen), höhere Stufen gibt es nicht
-  "Pheidologeton diversus": "ants/Pheidologeton_diversus2.jpg"
+  "Camponotus herculeanus": [true, ["ants/Camponotus_herculeanus1.jpg", "ants/Camponotus_herculeanus2.jpg", "ants/Camponotus_herculeanus_shop.jpg"]],
+  "Camponotus ligniperda": [true, ["ants/Camponotus_ligniperda1.jpg", "ants/Camponotus_ligniperda2.jpg", "ants/Camponotus_ligniperda3.jpg", "ants/Camponotus_ligniperda_shop.jpg"]],
+  "Formica fusca": [false, ["ants/Formica_fusca1.jpg", "ants/Formica_fusca2.jpg", "ants/Formica_fusca3.jpg", "ants/Formica_fusca5.jpg", "ants/Formica_fusca6.jpg", "ants/Formica_fusca7.jpg", "ants/Formica_fusca8.jpg", "ants/Formica_fusca9.jpg", "ants/Formica_fusca10.jpg", "ants/Formica_fusca11.jpg", "ants/Formica_fusca_shop.jpg"]],
+  "Formica sanguinea": [true, ["ants/Formica_sanguinea1.jpg", "ants/Formica_sanguinea2.jpg", "ants/Formica_sanguinea3.jpg", "ants/Formica_sanguinea_shop.jpg"]],
+  "Lasius emarginatus": [true, ["ants/Lasius_emarginatus1.jpg", "ants/Lasius_emarginatus_shop.jpg"]],
+  "Lasius flavus": [true, ["ants/Lasius_flavus1.jpg", "ants/Lasius_flavus2.jpg", "ants/Lasius_flavus3.jpg", "ants/Lasius_flavus4.jpg", "ants/Lasius_flavus5.jpg", "ants/Lasius_flavus6.jpg", "ants/Lasius_flavus_shop.jpg"]],
+  "Lasius fuliginosus": [false, ["ants/Lasius_fuliginosus1.jpg", "ants/Lasius_fuliginosus3.jpg", "ants/Lasius_fuliginosus4.jpg", "ants/Lasius_fuliginosus5.jpg", "ants/Lasius_fuliginosus6.jpg", "ants/Lasius_fuliginosus_shop.jpg"]],
+  "Lasius niger": [true, ["ants/Lasius_niger1.jpg", "ants/Lasius_niger2.jpg", "ants/Lasius_niger3.jpg", "ants/Lasius_niger4.jpg", "ants/Lasius_niger5.jpg", "ants/Lasius_niger6.jpg", "ants/Lasius_niger7.jpg", "ants/Lasius_niger8.jpg", "ants/Lasius_niger9.jpg", "ants/Lasius_niger10.jpg", "ants/Lasius_niger_shop.jpg"]],
+  "Myrmica rubra": [true, ["ants/Myrmica_rubra1.jpg", "ants/Myrmica_rubra2.jpg", "ants/Myrmica_rubra3.jpg", "ants/Myrmica_rubra4.jpg", "ants/Myrmica_rubra_shop.jpg"]],
+  "Myrmica ruginodis": [true, ["ants/Myrmica_ruginodis1.jpg", "ants/Myrmica_ruginodis2.jpg", "ants/Myrmica_ruginodis_shop.jpg"]],
+  "Ponera coarctata": [true, ["ants/Ponera_coarctata1.jpg", "ants/Ponera_coarctata_shop.jpg"]],
+  "Solenopsis fugax": [false, ["ants/Solenopsis_fugax_shop.jpg"]],
+  "Temnothorax nylanderi": [true, ["items/item_haselnuss.jpg", "ants/Temnothorax_nylanderi2.jpg", "ants/Temnothorax_nylanderi3.jpg", "ants/Temnothorax_nylanderi4.jpg", "ants/Temnothorax_nylanderi5.jpg", "ants/Temnothorax_nylanderi_shop.jpg"]],
+  "Anochetus ghilianii": [true, ["ants/Anochetus_ghilianii1.jpg", "ants/Anochetus_ghilianii_shop.jpg"]],
+  "Aphaenogaster senilis": [false, ["ants/Aphaenogaster_senilis_shop.jpg"]],
+  "Camponotus cruentatus": [true, ["ants/Camponotus_cruentatus1.jpg", "ants/Camponotus_cruentatus2.jpg", "ants/Camponotus_cruentatus3.jpg", "ants/Camponotus_cruentatus4.jpg", "ants/Camponotus_cruentatus_shop.jpg"]],
+  "Camponotus lateralis": [true, ["ants/Camponotus_lateralis1.jpg", "ants/Camponotus_lateralis2.jpg", "ants/Camponotus_lateralis3.jpg"]],
+  "Cataglyphis velox": [false, ["ants/Cataglyphis_velox2.jpg", "ants/Cataglyphis_velox3.jpg", "ants/Cataglyphis_velox_shop.jpg"]],
+  "Crematogaster scutellaris": [true, ["ants/Crematogaster_scutellaris1.jpg", "ants/Crematogaster_scutellaris2.jpg", "ants/Crematogaster_scutellaris3.jpg", "ants/Crematogaster_scutellaris4.jpg", "ants/Crematogaster_scutellaris5.jpg", "ants/Crematogaster_scutellaris_shop.jpg"]],
+  "Lasius grandis": [true, ["ants/Lasius_grandis1.jpg", "ants/Lasius_grandis_shop.jpg"]],
+  "Messor barbarus": [true, ["ants/Messor_barbarus1.jpg", "ants/Messor_barbarus2.jpg", "ants/Messor_barbarus3.jpg", "ants/Messor_barbarus_shop.jpg"]],
+  "Messor structor": [true, ["ants/Messor_structor1.jpg", "ants/Messor_structor2.jpg", "ants/Messor_structor3.jpg", "ants/Messor_structor4.jpg", "ants/Messor_structor5.jpg", "ants/Messor_structor_shop.jpg"]],
+  "Pheidole pallidula": [true, ["ants/Pheidole_pallidula1.jpg", "ants/Pheidole_pallidula2.jpg", "ants/Pheidole_pallidula_shop.jpg"]],
+  "Plagiolepis pygmaea": [true, ["ants/Plagiolepis_pygmaea1.jpg", "ants/Plagiolepis_pygmaea2.jpg", "ants/Plagiolepis_pygmaea3.jpg", "ants/Plagiolepis_pygmaea4.jpg", "ants/Plagiolepis_pygmaea5.jpg", "ants/Plagiolepis_pygmaea6.jpg", "ants/Plagiolepis_pygmaea_shop.jpg"]],
+  "Acromyrmex spec.": [false, ["ants/Acromyrmex_spec3.jpg", "ants/Acromyrmex_spec4.jpg", "ants/Acromyrmex_spec5.jpg", "ants/Acromyrmex_spec_shop.jpg"]],
+  "Acromyrmex versicolor": [true, ["ants/Acromyrmex_versicolor1.jpg", "ants/Acromyrmex_versicolor_shop.jpg"]],
+  "Camponotus sericeus": [true, ["ants/Camponotus_sericeus1.jpg", "ants/Camponotus_sericeus2.jpg", "ants/Camponotus_sericeus3.jpg", "ants/Camponotus_sericeus4.jpg", "ants/Camponotus_sericeus5.jpg", "ants/Camponotus_sericeus_shop.jpg"]],
+  "Camponotus substitutus": [true, ["ants/Camponotus_substitutus1.jpg", "ants/Camponotus_substitutus2.jpg", "ants/Camponotus_substitutus3.jpg", "ants/Camponotus_substitutus4.jpg", "ants/Camponotus_substitutus5.jpg", "ants/Camponotus_substitutus_shop.jpg"]],
+  "Messor alexandri": [true, ["ants/Messor_alexandri1.jpg", "ants/Messor_alexandri2.jpg", "ants/Messor_alexandri3.jpg", "ants/Messor_alexandri4.jpg", "ants/Messor_alexandri5.jpg", "ants/Messor_alexandri6.jpg", "ants/Messor_alexandri7.jpg", "ants/Messor_alexandri8.jpg", "ants/Messor_alexandri9.jpg", "ants/Messor_alexandri10.jpg", "ants/Messor_alexandri_shop.jpg"]],
+  "Myrmecia chrysogaster": [true, ["ants/Myrmecia_chrysogaster1.jpg", "ants/Myrmecia_chrysogaster2.jpg", "ants/Myrmecia_chrysogaster3.jpg", "ants/Myrmecia_chrysogaster_shop.jpg"]],
+  "Myrmecia pavida": [true, ["ants/Myrmecia_pavida1.jpg", "ants/Myrmecia_pavida2.jpg", "ants/Myrmecia_pavida3.jpg", "ants/Myrmecia_pavida4.jpg", "ants/Myrmecia_pavida5.jpg", "ants/Myrmecia_pavida_shop.jpg"]],
+  "Myrmecocystus mexicanus": [false, ["ants/Myrmecocystus_mexicanus_shop.jpg"]],
+  "Pheidologeton diversus": [true, ["ants/Pheidologeton_diversus1.jpg", "ants/Pheidologeton_diversus2.jpg", "ants/Pheidologeton_diversus_shop.jpg"]],
+  "Polyrhachis dives": [true, ["ants/Polyrhachis_dives1.jpg", "ants/Polyrhachis_dives2.jpg", "ants/Polyrhachis_dives3.jpg", "ants/Polyrhachis_dives4.jpg", "ants/Polyrhachis_dives5.jpg", "ants/Polyrhachis_dives6.jpg", "ants/Polyrhachis_dives7.jpg", "ants/Polyrhachis_dives8.jpg", "ants/Polyrhachis_dives9.jpg", "ants/Polyrhachis_dives10.jpg", "ants/Polyrhachis_dives_shop.jpg"]],
+  "Marsameise": [false, ["ants/Marsameise_shop.jpg"]]
 };
 function ebaShAntImg(name, cls) {
-  var l = ebaShAntImgs[name], b = "/img/ants/" + ebaShAntBase(name);
-  if (l) { return ebaShImg(["/img/" + l[1][l[1].length - 1]], cls, name); }
-  if (ebaShAntImgMain[name]) { return ebaShImg(["/img/" + ebaShAntImgMain[name]], cls, name); }
-  return ebaShImg([b + "_shop.jpg", b + "1.jpg"], cls, name);
+  var l = ebaShAntImgs[name];
+  return ebaShImg([l ? "/img/" + l[1][l[1].length - 1] : "/img/ants/" + ebaShAntBase(name) + "_shop.jpg"], cls, name);
 }
 // Galerie "Bilder je Wachstumsstufe" (nur Arten mit bestätigter Liste); Stufe = Zahl im Dateinamen, sonst Position
 function ebaShAntStages(name) {
@@ -6620,8 +6636,8 @@ function ebaShAntStages(name) {
   if (!l) { return ""; }
   var h = "<div class='sh-galbox'><b>Bilder je Wachstumsstufe</b>" + (l[0] ? "" : " <small>(Liste evtl. unvollst&auml;ndig)</small>") + "<div class='sh-gal'>";
   $.each(l[1], function(i, f) {
-    var m = /(\d+)\.jpg$/.exec(f), st = m ? m[1] : i + 1;
-    h += "<img src='/img/" + f + "' data-gal='1' title='Stufe " + st + "' alt='Stufe " + st + "' loading='lazy'>";
+    var m = /(\d+)\.jpg$/.exec(f), st = /_shop\.jpg$/.test(f) ? "Shop" : "Stufe " + (m ? m[1] : i + 1);
+    h += "<img src='/img/" + f + "' data-gal='1' title='" + st + "' alt='" + st + "' loading='lazy'>";
   });
   return h + "</div></div>";
 }
@@ -6719,8 +6735,7 @@ function ebaShAntCard(r, maxP) {
       h += "<div class='sh-calc' data-name='" + ebaShE(n) + "'>K&ouml;niginnen: <input type='number' class='sh-q' min='1' max='99' value='"
         + (ebaShState.open[n].q || 2) + "'> <span class='sh-calc-out'></span></div>";
     }
-    h += ebaShAntImgs[n] ? ebaShAntStages(n)
-      : "<div class='sh-galbox'><button type='button' class='sh-gal-btn'>Entwicklungsstufen-Bilder laden</button><div class='sh-gal'></div></div>";
+    h += ebaShAntStages(n);
   }
   return h + "</div>";
 }
@@ -6996,16 +7011,17 @@ function ebaShWohnTab() {
 // nacheinander geprobt, das erste ladbare gilt), Gruppe, Zweige. Steht nur ein Name da, ist die Datei vom Nutzer im Spiel
 // bestätigt und wird normal geladen; die übrigen sind GESCHÄTZTE Namen (das Namensschema im Spiel ist gemischt deutsch/englisch).
 // Der Knoten "jobs" hat keine eigenen Kandidaten: er zeigt das erste gefundene Bild von jk/jv/jf (ebaShImgExtra).
-// Alle bisher erfolglos geprüften Kandidaten (allg, ausb, bio, form, nest, jk, jv) stehen in BILDERSUCHE_GEPRUEFT.md und werden
-// nicht erneut geprüft; die Listen unten sind die neue Runde. jf (research_gabelstapler.jpg) ist vom Nutzer im Spiel bestätigt.
+// Alle erfolglos geprüften Kandidaten (ausb, bio, form, nest, jk, jv, Saison Halloween) stehen in BILDERSUCHE_GEPRUEFT.md und werden
+// nicht erneut geprüft; Knoten mit leerer Liste gelten als "nicht gefunden" (Buchstabe statt Bild). allg (research_allgemeinwissen.jpg)
+// und jf (research_gabelstapler.jpg) sind vom Nutzer im Spiel bestätigt. Osterei-Futter: img/items/food_osterei.jpg (bestätigt, kommt in der Spielhilfe nicht vor).
 // Kandidaten mit "img/..." sind Pfade ab Wurzel (z. B. img/awards/...), alle anderen liegen unter /img/tasks/.
 var ebaShNodes = [
-  ["allg", "Allgemeines\nüber Ameisen", ["research_ameisen_info.jpg", "research_ameisen_wissen.jpg", "research_allgemeinwissen.jpg", "research_einfuehrung.jpg", "research_intro.jpg", "research_antfacts.jpg", "research_ameisen_basis.jpg"], "t", ["allg"]],
+  ["allg", "Allgemeines\nüber Ameisen", ["research_allgemeinwissen.jpg"], "t", ["allg"]],
   ["einh", "Einheimische\nArten", ["research_ameisen_einheimisch.jpg"], "a", ["einh"]],
-  ["ausb", "Ausbruchschutz", ["research_ausbruch_schutz.jpg", "research_ausbruchsprevention.jpg", "research_escape_prevention.jpg", "research_gitter.jpg", "research_sicherung.jpg", "research_schutz.jpg", "research_glass.jpg"], "f", ["ausb"]],
+  ["ausb", "Ausbruchschutz", [], "f", ["ausb"]],
   ["futt", "Futtertiere", ["research_futter.jpg"], "f", ["futt"]],
   ["bonus", "Forschungs-\nbonus", ["research_forschungsbonus.jpg"], "b", ["bonus"]],
-  ["bio", "Biologie der\nAmeisen", ["research_ameisen_biologie.jpg", "research_ant_anatomy.jpg", "research_zoologie.jpg", "research_myrmekologie.jpg", "research_myrmecology.jpg", "research_lebensweise.jpg", "research_biologie_ant.jpg"], "b", ["bio"]],
+  ["bio", "Biologie der\nAmeisen", [], "b", ["bio"]],
   ["hand", "Handwerkliches\nGeschick", ["research_werkzeug.jpg"], "h", ["hand"]],
   ["find", "Ameisen finden\nund bestimmen", ["research_ameisenfinden.jpg"], "a", ["find"]],
   ["jobs", "Jobver-\nbesserungen", [], "j", ["jk", "jv", "jf"]],
@@ -7015,8 +7031,8 @@ var ebaShNodes = [
   ["zucker", "Zuckerwasser\nselbst\nherstellen", ["research_sugarwater.jpg"], "f", ["zucker"]],
   ["poly", "Polygynie", ["research_polygyny.jpg"], "b", ["poly"]],
   ["wachs", "Ameisen-\nwachstum", ["research_wachstum.jpg"], "b", ["wachs"]],
-  ["form", "Formicarien-\nbau", ["research_formikarienbau.jpg", "research_formicarium_building.jpg", "research_formicariumbau.jpg", "research_formicarien_bau.jpg", "research_formicary_build.jpg", "research_aquarium.jpg", "research_glasbau.jpg"], "h", ["form"]],
-  ["nest", "Nestbau", ["research_nest_bauen.jpg", "research_nestbauen.jpg", "research_ameisennest.jpg", "research_ant_nest.jpg", "research_nesting.jpg", "research_nest_ytong.jpg", "research_gips.jpg"], "h", ["nest"]],
+  ["form", "Formicarien-\nbau", [], "h", ["form"]],
+  ["nest", "Nestbau", [], "h", ["nest"]],
   ["asw", "Ameisen-\nschutzwarte", ["research_asw.jpg"], "j", ["asw"]],
   ["exot", "Exotische\nArten", ["research_ameisen_exotisch.jpg"], "a", ["exot"]],
   ["blaetter", "Blätter-\nsammeln", ["research_blaetter.jpg"], "f", ["blaetter"]]
@@ -7024,16 +7040,12 @@ var ebaShNodes = [
 // Die drei Jobverbesserungen einzeln (nur Bildsuche, kein eigener Baumknoten): Kloputz-Ausrüstung (Pümpel),
 // Verhaltensforscher (Lehrbücher), Online-Fahrschule (Gabelstaplerschein).
 var ebaShImgExtra = [
-  ["jk", "Jobverbesserung:\nKloputz (Pümpel)", ["research_klopumpel.jpg", "research_klo_pumpel.jpg", "research_pumpe.jpg", "research_rohrreiniger.jpg", "research_toilet_brush.jpg", "research_klobuerste.jpg", "research_klosett.jpg"], "j", []],
-  ["jv", "Jobverbesserung:\nVerhaltensforscher", ["research_verhaltensstudie.jpg", "research_verhaltensforschung.jpg", "research_forschung.jpg", "research_ethologie.jpg", "research_ethology.jpg", "research_notizbuch.jpg", "research_fachbuch.jpg"], "j", []],
+  ["jk", "Jobverbesserung:\nKloputz (Pümpel)", [], "j", []],
+  ["jv", "Jobverbesserung:\nVerhaltensforscher", [], "j", []],
   ["jf", "Jobverbesserung:\nGabelstaplerschein", ["research_gabelstapler.jpg"], "j", []],
   // Saisonbilder (Gruppe "s", nur Bildersuche): bestätigt sind img/winter/winter01.png ... winter27.png und img/awards/osterei.png (nicht prüfen)
-  ["sat", "Saison Ostern:\nTitelbild", ["img/easter/easter01.png", "img/ostern/ostern01.png", "img/easter/ostern01.png", "img/ostern/easter01.png", "img/spring/spring01.png", "img/fruehling/fruehling01.png"], "s", []],
-  ["sht", "Saison Halloween:\nTitelbild", ["img/halloween/halloween01.png", "img/herbst/herbst01.png", "img/autumn/autumn01.png", "img/fall/fall01.png", "img/spooky/spooky01.png"], "s", []],
-  ["saf", "Saison Ostern:\nFutter Osterei", ["img/items/food_osterei.jpg", "img/items/osterei.jpg", "img/items/item_osterei.jpg", "img/items/futter_osterei.jpg", "img/items/food_easteregg.jpg", "img/items/easteregg.jpg", "img/items/food_ei.jpg", "img/items/osterei.png"], "s", []],
-  ["shf", "Saison Halloween:\nKürbis (Item)", ["img/items/item_kuerbis.jpg", "img/items/kuerbis.jpg", "img/items/food_kuerbis.jpg", "img/items/food_pumpkin.jpg", "img/items/pumpkin.jpg", "img/items/item_pumpkin.jpg", "img/items/halloween.jpg"], "s", []],
-  ["saa", "Saison Ostern:\nAbzeichen", ["img/awards/ostern.png", "img/awards/easter.png", "img/awards/osterhase.png", "img/awards/hase.png", "img/awards/ostern2.png"], "s", []],
-  ["sha", "Saison Halloween:\nAbzeichen", ["img/awards/halloween.png", "img/awards/kuerbis.png", "img/awards/pumpkin.png", "img/awards/geist.png", "img/awards/fledermaus.png", "img/awards/gruselig.png"], "s", []]
+  ["sat", "Saison Ostern:\nTitelbild", ["img/easter/easter1.png", "img/ostern/ostern1.png", "img/easter/easter01.jpg", "img/ostern/ostern01.jpg", "img/easter/easter_01.png"], "s", []],
+  ["saa", "Saison Ostern:\nAbzeichen", ["img/awards/oster.png", "img/awards/osterfest.png", "img/awards/easter_egg.png", "img/awards/eier.png", "img/awards/ei.png"], "s", []]
 ];
 // Raster von oben nach unten: id -> [Spalte, Zeile, eingerückt]. Zeile 0 = Zweige unter der Wurzel,
 // darunter hängen deren Folge-Forschungen (eingerückt, Ast links daneben) bzw. stehen bei Ketten direkt darunter;
@@ -7078,10 +7090,12 @@ function ebaShImgCands(n) {
 }
 // Baumknoten ohne eigene Kandidaten: erstes gefundenes Bild der Unterknoten; unbekannt, solange eines noch nicht geprüft ist
 function ebaShImgDerive() {
+  $.each(ebaShImgExtra, function(i, n) { if (!n[2].length) { ebaShImgRes[n[0]] = ""; } });
   $.each(ebaShNodes, function(i, n) {
     if (n[2].length) { return; }
     var res = "", open = false;
     $.each(n[4], function(j, id) {
+      if (id === n[0]) { ebaShImgRes[id] = ""; return; }
       var r = ebaShImgRes[id];
       if (r) { res = r; return false; }
       if (r === undefined) { open = true; }
@@ -7113,7 +7127,8 @@ function ebaShImgInit() {
 function ebaShImgStatus(n) {
   var r = ebaShImgRes[n[0]];
   if (r === undefined) { return ebaShImgRun[n[0]] ? "Bild: wird gesucht ..." : "Bild: noch nicht geprüft"; }
-  return r ? "Bild: " + r : "Bild nicht gefunden; geprüft: " + ebaShImgCands(n).join(", ");
+  var cs = ebaShImgCands(n);
+  return r ? "Bild: " + r : "Bild nicht gefunden" + (cs.length ? "; geprüft: " + cs.join(", ") : " (siehe BILDERSUCHE_GEPRUEFT.md)");
 }
 function ebaShImgNodeUpdate(id) {
   ebaShImgDerive();
@@ -7191,21 +7206,28 @@ function ebaShProbeManual() {
 // ---- Bildersuche 2: Ameisen-Stufenbilder (Entwicklerwerkzeug, nur auf Knopfdruck, Ergebnis nur anzeigen/kopieren) ----
 // Prüft je Art in antcat img/ants/<Basis>0..15.jpg und <Basis>_shop.jpg; es wird nichts gespeichert oder übernommen.
 var ebaShAntScan = { gen: 0, running: false, total: 0, done: 0, res: null, names: [] };
+// Noch unbekannte Dateien einer Art: 0..15 und _shop, ohne die bereits bestätigten aus ebaShAntImgs
 function ebaShAntScanFiles(name) {
-  var b = ebaShAntBase(name), f = [], i;
+  var b = ebaShAntBase(name), f = [], i, known = {}, l = ebaShAntImgs[name];
+  if (l) { $.each(l[1], function(k, p) { known[p.replace(/^ants\//, "")] = true; }); }
   for (i = 0; i <= 15; i++) { f.push(b + i + ".jpg"); }
   f.push(b + "_shop.jpg");
-  return f;
+  return $.grep(f, function(x) { return !known[x]; });
 }
-function ebaShAntScanCount() { return Object.keys(antcat).length * 17; }
+function ebaShAntScanCount() {
+  var n = 0;
+  $.each(Object.keys(antcat), function(i, name) { n += ebaShAntScanFiles(name).length; });
+  return n;
+}
+// Schonend: eine Anfrage nach der anderen, 3-5 ms Pause dazwischen, zusätzlich 10 ms zwischen zwei Arten
 function ebaShAntScanStart() {
   var sc = ebaShAntScan;
   if (sc.running) { return; }
-  var gen = ++sc.gen, todo = [], active = 0;
+  var gen = ++sc.gen, todo = [];
   sc.names = Object.keys(antcat); sc.res = {}; sc.done = 0; sc.total = 0; sc.running = true;
   $.each(sc.names, function(i, name) {
     sc.res[name] = [];
-    $.each(ebaShAntScanFiles(name), function(j, f) { todo.push([name, j, f]); });
+    $.each(ebaShAntScanFiles(name), function(j, f) { todo.push([name, f, parseInt((/(\d+)\.jpg$/.exec(f) || [0, 99])[1], 10)]); });
   });
   sc.total = todo.length;
   var finish = function() { sc.running = false; ebaShAntScanUpdate(true); };
@@ -7218,22 +7240,22 @@ function ebaShAntScanStart() {
     im.onload = function() { end(im.naturalWidth > 0); };
     im.onerror = function() { end(false); };
     to = window.setTimeout(function() { end(false); }, 10000);
-    im.src = "/img/ants/" + t[2];
+    im.src = "/img/ants/" + t[1];
   };
   var step = function() {
     if (gen !== sc.gen) { return; }
-    while (active < 4 && todo.length) {
-      (function(t) {
-        active++;
-        probe(t, function(ok) {
-          active--;
-          if (gen !== sc.gen) { return; }
-          sc.done++;
-          if (ok) { sc.res[t[0]].push([t[1], t[2]]); }
-          if (!todo.length && !active) { finish(); } else { ebaShAntScanUpdate(false); step(); }
-        });
-      })(todo.shift());
-    }
+    if (!todo.length) { finish(); return; }
+    var t = todo.shift();
+    probe(t, function(ok) {
+      if (gen !== sc.gen) { return; }
+      sc.done++;
+      if (ok) { sc.res[t[0]].push([t[2], t[1]]); }
+      if (!todo.length) { finish(); return; }
+      ebaShAntScanUpdate(false);
+      var pause = 3 + Math.random() * 2;
+      if (todo[0][0] !== t[0]) { pause += 10; }
+      window.setTimeout(step, pause);
+    });
   };
   ebaShAntScanUpdate(true);
   step();
@@ -7249,11 +7271,11 @@ function ebaShAntScanFound(name) {
 }
 function ebaShAntScanHtml() {
   var sc = ebaShAntScan, total = ebaShAntScanCount();
-  var h = "<h4>Ameisen-Stufenbilder</h4><div class='sh-small'>Entwicklerwerkzeug: pr&uuml;ft f&uuml;r alle " + Object.keys(antcat).length + " Arten <code>img/ants/&lt;Art&gt;0.jpg</code> bis <code>15.jpg</code> und <code>&lt;Art&gt;_shop.jpg</code>. "
+  var h = "<h4>Ameisen-Stufenbilder</h4><div class='sh-small'>Entwicklerwerkzeug: pr&uuml;ft f&uuml;r alle " + Object.keys(antcat).length + " Arten <code>img/ants/&lt;Art&gt;0.jpg</code> bis <code>15.jpg</code> und <code>&lt;Art&gt;_shop.jpg</code>, aber nur die noch nicht best&auml;tigten Dateien (Spielhilfe-Liste), nacheinander mit kurzen Pausen. "
     + "Das Ergebnis wird nur angezeigt und nicht in die Spielhilfe &uuml;bernommen oder gespeichert.</div>"
     + "<p><button type='button' class='sh-chip sh-antscan'" + (sc.running ? " disabled" : "") + ">Ameisen-Stufenbilder pr&uuml;fen</button> "
     + (sc.running ? "<button type='button' class='sh-chip sh-antscancancel'>Abbrechen</button> " : "")
-    + "<span class='sh-small'>Macht " + total + " Anfragen an den Spielserver (" + Object.keys(antcat).length + " &times; 17); die meisten werden mit 404 beantwortet.</span></p>";
+    + "<span class='sh-small'>Macht " + total + " Anfragen an den Spielserver (nacheinander, je 3&ndash;5 ms Pause, 10 ms mehr zwischen zwei Arten); fast alle werden mit 404 beantwortet.</span></p>";
   if (!sc.res) { return h; }
   h += "<p class='sh-small sh-antprog'>" + sc.done + " / " + sc.total + (sc.running ? " &hellip;" : (sc.done < sc.total ? " (abgebrochen)" : " (fertig)")) + "</p>";
   if (sc.running) { return h; }
@@ -7263,7 +7285,7 @@ function ebaShAntScanHtml() {
     rep.push(name + "=" + (f.length ? f.join(",") : "\u2013"));
     t += "<tr><td>" + ebaShE(name) + "</td><td class='sh-small " + (f.length ? "ok" : "no") + "'>" + (f.length ? ebaShE(f.join(", ")) : "&ndash;") + "</td></tr>";
   });
-  return h + t + "</table><p class='sh-small'>Ergebnis zum Kopieren (bitte dem Entwickler schicken; &ndash; = nichts gefunden):<br>"
+  return h + t + "</table><p class='sh-small'>Ergebnis zum Kopieren (bitte dem Entwickler schicken; nur NEU gefundene Dateien, &ndash; = nichts Neues):<br>"
     + "<textarea class='sh-antreport' readonly rows='12' style='width:100%;font-family:monospace'>" + ebaShE(rep.join("\n")) + "</textarea></p>";
 }
 function ebaShAntScanUpdate(full) {
@@ -7440,7 +7462,7 @@ var ebaShJobs = [
     ["Kloputzer", "klo.jpg", "tick", 3, 3, "von Anfang an", "Nach 200 geputzten Klos kann man einen Pümpel kaufen.", 301],
     ["Kloputzer mit Pümpel", "klo2.jpg", "tick", 4, 4, "mit gekauftem Pümpel", "", 301]]],
   ["Pizzeria Omerta sucht Pizzaboten", [
-    ["Pizzeria Omerta sucht Pizzaboten", "job_pizza.jpg", 5, 20, 4, "von Anfang an", "Spieltext: „Gesucht wird eine freundliche, gut aussehende Person, die per Moped die Pizza an den Besteller liefert. Bei verspäteter Lieferung gibt es Lohnabzug.“ (Einen Lohnabzug gibt es im Spiel nie.) Auf dem Server gibt es den Job einmal je 12 aktive Spieler; er dauert 5 Stunden und wird nach 4 Stunden wieder angeboten (dann kann ihn ein anderer Spieler nehmen).", null],
+    ["Pizzeria Omerta sucht Pizzaboten", "job_pizza.jpg", 5, 20, 4, "von Anfang an", "Je 12{P} aktive Spieler pro Tick wird ein Pizzajob vergeben. Fährt jemand gerade Pizza aus, ist dieser Slot 4 Stunden lang blockiert.", null],
     ["Pizzeria Omerta sucht Pizzaboten", "job_pizza.jpg", 5, 25, 5, "Forschung Pümpel (wie beim Kloputzer)", "Pizzeria Omerta zahlt mehr als beim Kloputzen. Dein Lohn steigt deswegen ebenfalls an.", null]]],
   ["Regale einräumen", [
     ["Regale einräumen", "supermarkt.jpg", 8, null, null, "von Anfang an", "Der Grundlohn ist unbekannt.", 302],
@@ -7450,7 +7472,7 @@ var ebaShJobs = [
   ["Job nach der Verhaltensforscher-Studie", [
     ["Neuer Job (Name unbekannt)", null, 12, 30, 2.5, "150-mal den Museumsjob, Allgemeines über Ameisen Stufe 11, dann Forschung Verhaltensforscher für Studie (Lehrbücher kaufen, auswendig lernen, Prüfung ablegen)", "", null]]],
   ["Werbeplakate kleben", [
-    ["Werbeplakate kleben", "job_plakate.jpg", 10, 25, 2.5, "verfügbar nach ca. 10 Abstimmungen für EBA {?}", "Spieltext: „Da du immer fleißig für EBA abgestimmt hast …“.", 315]]],
+    ["Werbeplakate kleben", "job_plakate.jpg", 10, 25, 2.5, "verfügbar nach ca. 10{?} Abstimmungen für EBA", "", 315]]],
   ["Betreuer bei studentischer Biologie-Exkursion", [
     ["Betreuer bei studentischer Biologie Exkursion", "job_exkursion.jpg", 20, 50, 2.5, "Forschung Biologie der Ameisen, Stufe 4", "", 304]]]
 ];
@@ -7477,7 +7499,7 @@ function ebaShJobsTab() {
         + "<table class='sh-kv'><tr><td>Dauer</td><td>" + dur + "</td></tr>"
         + "<tr><td>Lohn</td><td>" + (j[3] != null ? ebaShEuro(j[3]) : u) + "</td></tr>"
         + "<tr><td>Stundenlohn</td><td>" + (j[4] != null ? "<b>" + ebaShEuro(j[4]) + "</b> je " + (speed ? "Spielstunde" : "Stunde") : u) + "</td></tr></table>"
-        + "<div class='sh-small'><b>" + (k ? "Verbesserung (nur Lohn)" : "Freischaltung") + ":</b> " + ebaShE(j[5]).replace("{?}", "<span class='sh-qm' title='unsicher. K&ouml;nnten auch mehr oder weniger sein.'>?</span>") + (j[6] ? "<br>" + ebaShE(j[6]) : "") + "</div></div></div>";
+        + "<div class='sh-small'><b>" + (k ? "Verbesserung (nur Lohn)" : "Freischaltung") + ":</b> " + ebaShE(j[5]).replace("{?}", ebaShTip("*", "unsicher. Könnten auch mehr oder weniger sein.")) + (j[6] ? "<br>" + ebaShE(j[6]).replace("{P}", ebaShTip("*", "bei der genauen Anzahl unsicher, könnten auch 10 sein")) : "") + "</div></div></div>";
     });
   });
   h += "</div><h4>Jobverbesserungen (Forschung)</h4>";
@@ -7612,7 +7634,7 @@ function ebaShImgInfoHtml() {
     var r = ebaShImgRes[nd[0]], known = ebaShImgKnown[nd[0]];
     if (nd[3] === "s" && !seasonHead) {
       seasonHead = true;
-      h += "<tr><th colspan='3'>Saisonbilder (Ostern, Halloween; nur Entwickler-Suche, " + ebaShImgProbeCount("s") + " Anfragen)</th></tr>";
+      h += "<tr><th colspan='3'>Saisonbilder (Ostern; nur Entwickler-Suche, " + ebaShImgProbeCount("s") + " Anfragen)</th></tr>";
     }
     if (nd[3] !== "s") { n++; if (r) { found++; } }
     if (ebaShImgRun[nd[0]]) { running = true; }
@@ -8092,14 +8114,6 @@ function ebaShBind(root) {
     refresh();
   });
   root.on("input change", ".sh-q", function() { ebaShCalc($(this).closest(".sh-calc")); });
-  root.on("click", ".sh-gal-btn", function() {
-    var box = $(this).closest(".sh-card"), g = box.find(".sh-gal"), n = box.attr("data-name");
-    if (g.children().length) { return; }
-    var b = "/img/ants/" + ebaShAntBase(n), h = "";
-    for (var i = 1; i <= 12; i++) { h += "<img src='" + b + i + ".jpg' data-gal='1' alt='' loading='lazy'>"; }
-    g.html(h);
-    $(this).hide();
-  });
   root.on("click", ".sh-th[data-fs]", function() {
     var k = $(this).attr("data-fs");
     if (s.fsort === k) { s.fdir = s.fdir === "asc" ? "desc" : "asc"; }
