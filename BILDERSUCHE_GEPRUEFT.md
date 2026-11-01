@@ -30,7 +30,7 @@ Weitere bestätigte Bilder (nicht Forschung):
 - `/img/items/food_osterei.jpg` (Futter Osterei; steht in der Spielhilfe unter Futter → Relikte)
 - `/img/awards/Sponsor_gold.png` (Abzeichen für frühere finanzielle Unterstützung des Spiels)
 - `/img/awards/speed1.png`, `speed2.png`, `speed3.png`, `speed4.png` (Medaillen für Teilnahmen an Speedserver-Events; Stufen 1–4 bekannt, weitere nicht gefunden)
-- Weitere in der Spielhilfe (Info → Abzeichen) verwendete Abzeichen: `award_star_gold_1.png`, `award_star_bronze_3.png`, `house_gold.png`, `forklift.png`, `osterei.png`
+- Weitere in der Spielhilfe (Info → Abzeichen) verwendete Abzeichen: `award_star_gold_1.png`, `award_star_bronze_3.png`, `house_gold.png`, `house_schloss.png`, `award_asw_bronze.png`, `award_aswmonhtly_silver.png` (Tippfehler „monhtly“ im Spiel), `marsameise.png`, `forklift.png`, `osterei.png`
 
 ## Geprüft, nicht gefunden
 
@@ -188,6 +188,7 @@ Nur noch nie geprüfte Namen; Ergebnis nach dem Prüfen oben eintragen.
 - Handwerkliches Geschick, zweites Bild (`ha2`): `research_basteln`, `research_kleber`, `research_bauen`, `research_werkzeug2`, `research_handwerk2`, `research_bastel`
 - Job Verhaltensforscher für Studie gesucht (`jvj`, unter `img/tasks/`): `job_verhaltensforscher`, `job_studie`, `job_uni`, `job_universitaet`, `job_forscher`, `job_verhalten`
 - Job Weihnachtsmann (`jwm`): `job_weihnachtsmann`, `job_santa`, `job_nikolaus`, `job_xmas`
+- Abzeichen-Varianten (unter `/img/awards/`, alle `.png`; alle Treffer werden gemeldet): `award_asw_gold`, `award_asw_silver`, `award_aswmonhtly_gold`, `award_aswmonhtly_bronze`, `award_aswmonthly_gold`, `award_aswmonthly_silver`, `award_aswmonthly_bronze`; Wohnungs-Abzeichen `house_eltern`, `house_schuppen`, `house_dachboden`, `house_hochhaus`, `house_haus`, `house_silver`, `house_bronze`
 
 (alle `.jpg`, unter `/img/tasks/`)
 

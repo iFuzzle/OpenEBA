@@ -69,6 +69,7 @@ const configItems = {
   "eba_enable_copy_percentages"              : [copyHungerPercentages, "Hunger-Prozente mit Nachkommastelle"],
   "eba_enable_formi_move_form"               : [processSingleFormicariumView, "F&uuml;tterformular &uuml;ber die Futtertabelle schieben"],
   "eba_enable_key_navi"                      : [enableKeyNavi, "Mit v und n (bzw. q und e) zwischen Formicarien navigieren, mit z bzw. p f&uuml;ttern"],
+  "eba_enable_profile_nav"                   : [ebaProfileNav, "Auf Spielerprofilen zur vorherigen/n&auml;chsten ID bl&auml;ttern (Links)", "Auf Spielerprofilen erscheinen links und rechts neben dem Spielernamen die Links <i>vorherige ID</i> / <i>n&auml;chste ID</i> (ID &minus;1 / +1). Nur Navigation, es gibt keine automatischen Abrufe."],
   "eba_enable_profile_hotkeys"               : [ebaProfileHotkeys, "Profil-Bl&auml;ttern mit Q / E (Entwickler-Werkzeug)", "Auf Spielerprofilen mit Q / E zum vorherigen / n&auml;chsten Spieler (ID &minus;1 / +1) bl&auml;ttern. Nur Navigation per Tastendruck, es gibt keine automatischen Abrufe. Wirkt nicht in Eingabefeldern und nicht mit Strg/Alt/Meta."],
   "eba_enable_always_show_shop_prices"       : [alwaysShowShopPrices, "Ameisenshop-Preise immer zeigen", "Links neben dem Ameisenshop-Men&uuml;eintrag. Kann sein, dass nicht jeder Browser das richtig (verkleinert) darstellt."],
   "eba_enable_highlight_shop_prices"         : [highlightShopPrices, "Ameisenshop-Preise f&auml;rben", "Preise ab 95 % des H&ouml;chstpreises gelb, ab 98 % sanft rot, bei 100 % dunkelrot mit wei&szlig;er Schrift."],
@@ -3075,18 +3076,34 @@ function enableKeyNavi() {
     if (link!=null) window.location.href = link;
   });
 }
+// Profilseite profil.php?id=N: aktuelle ID oder null
+function ebaProfileId() {
+  if (!/\/profil\.php$/.test(window.location.pathname)) { return null; }
+  var m = /[?&]id=(\d+)/.exec(window.location.search);
+  return m ? parseInt(m[1], 10) : null;
+}
+// Links "vorherige ID" / "nächste ID" links und rechts neben dem Spielernamen (nur Navigation, keine Abrufe).
+// Beschriftung mit (Q)/(E) nur, wenn die Tasten-Option aktiv ist.
+function ebaProfileNav() {
+  var id = ebaProfileId();
+  if (id === null) { return; }
+  var h2 = $("#text h2").first();
+  if (!h2.length || $(".eba-prof-nav").length) { return; }
+  var keys = !!GM_getValue("eba_enable_profile_hotkeys", false);
+  var go = function(n) { return "profil.php?id=" + n; };
+  var st = "style='font-size:1.15em;white-space:nowrap'";
+  var prev = id > 1 ? "<a class='eba-prof-prev' " + st + " href='" + go(id - 1) + "'>&larr; " + (keys ? "(Q) " : "") + "vorherige ID</a>" : "";
+  var next = "<a class='eba-prof-next' " + st + " href='" + go(id + 1) + "'>n&auml;chste ID " + (keys ? "(E) " : "") + "&rarr;</a>";
+  var box = $("<div class='eba-prof-nav' style='display:flex;flex-wrap:wrap;align-items:baseline;justify-content:center;gap:0.4em 1.5em'></div>");
+  h2.before(box);
+  box.append(prev).append(h2).append(next);
+  h2.css("margin", "0.3em 0");
+}
 // Entwickler-Werkzeug: auf profil.php?id=N mit Q / E zu N-1 / N+1 blättern (nur Navigation, keine Abrufe)
 function ebaProfileHotkeys() {
-  if (!/\/profil\.php$/.test(window.location.pathname)) { return; }
-  var m = /[?&]id=(\d+)/.exec(window.location.search);
-  if (!m) { return; }
-  var id = parseInt(m[1], 10);
+  var id = ebaProfileId();
+  if (id === null) { return; }
   var go = function(n) { return "profil.php?id=" + n; };
-  var h2 = $("#text h2").first();
-  if (h2.length && !$(".eba-prof-nav").length) {
-    h2.before("<div class='eba-prof-nav' style='text-align:center;font-size:0.8em;color:#888'>"
-      + (id > 1 ? "<a href='" + go(id - 1) + "'>Q &larr;</a>" : "Q &larr;") + " | <a href='" + go(id + 1) + "'>&rarr; E</a></div>");
-  }
   $(document).on("keydown", function(e) {
     if (e.ctrlKey || e.altKey || e.metaKey) { return; }
     var t = e.target, tag = t && t.tagName ? t.tagName.toLowerCase() : "";
@@ -7063,6 +7080,11 @@ var ebaShImgExtra = [
   ["ha2", "Handwerkliches Geschick:\nzweites Bild", ["research_basteln.jpg", "research_kleber.jpg", "research_bauen.jpg", "research_werkzeug2.jpg", "research_handwerk2.jpg", "research_bastel.jpg"], "x", []],
   ["jvj", "Job:\nVerhaltensforscher f\u00FCr Studie", ["job_verhaltensforscher.jpg", "job_studie.jpg", "job_uni.jpg", "job_universitaet.jpg", "job_forscher.jpg", "job_verhalten.jpg"], "x", []],
   ["jwm", "Job:\nWeihnachtsmann", ["job_weihnachtsmann.jpg", "job_santa.jpg", "job_nikolaus.jpg", "job_xmas.jpg"], "x", []],
+  // Abzeichen-Varianten (Gruppe "y", unter /img/awards/): alle Kandidaten prüfen und alle Treffer melden (n[5] = true)
+  ["yasw", "Abzeichen:\nASW-Statistik Gold/Silber", ["img/awards/award_asw_gold.png", "img/awards/award_asw_silver.png"], "y", [], true],
+  ["yaswm", "Abzeichen:\nASW-Statistik Monat (Tippfehler)", ["img/awards/award_aswmonhtly_gold.png", "img/awards/award_aswmonhtly_bronze.png"], "y", [], true],
+  ["yaswm2", "Abzeichen:\nASW-Statistik Monat (korrekt)", ["img/awards/award_aswmonthly_gold.png", "img/awards/award_aswmonthly_silver.png", "img/awards/award_aswmonthly_bronze.png"], "y", [], true],
+  ["yhouse", "Abzeichen:\nAuszug je Wohnung", ["img/awards/house_eltern.png", "img/awards/house_schuppen.png", "img/awards/house_dachboden.png", "img/awards/house_hochhaus.png", "img/awards/house_haus.png", "img/awards/house_silver.png", "img/awards/house_bronze.png"], "y", [], true],
 ];
 // Raster von oben nach unten: id -> [Spalte, Zeile, eingerückt]. Zeile 0 = Zweige unter der Wurzel,
 // darunter hängen deren Folge-Forschungen (eingerückt, Ast links daneben) bzw. stehen bei Ketten direkt darunter;
@@ -7162,15 +7184,17 @@ function ebaShImgNodeUpdate(id) {
   ebaShImgInfoUpdate();
 }
 function ebaShImgProbeNode(n, gen, done) {
-  var c = n[2], i = 0;
+  var c = n[2], i = 0, hits = [];
   var next = function() {
     if (gen !== ebaShImgGen) { return; }
-    if (i >= c.length) { done(""); return; }
+    if (i >= c.length) { done(hits.join(",")); return; }
     var file = c[i++], im = new Image(), fin = false, to;
     var end = function(ok) {
       if (fin) { return; }
       fin = true; window.clearTimeout(to); im.onload = im.onerror = null;
-      if (ok) { done(file); } else { next(); }
+      if (ok && !n[5]) { done(file); return; }
+      if (ok) { hits.push(file); }
+      next();
     };
     im.onload = function() { end(im.naturalWidth > 0); };
     im.onerror = function() { end(false); };
@@ -7391,8 +7415,8 @@ var ebaShJobs = [
     ["Pizzeria Omerta sucht Pizzaboten", "job_pizza.jpg", 5, 20, 4, "von Anfang an", "Je 12{P} aktive Spieler pro Tick wird ein Pizzajob vergeben. Fährt jemand gerade Pizza aus, ist dieser Slot 4 Stunden lang blockiert.", null],
     ["Pizzeria Omerta sucht Pizzaboten", "job_pizza.jpg", 5, 25, 5, "Forschung Pümpel (wie beim Kloputzer)", "Pizzeria Omerta zahlt mehr als beim Kloputzen. Dein Lohn steigt deswegen ebenfalls an.", null]]],
   ["Regale einräumen", [
-    ["Regale einräumen", "supermarkt.jpg", 8, null, null, "von Anfang an", "Der Grundlohn ist unbekannt.", 302],
-    ["Regale einräumen mit Gabelstaplerschein", "supermarkt2.jpg", 8, 20, 2.5, "Forschung Gabelstaplerschein (Online-Fahrschule, frei nach 75 eingeräumten Regalen)", "", 302]]],
+    ["Aushilfskraft zum Regale einräumen gesucht", "supermarkt.jpg", 8, 15, 15 / 8, "von Anfang an", "", 302],
+    ["Aushilfskraft zum Regale einräumen gesucht", "supermarkt2.jpg", 8, 20, 2.5, "Forschung Gabelstaplerschein (Online-Fahrschule, frei nach 75 eingeräumten Regalen)", "", 302]]],
   ["Museum sucht versierten Myrmekologen", [
     ["Museum sucht versierten Myrmekologen", "job_museum.jpg", 3, 8, 8 / 3, "Forschung Ameisen finden und bestimmen, Stufe 4 („Wo sind die besten Chancen?“)", "", 305]]],
   ["Verhaltensforscher für Studie gesucht", [
@@ -7569,7 +7593,11 @@ function ebaShImgInfoHtml() {
       seenGrp.x = true;
       h += "<tr><th colspan='3'>Weitere Bilder (zweites Bild Handwerkliches Geschick, Jobs; nur Entwickler-Suche, " + ebaShImgProbeCount("x") + " Anfragen)</th></tr>";
     }
-    if (nd[3] !== "x") { n++; if (r) { found++; } }
+    if (nd[3] === "y" && !seenGrp.y) {
+      seenGrp.y = true;
+      h += "<tr><th colspan='3'>Abzeichen-Varianten (unter img/awards; alle Treffer werden gemeldet; nur Entwickler-Suche, " + ebaShImgProbeCount("y") + " Anfragen)</th></tr>";
+    }
+    if (nd[3] !== "x" && nd[3] !== "y") { n++; if (r) { found++; } }
     if (ebaShImgRun[nd[0]]) { running = true; }
     var c = cache[nd[0]];
     if (c && c.s === nd[2].join("|")) { report.push(nd[0] + "=" + (c.f === "none" ? "\u2013" : c.f)); } // geprüft (manuell)
@@ -7582,7 +7610,7 @@ function ebaShImgInfoHtml() {
     + "bei den &uuml;brigen steht ein Buchstabe. Der Knopf pr&uuml;ft einmal die Dateinamen der noch unbekannten Bilder im Browser (die bekannten werden nicht angefragt); gefundene Bilder merkt sich der Browser danach f&uuml;r dich. "
     + "Die Jobverbesserungen werden einzeln gesucht; der Baumknoten zeigt das erste gefundene der drei.</div>"
     + "<p><button type='button' class='sh-chip sh-imgre'" + (running ? " disabled" : "") + ">Bildnamen jetzt einmal pr&uuml;fen</button> "
-    + "<span class='sh-small'>Macht ca. " + ebaShImgProbeCount() + " Anfragen an den Spielserver (davon " + ebaShImgProbeCount("x") + " f&uuml;r weitere Bilder).</span></p>" + h + "</table>";
+    + "<span class='sh-small'>Macht ca. " + ebaShImgProbeCount() + " Anfragen an den Spielserver (davon " + (ebaShImgProbeCount("x") + ebaShImgProbeCount("y")) + " f&uuml;r weitere Bilder).</span></p>" + h + "</table>";
   if (report.length && !running) {
     out += "<p class='sh-small'>Ergebnis zum Kopieren (bitte dem Entwickler schicken; &ndash; = nicht gefunden):<br>"
       + "<textarea class='sh-imgreport' readonly rows='" + Math.min(report.length + 1, 12) + "' style='width:100%;font-family:monospace'>"
@@ -7605,7 +7633,10 @@ function ebaShBadgesHtml() {
     + "<p class='sh-small'>Abzeichen im Profil (Bilder vom Spielserver, nur bekannte Dateien).</p><ul class='sh-list sh-abzlist'>"
     + it(["award_star_gold_1.png"], "ausgewachsene &lt;Art&gt; Kolonie", "Je Art einmal; z&auml;hlt f&uuml;r die Sammlung als erledigt.")
     + it(["award_star_bronze_3.png"], "&lt;Art&gt; Kolonie mit N Arbeiterinnen", "Gr&ouml;&szlig;enrekord.")
-    + it(["house_gold.png"], "bei den Eltern ausgezogen", "")
+    + it(["house_gold.png", "house_schloss.png"], "bei den Eltern ausgezogen", "Bild je nach Wohnung.")
+    + it(["award_asw_bronze.png"], "Platz 3 in der ASW-Statistik", "Gold und Silber analog vermutet.")
+    + it(["award_aswmonhtly_silver.png"], "Platz 2 in der ASW-Statistik des letzten Monats", "Der Dateiname hat im Spiel einen Tippfehler (<i>monhtly</i>).")
+    + it(["marsameise.png"], "Marsameise als N. gefunden am &lt;Datum&gt;", "")
     + it(["forklift.png"], "Gabelstaplerschein bestanden", "")
     + it(["osterei.png"], "Platzierung bei der Ostereiersuche", "Events 2009&ndash;2013.")
     + it(["Sponsor_gold.png"], "Sponsor", "Es gab fr&uuml;her die M&ouml;glichkeit, das Spiel finanziell zu unterst&uuml;tzen. Daf&uuml;r gab es nur dieses Abzeichen.")
