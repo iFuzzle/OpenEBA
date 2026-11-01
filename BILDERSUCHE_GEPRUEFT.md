@@ -29,12 +29,8 @@ Weitere bestätigte Bilder (nicht Forschung):
 - `/img/awards/osterei.png` (Abzeichen)
 - `/img/items/food_osterei.jpg` (Futter Osterei; steht in der Spielhilfe unter Futter → Relikte)
 - `/img/awards/Sponsor_gold.png` (Abzeichen für frühere finanzielle Unterstützung des Spiels)
-- `/img/awards/speed4.png` (Medaille für Teilnahme an einem Speedserver-Event; weitere Stufen unbekannt)
+- `/img/awards/speed1.png`, `speed2.png`, `speed3.png`, `speed4.png` (Medaillen für Teilnahmen an Speedserver-Events; Stufen 1–4 bekannt, weitere nicht gefunden)
 - Weitere in der Spielhilfe (Info → Abzeichen) verwendete Abzeichen: `award_star_gold_1.png`, `award_star_bronze_3.png`, `house_gold.png`, `forklift.png`, `osterei.png`
-
-## Noch ungeprüft (Gruppen „Marsameise“ und „Abzeichen“ der Bildersuche)
-
-Nur Kandidaten, die noch nie geprüft wurden: `img/ants/Martialis_heureka0.jpg` bis `15.jpg`, `Martialis_heureka_shop.jpg`, `Martialis0.jpg` bis `3.jpg`, `Martialis_shop.jpg`, `Martialis_heureka.jpg`, `img/lexikon/martialis.jpg`, `martialis_heureka.jpg`, `Martialis_heureka.jpg`, `img/awards/speed0.png` bis `speed10.png` (ohne speed4), `speed_gold.png`, `speed_silver.png`, `speed_bronze.png`, `speed.png`. Ergebnis nach dem Prüfen hier eintragen.
 
 ## Geprüft, nicht gefunden
 
@@ -135,6 +131,12 @@ Nur Kandidaten, die noch nie geprüft wurden: `img/ants/Martialis_heureka0.jpg` 
 - `research_pumpel.jpg`
 - `research_work.jpg`
 
+### Marsameise und Abzeichen (im Spiel geprüft)
+
+- Marsameise, alle nicht gefunden: `img/ants/Martialis_heureka0.jpg` bis `15.jpg`, `Martialis_heureka_shop.jpg`, `Martialis0.jpg` bis `3.jpg`, `Martialis_shop.jpg`, `Martialis_heureka.jpg`, `img/lexikon/martialis.jpg`, `martialis_heureka.jpg`, `Martialis_heureka.jpg`
+- Saison Ostern (Titelbild `img/easter/easter1.png`, `img/ostern/ostern1.png`, `img/easter/easter01.jpg`, `img/ostern/ostern01.jpg`, `img/easter/easter_01.png`; Abzeichen `img/awards/oster.png`, `osterfest.png`, `easter_egg.png`, `eier.png`, `ei.png`): alle nicht gefunden
+- Abzeichen `img/awards/speed0.png`, `speed1.png` bis `speed3.png` (gefunden, siehe oben), `speed5.png` bis `speed10.png`, `speed_gold.png`, `speed_silver.png`, `speed_bronze.png`, `speed.png`: nur speed1 bis speed3 gefunden, der Rest nicht
+
 ### Letzte Runde (im Spiel geprüft, nicht gefunden)
 
 - `ausb`: `research_ausbruch_schutz.jpg`, `research_ausbruchsprevention.jpg`, `research_escape_prevention.jpg`, `research_gitter.jpg`, `research_sicherung.jpg`, `research_schutz.jpg`, `research_glass.jpg`
@@ -175,10 +177,20 @@ Nur Kandidaten, die noch nie geprüft wurden: `img/ants/Martialis_heureka0.jpg` 
 
 Insgesamt über 170 verschiedene Dateinamen in der Historie, davon 16 Forschungsbilder bestätigt.
 
+## Noch ungeprüft (aktuelle Kandidaten der Bildersuche)
+
+Nur noch nie geprüfte Namen; Ergebnis nach dem Prüfen oben eintragen.
+
+- `ausb` (Pulverfläschchen/Talkum): `research_puder`, `research_pulver`, `research_powder`, `research_flasche`, `research_talk`
+- `bio` (anatomische Zeichnung einer Ameise): `research_gaster`, `research_hautfluegler`, `research_hymenoptera`, `research_anatomie`, `research_koerper`, `research_zeichnung`
+- `form`: `research_glas`, `research_acryl`, `research_beton`, `research_plexiglas`
+- `nest`: `research_lehm`, `research_erde`, `research_sand`, `research_holz`
+- Handwerkliches Geschick, zweites Bild (`ha2`): `research_basteln`, `research_kleber`, `research_bauen`, `research_werkzeug2`, `research_handwerk2`, `research_bastel`
+- Job Verhaltensforscher für Studie gesucht (`jvj`, unter `img/tasks/`): `job_verhaltensforscher`, `job_studie`, `job_uni`, `job_universitaet`, `job_forscher`, `job_verhalten`
+- Job Weihnachtsmann (`jwm`): `job_weihnachtsmann`, `job_santa`, `job_nikolaus`, `job_xmas`
+
+(alle `.jpg`, unter `/img/tasks/`)
+
 ## Ameisen-Stufenbilder
 
-Der Scan (Info → Bildersuche → „Ameisen-Stufenbilder prüfen“) hat für alle 35 Arten Listen geliefert; sie stehen vollständig in `ebaShAntImgs` in `OpenEBA.js` (Stufenreihenfolge, `_shop` am Ende, Hauptbild = letzte Datei; Temnothorax nylanderi Stufe 1 = `items/item_haselnuss.jpg`; Camponotus lateralis hat kein `_shop`). Der Steckbrief lädt nur noch diese bestätigten Dateien, es gibt keine Proben mehr.
-
-**Unsicher** (Lücken oder keine Stufenbilder, können echt fehlen oder durch Server-Drosselung beim Scan verloren gegangen sein; beim nächsten Scan erneut prüfen): Formica fusca (4), Lasius fuliginosus (2), Cataglyphis velox (1), Acromyrmex spec. (1–2) sowie die Arten ohne nummerierte Bilder (Solenopsis fugax, Aphaenogaster senilis, Myrmecocystus mexicanus, Marsameise). In der Spielhilfe sind sie mit „Liste evtl. unvollständig“ markiert.
-
-Neuer Scan: prüft nur noch Dateien, die nicht bestätigt sind (also die Lücken sowie 0 und 12–15 je Art, siehe Hinweis im Tool für die aktuelle Anfragezahl: 434), nacheinander mit 3–5 ms Pause und zusätzlich 10 ms zwischen zwei Arten. Das Ergebnis (Tabelle und Kopiertext `Art=datei1,…`, nur NEU gefundene Dateien, `–` = nichts Neues) wird nur angezeigt, nicht gespeichert.
+Der Stufen-Scan ist **abgeschlossen** (Button und Code sind aus `OpenEBA.js` entfernt): er lieferte für alle 35 Arten Listen, ein erneuter Lauf mit Pausen ergab 0 neue Bilder. Die Lücken in der Nummerierung sind also echt (z. B. Formica fusca ohne Stufe 4, Lasius fuliginosus ohne Stufe 2, Cataglyphis velox ohne Stufe 1; Solenopsis fugax, Aphaenogaster senilis, Myrmecocystus mexicanus und die Marsameise haben nur `_shop`). Alle Listen stehen vollständig in `ebaShAntImgs` in `OpenEBA.js` (Stufenreihenfolge, `_shop` am Ende, Hauptbild = letzte Datei; Temnothorax nylanderi Stufe 1 = `items/item_haselnuss.jpg`; Camponotus lateralis hat kein `_shop`). Der Steckbrief lädt nur diese bestätigten Dateien, es gibt keine Proben.
