@@ -1,6 +1,6 @@
 # Bildersuche: bereits geprüfte Dateinamen
 
-Gesammelt aus der Git-Historie von `OpenEBA.js` (alle Varianten der Kandidatenlisten der Bildersuche unter *Info → Bildersuche*). Alle Dateien unter `https://www.eatenbyants.de/img/tasks/`. **Geprüft, nicht gefunden** heißt: im Spiel per Browser angefragt, Ergebnis „–“ (alle Runden für allg, ausb, bio, form, nest, jk, jv). Diese Namen nicht erneut prüfen.
+Gesammelt aus der Git-Historie von `OpenEBA.js` (alle Varianten der Kandidatenlisten der Bildersuche unter *Info → Bildersuche*). Alle Dateien unter `https://www.eatenbyants.de/img/tasks/`. **Geprüft, nicht gefunden** heißt: im Spiel per Browser angefragt, Ergebnis „–“ (alle Runden für ausb, bio, form, nest, jk, jv). Diese Namen nicht erneut prüfen.
 
 ## Bestätigt (gefunden)
 
@@ -21,30 +21,15 @@ Gesammelt aus der Git-Historie von `OpenEBA.js` (alle Varianten der Kandidatenli
 | exot | `/img/tasks/research_ameisen_exotisch.jpg` |
 | blaetter | `/img/tasks/research_blaetter.jpg` |
 | jf | `/img/tasks/research_gabelstapler.jpg` |
+| allg | `/img/tasks/research_allgemeinwissen.jpg` |
 
 Weitere bestätigte Bilder (nicht Forschung):
 
 - `/img/winter/winter01.png` bis `winter27.png` (Winter-Titelbilder)
 - `/img/awards/osterei.png` (Abzeichen)
+- `/img/items/food_osterei.jpg` (Futter Osterei; kommt in der Spielhilfe nicht vor, nur dokumentiert)
 
 ## Geprüft, nicht gefunden
-
-### Allgemeines über Ameisen (`allg`) – 14 Dateien
-
-- `research_allgemein_ameisen.jpg`
-- `research_allgemeines.jpg`
-- `research_ameisen.jpg`
-- `research_ameisen_allgemein.jpg`
-- `research_ameisenkunde.jpg`
-- `research_ameisenwissen.jpg`
-- `research_ant_basics.jpg`
-- `research_ants.jpg`
-- `research_basics.jpg`
-- `research_basics2.jpg`
-- `research_general.jpg`
-- `research_general2.jpg`
-- `research_grundlagen.jpg`
-- `research_wissen.jpg`
 
 ### Ausbruchschutz (`ausb`) – 12 Dateien
 
@@ -143,6 +128,17 @@ Weitere bestätigte Bilder (nicht Forschung):
 - `research_pumpel.jpg`
 - `research_work.jpg`
 
+### Letzte Runde (im Spiel geprüft, nicht gefunden)
+
+- `ausb`: `research_ausbruch_schutz.jpg`, `research_ausbruchsprevention.jpg`, `research_escape_prevention.jpg`, `research_gitter.jpg`, `research_sicherung.jpg`, `research_schutz.jpg`, `research_glass.jpg`
+- `bio`: `research_ameisen_biologie.jpg`, `research_ant_anatomy.jpg`, `research_zoologie.jpg`, `research_myrmekologie.jpg`, `research_myrmecology.jpg`, `research_lebensweise.jpg`, `research_biologie_ant.jpg`
+- `form`: `research_formikarienbau.jpg`, `research_formicarium_building.jpg`, `research_formicariumbau.jpg`, `research_formicarien_bau.jpg`, `research_formicary_build.jpg`, `research_aquarium.jpg`, `research_glasbau.jpg`
+- `nest`: `research_nest_bauen.jpg`, `research_nestbauen.jpg`, `research_ameisennest.jpg`, `research_ant_nest.jpg`, `research_nesting.jpg`, `research_nest_ytong.jpg`, `research_gips.jpg`
+- `jk`: `research_klopumpel.jpg`, `research_klo_pumpel.jpg`, `research_pumpe.jpg`, `research_rohrreiniger.jpg`, `research_toilet_brush.jpg`, `research_klobuerste.jpg`, `research_klosett.jpg`
+- `jv`: `research_verhaltensstudie.jpg`, `research_verhaltensforschung.jpg`, `research_forschung.jpg`, `research_ethologie.jpg`, `research_ethology.jpg`, `research_notizbuch.jpg`, `research_fachbuch.jpg`
+- Saison (unter `/img/`): Ostern Titelbild `easter/easter01.png`, `ostern/ostern01.png`, `easter/ostern01.png`, `ostern/easter01.png`, `spring/spring01.png`, `fruehling/fruehling01.png`; Ostern Abzeichen `awards/ostern.png`, `awards/easter.png`, `awards/osterhase.png`, `awards/hase.png`, `awards/ostern2.png`; Ostern Futter (Alternativen zu `food_osterei.jpg`) `items/osterei.jpg`, `items/item_osterei.jpg`, `items/futter_osterei.jpg`, `items/food_easteregg.jpg`, `items/easteregg.jpg`, `items/food_ei.jpg`, `items/osterei.png`
+- Halloween (gab es im Spiel nicht, komplett entfernt): `halloween/halloween01.png`, `herbst/herbst01.png`, `autumn/autumn01.png`, `fall/fall01.png`, `spooky/spooky01.png`, `items/item_kuerbis.jpg`, `items/kuerbis.jpg`, `items/food_kuerbis.jpg`, `items/food_pumpkin.jpg`, `items/pumpkin.jpg`, `items/item_pumpkin.jpg`, `items/halloween.jpg`, `awards/halloween.png`, `awards/kuerbis.png`, `awards/pumpkin.png`, `awards/geist.png`, `awards/fledermaus.png`, `awards/gruselig.png`
+
 ### Falsche Namen für inzwischen bestätigte Knoten (hand, zucker, jf) bzw. nur in älteren Kommentaren genannt – 24 Dateien
 
 - `research_allgemein.jpg`
@@ -170,15 +166,12 @@ Weitere bestätigte Bilder (nicht Forschung):
 - `research_zuckerwasser.jpg`
 - `research_zuckerwasser_mixer.jpg`
 
-Insgesamt: 128 verschiedene `research_*`-Dateinamen in der Historie, davon 15 bestätigt.
+Insgesamt über 170 verschiedene Dateinamen in der Historie, davon 16 Forschungsbilder bestätigt.
 
 ## Ameisen-Stufenbilder
 
-Bestätigte Listen (aus echten Spielerprofilen) stehen in `OpenEBA.js` in `ebaShAntImgs` (Stufenreihe je Art) und `ebaShAntImgMain` (nur ein Bild der ausgewachsenen Kolonie):
+Der Scan (Info → Bildersuche → „Ameisen-Stufenbilder prüfen“) hat für alle 35 Arten Listen geliefert; sie stehen vollständig in `ebaShAntImgs` in `OpenEBA.js` (Stufenreihenfolge, `_shop` am Ende, Hauptbild = letzte Datei; Temnothorax nylanderi Stufe 1 = `items/item_haselnuss.jpg`; Camponotus lateralis hat kein `_shop`). Der Steckbrief lädt nur noch diese bestätigten Dateien, es gibt keine Proben mehr.
 
-- `ebaShAntImgs`: Camponotus herculeanus (1–2), Camponotus ligniperda (1–3), Formica fusca (1–3, 5–11; 4 fehlt), Lasius flavus (1–6), Lasius niger (1–10), Myrmica rubra (1–4, evtl. unvollständig), Temnothorax nylanderi (`items/item_haselnuss.jpg`, 2–5), Pheidole pallidula (1, 2, `_shop`).
-- `ebaShAntImgMain`: Solenopsis fugax (`_shop`), Acromyrmex spec. (`3`), Camponotus cruentatus (`3`), Pheidologeton diversus (`2`).
+**Unsicher** (Lücken oder keine Stufenbilder, können echt fehlen oder durch Server-Drosselung beim Scan verloren gegangen sein; beim nächsten Scan erneut prüfen): Formica fusca (4), Lasius fuliginosus (2), Cataglyphis velox (1), Acromyrmex spec. (1–2) sowie die Arten ohne nummerierte Bilder (Solenopsis fugax, Aphaenogaster senilis, Myrmecocystus mexicanus, Marsameise). In der Spielhilfe sind sie mit „Liste evtl. unvollständig“ markiert.
 
-Alle übrigen Arten haben noch keine bestätigte Liste; der Steckbrief probiert dort `<Art>_shop.jpg` und `<Art>1.jpg` (dabei entsteht ein harmloses 404).
-
-Neuer Scan: Info → Bildersuche → „Ameisen-Stufenbilder prüfen“ (nur auf Klick, 35 Arten × 17 = 595 Anfragen: `img/ants/<Basis>0.jpg` bis `15.jpg` und `<Basis>_shop.jpg`). Das Ergebnis (Tabelle und Kopiertext `Art=datei1,datei2,…`) wird nur angezeigt, nicht gespeichert oder übernommen. Mit dem Ergebnis werden die Listen später fest eingetragen.
+Neuer Scan: prüft nur noch Dateien, die nicht bestätigt sind (also die Lücken sowie 0 und 12–15 je Art, siehe Hinweis im Tool für die aktuelle Anfragezahl: 434), nacheinander mit 3–5 ms Pause und zusätzlich 10 ms zwischen zwei Arten. Das Ergebnis (Tabelle und Kopiertext `Art=datei1,…`, nur NEU gefundene Dateien, `–` = nichts Neues) wird nur angezeigt, nicht gespeichert.
