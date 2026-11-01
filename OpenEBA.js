@@ -7555,21 +7555,47 @@ function ebaCollSuggest() {
   return sug;
 }
 
-// Füllzeichen zwischen Artname und " | " für eine gleich breite Namensspalte (der Profil-Text hat
-// keine Festbreitenschrift): leer = keine Ausrichtung. Hier austauschen, z. B. " " oder " ".
-var EBA_COLL_FILL = "";
+// Spalten im Profil-Text: Die Profilschrift ist proportional, und normale Leerzeichen werden dort
+// zusammengefasst. Deshalb wird die Lücke hinter dem Artnamen pixelgenau mit breiten Leerzeichen
+// (U+2002, bleibt im Profil erhalten) und schmalen zum Feinabgleich (U+2009, U+200A) aufgefüllt;
+// die Breiten misst ein Canvas mit der Schrift der Seite. Ohne Canvas: U+2007 nach Zeichenzahl.
+var EBA_COLL_FILL_FALLBACK = "\u2007";
+var EBA_COLL_FILLS = ["\u2002", "\u2009", "\u200a"]; // breit -> schmal
+// Messfunktion Text -> Pixel (Schrift des Spiels), oder null
+function ebaCollMeasurer() {
+  try {
+    var c = document.createElement("canvas").getContext("2d");
+    if (!c || typeof c.measureText !== "function") { return null; }
+    var el = $("#text").first(); if (!el.length) { el = $("body"); }
+    var cs = window.getComputedStyle(el[0]);
+    c.font = cs.fontStyle + " " + cs.fontWeight + " " + cs.fontSize + " " + cs.fontFamily;
+    return function(t) { return c.measureText(t).width; };
+  } catch (e) { return null; }
+}
+// Lücke von px Pixeln: greedy erst breite, dann schmale Zeichen; Rest auf das schmalste gerundet
+function ebaCollFillPx(px, m) {
+  var out = "", i, w;
+  for (i = 0; i < EBA_COLL_FILLS.length; i++) {
+    w = m(EBA_COLL_FILLS[i]);
+    if (!(w > 0)) { continue; }
+    var n = i === EBA_COLL_FILLS.length - 1 ? Math.round(px / w) : Math.floor(px / w);
+    if (n > 0) { out += new Array(n + 1).join(EBA_COLL_FILLS[i]); px -= n * w; }
+  }
+  return out;
+}
 // Text für das Spielerprofil (BBCode, nur [b] [i] [center]; eine Zeile je Art, keine Tabs)
 function ebaCollExport() {
-  var cur = ebaCollGet(), groups = { 1: [], 2: [], 3: [] };
+  var cur = ebaCollGet(), groups = { 1: [], 2: [], 3: [] }, m = ebaCollMeasurer();
   $.each(antcat, function(name, c) { groups[c].push(name); });
   var out = [];
   $.each([1, 2, 3], function(i, c) {
     var w = 0;
-    $.each(groups[c], function(j, n) { w = Math.max(w, n.length); });
+    $.each(groups[c], function(j, n) { w = Math.max(w, m ? m(n) : n.length); });
     out.push("== " + ebaShCollGroupNames[c] + " ==");
     $.each(groups[c], function(j, n) {
       var st = cur[n] || "open", pad = "";
-      if (EBA_COLL_FILL) { for (var k = n.length; k < w; k++) { pad += EBA_COLL_FILL; } }
+      if (m) { pad = ebaCollFillPx(w - m(n), m); }
+      else { for (var k = n.length; k < w; k++) { pad += EBA_COLL_FILL_FALLBACK; } }
       var line = n + pad + " | " + (st === "ready" || st === "active" ? "[b]" + st + "[/b]" : st);
       if ($.inArray(n, ebaShHidden) >= 0) { line += " [i]HIDDEN[/i]"; }
       if (shopPriceLimits[n] != null && st !== "done") { line += " [i]Shop[/i]"; }
@@ -7622,7 +7648,7 @@ function ebaShCollTab() {
     });
     h += "</div>";
   });
-  h += "<h4>F&uuml;rs Spielerprofil ausgeben</h4><div class='sh-card'><p class='sh-note'>Text mit BBCode f&uuml;r das Profil (erlaubt sind dort nur <code>[b]</code>, <code>[i]</code> und <code>[center]</code>); eine Zeile je Art.</p>"
+  h += "<h4>F&uuml;rs Spielerprofil ausgeben</h4><div class='sh-card'><p class='sh-note'>Text mit BBCode f&uuml;r das Profil (erlaubt sind dort nur <code>[b]</code>, <code>[i]</code> und <code>[center]</code>); eine Zeile je Art. Ausrichtung f&uuml;r die Spielschrift berechnet; in anderen Schriften leicht versetzt.</p>"
     + "<textarea class='sh-cl-txt' rows='10' style='width:98%' readonly placeholder='Hier erscheint der Text'>" + ebaShE(s.collTxt || "") + "</textarea><br>"
     + "<button type='button' class='sh-chip sh-cl-exp'>Als Text ausgeben (BBCode)</button></div>";
   return h;
