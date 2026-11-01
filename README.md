@@ -18,20 +18,22 @@ Die Konfiguration steht auf der Statistik-Seite des Spiels unter *openEBA*. Die 
 ## Funktionen
 
 ### Formicarien
-- *Formicarien-Statistik*: Pro Tick eine Zeile je Formicarium (Eier, Larven, Puppen, Ameisen, Punkte, Hunger), kopierbar nach Excel und Co.
+- *Formicarien-Statistik*: Pro Tick eine Zeile je Formicarium (Eier, Larven, Puppen, Ameisen, Punkte, Hunger). In der Übersicht stehen unter jeder Kolonie drei Links: *Verlauf* (Seite *openEBA-Verlauf* mit dieser Kolonie), *CSV* (Download für Excel) und *Tabelle* (Textfeld zum Kopieren).
 - *Futterbestand und Ausbruchschutz pro Tick festhalten*: Ergänzt die Statistik um Futtertabelle und Ausbruchschutz.
+- *Ausbruchschutz in der Formicarien-Übersicht anzeigen*: Zeile *Ausbruchschutz* unter Hunger bzw. Pilzstatus mit dem Wert aus dem letzten Tick (z.B. `97,4 %`, Art im Tooltip), unter 20 % orange, unter 10 % rot; ein älterer Wert ist blass und kursiv. Mit *… mit Prozentbalken* (Standard aus) zusätzlich als Balken.
 - *Auswachszustand der Kolonien in Prozent anzeigen*: Zeigt, wie weit die Kolonie ausgewachsen ist, mit Wachstumsphase und Warnung bei Nestbelegung über 75 %.
-- *Maximale Punktzahl in der Formicarien-Übersicht anzeigen*: Zeigt hinter den Punkten die erreichbare Maximalpunktzahl der Art.
+- *Maximale Punktzahl in der Formicarien-Übersicht anzeigen*: Zeigt hinter den Punkten die erreichbare Maximalpunktzahl der Art und den Punktezuwachs im letzten Tick (z.B. `4817 / 5000 +37`; fehlen Ticks dazwischen, der Durchschnitt je Tick mit ⌀).
 - *Hunger-Prozente mit Nachkommastelle*: Genauere Hungeranzeige.
 - *Fütterformular über die Futtertabelle schieben*: Das Formular steht direkt bei der Futtertabelle.
 - *Mit v und n (bzw. q und e) zwischen Formicarien navigieren, mit z bzw. p füttern*: Tastaturbedienung der Einzelansicht.
 - *Dialog 'Futtertierzucht einrichten' an den Anfang der Seite schieben* und *Dialog 'Formicarium einrichten' an den Anfang der Seite schieben*: Kürzere Wege auf den Einrichtungsseiten.
 - *Ameisen im Lager zusammenfassen* und *Nester und Formicarien im Lager nach Größe statt alphabetisch ordnen*: Übersichtlicheres Lager.
-- *Inventar in der Seitenleiste anzeigen*: Zeigt ausgewählte Lager-Items links im Menü (Begriffe pflegbar).
+- *Inventar in der Seitenleiste anzeigen*: Zeigt ausgewählte Lager-Items links im Menü (Begriffe pflegbar, Ameisen mit `@Art`).
+- *Lagerbestand je Tick festhalten*: Speichert einmal pro Tick das Lager (Futter in Gramm je Sorte, Zubehör, Formicarien und Nester, Möbel, Ameisen je Art), höchstens ein Abruf pro Tick und Server.
 
 ### Statistik und Verlauf
 - *Geld, Punkte und Ticklänge historisieren*: Hält je Tick Geld, Punkte und Ticklänge fest.
-- *Verlaufsgrafiken für Geld, Punkte und Formicarien*: Kurven in der Kopfzeile und die Seite *openEBA-Verlauf* mit Diagrammen (u.a. Punkte pro Tick, Brut, Hunger, Ausbruchschutz).
+- *Verlaufsgrafiken für Geld, Punkte und Formicarien*: Kurven in der Kopfzeile und die Seite *openEBA-Verlauf* mit Diagrammen (u.a. Punkte pro Tick, Brut, Hunger, Ausbruchschutz). Mit dem Lagerbestand kommt ein einklappbarer Bereich *Lager* dazu: Futtervorrat nach Art (Zucker, Körner, Blätter, Protein, je mit Einzelsorten) und Zubehör. Jede Kolonie hat einen CSV-Link.
 - *Statistik verbessern*: 1.000er-Trennzeichen und Tooltips mit Differenz zu den eigenen Punkten und Punkten pro Stunde.
 - *Historien ausdünnen, wenn sie zu groß werden*: Optional, entfernt bei großen Reihen alte Messpunkte (nicht mit dem WebDAV-Abgleich kombinierbar).
 
@@ -47,6 +49,7 @@ Die Konfiguration steht auf der Statistik-Seite des Spiels unter *openEBA*. Die 
 - *Alle Auswahllisten sortieren und zusammenfassen*: Alphabetisch sortiert, gleiche Einträge mit Anzahl.
 
 ### Draußen und Suchen
+- *Jobs/Forschungen mit Informationen anreichern*: Bei Ameisen- und Futtersuche steht in der Auswahl der Dauer die voraussichtliche Endzeit (z.B. `8:00:00 → morgen 07:53`), gerechnet ab Seitenaufruf nach Serverzeit.
 - *Futter- und Ameisensuchen vollständig historisieren*: Speichert alle Ergebnisse statt nur der letzten Treffer.
 - *Alle gespeicherten Ergebnisse unter draussen.php?cat=3 anzeigen*: Zeigt ältere Treffer als einklappbare Tabelle unter den Ergebnissen des Spiels.
 
@@ -56,7 +59,13 @@ Die Konfiguration steht auf der Statistik-Seite des Spiels unter *openEBA*. Die 
 - *Nachrichten nach Absendern filtern*: Blendet Nachrichten bestimmter Absender aus.
 
 ### Lexikon
-- *Spielhilfe im Lexikon anzeigen (Community-Daten)*: Zusätzlicher Menüpunkt *openEBA: Spielhilfe* unter lexikon.php (nicht vom Spielbetreiber, Daten aus der Community-Spielhilfe): Ameisen-Steckbriefe mit Bildern, Filter und Sortierung, Shopameisen-Vergleich, Wohnungen, Forschungsbaum als Grafik, Forschungsziele und -bonus, Jobs, Futter. Standardmäßig aus.
+- *Spielhilfe im Lexikon anzeigen (Community-Daten)*: Zusätzlicher Menüpunkt *openEBA: Spielhilfe* unter lexikon.php (nicht vom Spielbetreiber, Daten aus der Community-Spielhilfe, Angaben je Königin). Standardmäßig aus. Reiter:
+  - *Ameisen*: Steckbriefe mit Bildern, Filter und Sortierung, Details (Platzbedarf, Fundorte, Futter, Entwicklungszeiten), Polygynie-Rechner, Bildergalerie der Entwicklungsstufen.
+  - *Vergleich*: alle Arten, umschaltbar zwischen *Alle*, *kaufbar (Shop)* und *nur findbar*, mit Kategorie-Filter; Punkte und Geld pro Tag, auch je Regalplatz, ASW-Spalten. Sortierbar (zweiter Klick kehrt um).
+  - *Wohnungen*: in Spielreihenfolge, sortierbar nach Punkten, Preis, Plätzen und € je Platz.
+  - *Forschungsbaum*: als Grafik und als Stufentabellen.
+  - *Ziele & Bonus*, *Jobs* (Karten mit Dauer, Lohn, Stundenlohn, Freischaltung), *Futter* (sortier- und filterbar, Shop-Packungen mit Preis pro g) und *Info*.
+  - Ein Schalter zeigt die Werte des Speedservers. Die Bilder lädt das Skript vom Spielserver; unter Info → Bildersuche lässt sich per Button prüfen, welche vorhanden sind.
 
 ### Komfort
 - *Auto-Reload ausschalten*: Keine automatische Neuladung nach Ende eines Jobs oder einer Forschung.
@@ -78,7 +87,8 @@ Die Konfiguration steht auf der Statistik-Seite des Spiels unter *openEBA*. Die 
 
 - Alle Daten liegen lokal im Speicher von Tampermonkey. Ohne WebDAV-Abgleich verlassen sie den Browser nicht.
 - Normalserver und Speedserver sind vollständig getrennt (Historien, Preise, Auswahlen).
-- Zeiten richten sich nach der Uhr des Spielservers (deutsche Zeit), nicht nach Uhr oder Zeitzone des PCs. Alle Zeitangaben erscheinen in deutscher Zeit, auch wenn der PC z.B. im Urlaub auf eine andere Zeitzone gestellt ist; Daten verschiedener Geräte passen so zusammen.
+- Das Skript läuft nur auf `eatenbyants.de`, `www.eatenbyants.de` und `speed.eatenbyants.de`. Auf dem Testserver (`test.eatenbyants.de`) und anderen Subdomains tut es nichts und speichert nichts.
+- Zeiten richten sich nach der Uhr des Spielservers (deutsche Zeit), nicht nach Uhr oder Zeitzone des PCs. Alle Zeitangaben erscheinen in deutscher Zeit, auch wenn der PC z.B. im Urlaub auf eine andere Zeitzone gestellt ist; Daten verschiedener Geräte passen so zusammen. Das gilt auch für Endzeiten, Zeitraumfilter, Punkte pro Stunde und den WebDAV-Abgleich.
 - *Exportieren* / *Importieren* sichert und überträgt die Daten (optional nur für den aktuellen Server). Die WebDAV-Zugangsdaten sind nicht enthalten.
 - *Nur die Daten dieses Servers löschen* und *Alle gespeicherten Daten löschen* setzen zurück, jeweils mit Rückfrage.
 
@@ -101,9 +111,11 @@ Am Skript muss nichts geändert werden. Nur ein Skriptmanager, der fremde Hosts 
 ### Gut zu wissen
 
 - **Die Zugangsdaten liegen im Klartext** im Speicher des Skriptmanagers, damit auch in dessen Backups und Cloud-Sync. Deshalb die Freigabe mit kleinem Wirkungskreis. Im Export der openEBA-Daten stehen sie nicht, und ein Import kann sie nicht setzen.
+- Gelöschte Zeilen (siehe *Falsche Einträge korrigieren*) stehen in der Datei `eba_rowdel_list.tsv` und werden so auf allen Geräten gelöscht; der Abgleich bringt sie nicht zurück.
 - Abgeglichen werden nur Zeitreihen, und zwar nur die des aktuellen Spielservers. Optionen, Filter, Bookmarks und Notizen nie.
 - **Die Kompaktierung verträgt sich nicht mit dem Abgleich** (ausgedünnte Zeilen kämen vom anderen Gerät zurück). Solange sie an ist, ist der Abgleich gesperrt.
 - Remote-Dateien, die nicht nach openEBA-Daten aussehen (z.B. eine Login-Seite), werden weder verschmolzen noch überschrieben. *Ungültige Remote-Dateien überschreiben* ersetzt sie nach Rückfrage durch den lokalen Stand. Dateien mit einem neueren Speicherschema bleiben unangetastet – dann dieses Skript aktualisieren.
+- Sperren, Wartezeiten und die Anzeige „Letzter Abgleich“ laufen nach Serverzeit, nicht nach der PC-Uhr.
 - Zeilen mit unplausiblem Zeitstempel (z.B. von einem Gerät mit falsch gestellter Uhr) werden beim Abgleich verworfen und nicht hochgeladen.
 - Nach 401/403 hält der automatische Abgleich an, bis ein Verbindungstest oder ein manueller Abgleich klappt (Nextcloud sperrt sonst nach wiederholten Fehlanmeldungen die IP). Netz- und Serverfehler pausieren ihn 5, 15, dann 60 Minuten.
 - Wird lokal *Nur die Daten dieses Servers löschen* gedrückt, holt der nächste Abgleich die Reihen aus der Cloud zurück.
