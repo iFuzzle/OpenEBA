@@ -8,8 +8,6 @@
 // @include        https://*.eatenbyants.de/*
 // @exclude        http://forum.eatenbyants.de/*
 // @exclude        https://forum.eatenbyants.de/*
-// @exclude        http://test.eatenbyants.de/*
-// @exclude        https://test.eatenbyants.de/*
 // @version        33.31
 // @require        http://ajax.googleapis.com/ajax/libs/jquery/1/jquery.min.js
 // @grant          GM_getValue
@@ -42,10 +40,10 @@ const EBA_HIST_FORMAT = 2;
 const EBA_HIST_MAX_LINES = 2000;
 
 // Bereichspräfixe aller servergetrennten Schlüssel. Direkt dahinter steht
-// srvKey(), also "speed_" oder nichts. Siehe keyServer().
+// srvKey(), also "", "speed_", "test_" oder "testspeed_". Siehe keyServer().
 // Bewusst NICHT hier: Optionen (eba_enable_*, eba_disable_*, eba_sort_*),
 // eba_shopfilter, eba_bookmarks, eba_note, eba_stock_items - die gelten für
-// beide Server.
+// alle Server.
 var EBA_SRV_PREFIXES = [
   "eba_hist_", "eba_statistic_", "eba_food_", "eba_tickdur_",
   "eba_schemaversion_", "eba_points_", "eba_hours_",
@@ -598,34 +596,52 @@ function getServerNow() {
   return now + diff;
 }
 
-// Nur die Subdomain speed.* ist der Speed-Server. Die frühere, unverankerte
-// Prüfung hat jedes "speed" im Hostnamen erkannt (z.B. speedtest.eatenbyants.de).
-// Das Skript läuft NUR auf dem Normalserver (eatenbyants.de, www.) und dem Speed-
-// server (speed.). Alle anderen Hosts (z.B. test.eatenbyants.de) werden ignoriert,
-// damit dort nichts in die gemeinsamen GM-Daten geschrieben wird. Die Prüfung im
-// Code ist nötig, weil @exclude bei bestehenden Installationen erst nach einem
-// Update gilt.
+// Vier Server, getrennt gespeichert: Normal (eatenbyants.de, www.), Speed (speed.),
+// TestNormal (test.) und TestSpeed (testspeed.). Alle anderen Hosts (z.B. forum.,
+// speedtest.) werden ignoriert, damit dort nichts in die gemeinsamen GM-Daten
+// geschrieben wird. Die Prüfung im Code ist nötig, weil @include/@exclude bei
+// bestehenden Installationen erst nach einem Update gelten. Die Subdomain wird
+// verankert geprüft (frühere unverankerte Prüfung erkannte jedes "speed").
 function ebaHostAllowed(h) {
-  return /^(www\.|speed\.)?eatenbyants\.de$/i.test(h === undefined ? location.hostname : h);
+  return /^(www\.|speed\.|test\.|testspeed\.)?eatenbyants\.de$/i.test(h === undefined ? location.hostname : h);
 }
 var EBA_HOST_OK = ebaHostAllowed();
-function isSpeedServer() { return /^speed\./i.test(location.hostname); }
-// Tick-Länge in Minuten: Normal = 60, Speed = 12
+// Server-Präfix zu einem Hostnamen: "" (Normal), "speed_", "test_", "testspeed_"
+function ebaHostSrvKey(h) {
+  h = h === undefined ? location.hostname : h;
+  if (/^testspeed\./i.test(h)) { return "testspeed_"; }
+  if (/^speed\./i.test(h)) { return "speed_"; }
+  if (/^test\./i.test(h)) { return "test_"; }
+  return "";
+}
+// "Speed-Regeln" (Tick 12 min, Jobdauer 1/5, Speed-Polygynie ...) gelten für Speed UND TestSpeed
+function isSpeedServer() { return /^(testspeed_|speed_)$/.test(ebaHostSrvKey()); }
+// Tick-Länge in Minuten: Normal/TestNormal = 60, Speed/TestSpeed = 12
 function getTickMinutes() { return isSpeedServer() ? 12 : 60; }
-// GM-Werte gelten für alle Subdomains, daher eigener Präfix für den Speed-Server
-function srvKey() { return isSpeedServer() ? "speed_" : ""; }
-// Klartextname zu einem Server-Präfix, für Dialoge
-function srvName(key) { return key === "speed_" ? "Speedserver" : "Normalserver"; }
+// GM-Werte gelten für alle Subdomains, daher eigener Präfix je Server
+function srvKey() { return ebaHostSrvKey(); }
+// Klartextname zu einem Server-Präfix, für Dialoge und Anzeigen
+function srvName(key) {
+  return key === "speed_" ? "Speedserver" : key === "test_" ? "Testserver (Normal)"
+    : key === "testspeed_" ? "Testserver (Speed)" : "Normalserver";
+}
+// Kurzname für Dateinamen (WebDAV-Index): normal, speed, test, testspeed
+function ebaSrvFileName(key) { return key ? key.replace(/_$/, "") : "normal"; }
 
 // Zu welchem Server gehört ein gespeicherter Wert?
 // Alle servergetrennten Schlüssel haben die Form "<bereich>" + srvKey() + "<rest>",
 // der Server steckt also direkt hinter dem festen Bereichspräfix.
-// Rückgabe: "" (Normalserver), "speed_" (Speedserver) oder null (gilt für beide).
+// Rückgabe: "" (Normal), "speed_", "test_", "testspeed_" oder null (gilt für alle).
 function keyServer(k) {
   for (var i = 0; i < EBA_SRV_PREFIXES.length; i++) {
     var p = EBA_SRV_PREFIXES[i];
     if (k.indexOf(p) === 0) {
-      return k.substr(p.length).indexOf("speed_") === 0 ? "speed_" : "";
+      var rest = k.substr(p.length);
+      // "testspeed_" vor "speed_" und "test_" prüfen; ein Präfix ist nie Teilstück eines anderen
+      if (rest.indexOf("testspeed_") === 0) { return "testspeed_"; }
+      if (rest.indexOf("speed_") === 0) { return "speed_"; }
+      if (rest.indexOf("test_") === 0) { return "test_"; }
+      return "";
     }
   }
   return null; // Optionen, Filter, Notizen, Bookmarks: bewusst für beide Server
@@ -2120,7 +2136,7 @@ function migrateMisfiledSearches() {
 var EBA_COLL_STATES = ["open", "ready", "active", "done"];
 var EBA_COLL_MAX = 2000;
 function ebaCollKey() { return "eba_collection_" + srvKey() + "ants"; }
-function ebaIsCollKey(k) { return typeof k === "string" && /^eba_collection_(speed_)?ants$/.test(k); }
+function ebaIsCollKey(k) { return typeof k === "string" && /^eba_collection_(speed_|test_|testspeed_)?ants$/.test(k); }
 
 // Zeilen aus text in die Map dict ("k"+Art -> {name, st, ts}) einarbeiten
 function ebaCollParseInto(dict, text) {
@@ -2365,7 +2381,7 @@ function ebaRowDelSeriesAt(minute) {
 }
 // Lesbarer Name einer Reihe für Rückfragen
 function ebaRowDelLabel(key) {
-  var rest = key.replace(/^eba_(hist|statistic|food)_(speed_)?/, "");
+  var rest = key.replace(/^eba_(hist|statistic|food)_(testspeed_|speed_|test_)?/, "");
   if (key.indexOf("eba_hist_") === 0) {
     var names = { money: "Geld", points: "Punkte", tickdur: "Ticklänge", foodsearch: "Futtersuchen", antsearch: "Ameisensuchen",
       stock_food: "Lager Futter", stock_acc: "Lager Zubehör", stock_nest: "Lager Nester", stock_furn: "Lager Möbel", stock_ants: "Lager Ameisen" };
@@ -2781,7 +2797,7 @@ function ebaFormiIds() {
   $.each(GM_listValues(), function(i, k) {
     if (k.indexOf(pre) !== 0) { return; }
     var rest = k.substr(pre.length);
-    if (/^\d+$/.test(rest)) { out.push(rest); } // filtert auf dem Normalserver die speed_-Schlüssel
+    if (/^\d+$/.test(rest)) { out.push(rest); } // filtert auf den anderen Servern deren Präfix-Schlüssel
   });
   return out;
 }
@@ -4070,7 +4086,7 @@ function enableConfig() {
     //Reset: beide Varianten fragen vorher nach, weil hier Monate an Historie hängen
     $("#eba_config_reset").on("click", function(e) {
       if (!window.confirm("ALLE gespeicherten openEBA-Daten werden unwiderruflich gelöscht - "
-        + "und zwar für BEIDE Server (Normalserver UND Speedserver), weil der Speicher "
+        + "und zwar für ALLE Server (Normal, Speed, Test), weil der Speicher "
         + "für alle eatenbyants.de-Adressen derselbe ist.\n\n"
         + "Betroffen sind sämtliche Historien (Formicarien, Futter, Geld, Punkte, "
         + "Ticklänge, Suchen) sowie alle Optionen, Filter, Bookmarks und Notizen.\n\n"
@@ -4771,7 +4787,7 @@ function davKind(key) {
   if (key.indexOf("eba_statistic_") === 0) { return "formi"; }
   if (key.indexOf("eba_food_") === 0) { return "food"; }
   if (/_(foodsearch|antsearch)$/.test(key)) { return "search"; }
-  if (/^eba_hist_(speed_)?stock_(food|acc|nest|furn|ants)$/.test(key)) { return "stock"; }
+  if (/^eba_hist_(speed_|test_|testspeed_)?stock_(food|acc|nest|furn|ants)$/.test(key)) { return "stock"; }
   return "hist";
 }
 // Sammlung bereinigen: Zeilen mit unplausiblem Zeitstempel fliegen raus (Rückgabe kanonischer Text)
@@ -4940,13 +4956,13 @@ function davSetBad(key, bad) {
 }
 
 // Schlüssel, der als Datei im Ordner liegen darf: Zeitreihe des aktuellen Servers.
-// (Präfix-Falle: eba_hist_ ist auch Präfix von eba_hist_speed_; der Name wird Dateiname.)
+// (Präfix-Falle: eba_hist_ ist auch Präfix von eba_hist_speed_/_test_/_testspeed_; der Name wird Dateiname.)
 function davKeyValid(k) {
   return typeof k === "string" && (isHistoryKey(k) || ebaIsCollKey(k)) && keyServer(k) === srvKey() && /^[a-z0-9_]+$/.test(k);
 }
 
 // ---------------------------------------------------------------------------
-// Index-Datei eba_index_<normal|speed>.tsv im Ordner
+// Index-Datei eba_index_<normal|speed|test|testspeed>.tsv im Ordner
 //
 // Sie hat zwei Aufgaben:
 //  1. Inventar, falls der Server PROPFIND (Dateiliste) nicht erlaubt: jedes
@@ -4963,7 +4979,7 @@ function davKeyValid(k) {
 //   liegen im selben Wertebereich und werden gleich behandelt. Lokale Kopie:
 //   eba_dav_idx_<srv>, Stand des Servers: eba_dav_idxst_<srv> {etag, text}.
 // ---------------------------------------------------------------------------
-function davSrvName() { return srvKey() ? "speed" : "normal"; }
+function davSrvName() { return ebaSrvFileName(srvKey()); }
 function davIndexUrl() { return davConf().url + "eba_index_" + davSrvName() + ".tsv"; }
 function davIdxKey() { return "eba_dav_idx_" + srvKey(); }
 function davIdxStateKey() { return "eba_dav_idxst_" + srvKey(); }
@@ -7877,7 +7893,7 @@ function ebaShCollTab() {
     + "<span class='sh-cl-st st-active'>active</span> &ndash;(Kolonie ausgewachsen)&rarr; <span class='sh-cl-st st-done'>&#10003; done</span>"
     + "<br>" + ebaShTip("*", ebaShCollHidTip) + " versteckte Art (Erkl&auml;rung per Klick). <span class='sh-tag shop'>Shop</span> im Shop kaufbar (nur bei nicht done). "
     + "Klick auf den Status schaltet weiter; gestrichelte Vorschl&auml;ge aus Lager, Kolonien und Statistik werden erst mit einem Klick &uuml;bernommen. "
-    + "Gespeichert wird getrennt f&uuml;r " + (isSpeedServer() ? "den Speedserver" : "den Normalserver") + ".</p>"
+    + "Gespeichert wird getrennt f&uuml;r " + "den " + srvName(srvKey()) + ".</p>"
     + "<button type='button' class='sh-chip" + (s.cdone ? " on" : "") + "' data-f='cdone'>done ausblenden</button> "
     + "<button type='button' class='sh-chip sh-cl-read'>Alle Stati einlesen</button> <span class='sh-cl-msg sh-note'>" + ebaShE(s.collMsg || "") + "</span>"
     + ebaShCollPending() + "</div>";
