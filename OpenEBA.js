@@ -10,7 +10,7 @@
 // @exclude        https://forum.eatenbyants.de/*
 // @exclude        http://test.eatenbyants.de/*
 // @exclude        https://test.eatenbyants.de/*
-// @version        33.15
+// @version        33.16
 // @require        http://ajax.googleapis.com/ajax/libs/jquery/1/jquery.min.js
 // @grant          GM_getValue
 // @grant          GM_setValue
@@ -883,7 +883,7 @@ function updateFormiStatistic() {
     if (/^\d+$/.test(aid) && $.inArray(aid, activeIds) < 0) { activeIds.push(aid); }
   });
   GM_setValue("eba_formi_active_" + srvKey(), getServerNow() + "\t" + activeIds.join(","));
-  if (tk.done && activeIds.length && !$("#eba_recapture").length) {
+  if (tk.done && activeIds.length && ebaTickEdit() && !$("#eba_recapture").length) {
     var rb = $("<div style='text-align:center;font-size:0.85em;margin:4px 0'><a id='eba_recapture' href='javascript:void(0)' title='Verwirft die Statistik- und Futterzeilen des aktuellen Ticks aller Kolonien dieser Seite (auch auf anderen Ger\u00E4ten per WebDAV) und erfasst sie neu.'>\u21BB aktuellen Tick neu erfassen</a></div>");
     $("h3:contains('Deine Formicarien')").first().after(rb);
     rb.find("a").on("click", function(e) {
@@ -1028,7 +1028,7 @@ function ebaShowFormiTable(id, limit) {
   $("#eba_statistic_ok").on("click", function() {
     window.location.href = window.location.href.replace(/\?.*/, '');
   });
-  if (!t.rows.length) { return; }
+  if (!t.rows.length || !ebaTickEdit()) { return; }
   var n = t.rows.length, shown = Math.min(n, limit || n);
   var wrap = $("<div class='eba_rowtable' style='margin-top:10px;overflow-x:auto'></div>");
   wrap.append("<b>Zeilen</b> (neueste zuerst) &ndash; <span style='font-size:0.9em'>&#128465; l&ouml;scht die Zeile dieses Zeitpunkts "
@@ -1871,7 +1871,7 @@ function renderSearchHistoryFor(kind, tbl) {
     var head = tbl.find("tr").first().children("td,th").map(function() { return $.trim($(this).text()); }).get();
     var htr = $("<tr class='liste'>");
     $.each(head, function(j, h) { htr.append($("<td class='liste'>").text(h)); });
-    htr.append("<td class='liste'></td>");
+    if (ebaTickEdit()) { htr.append("<td class='liste'></td>"); }
     t.append(htr);
     var start = st.page * SEARCH_VIEW_PAGE_SIZE, n = 0;
     $.each(rows.slice(start, start + SEARCH_VIEW_PAGE_SIZE), function(i, r) {
@@ -1888,7 +1888,7 @@ function renderSearchHistoryFor(kind, tbl) {
         ebaRowDelRemove([[histKey(kind), r.cells.join("\t")]]);
         rerender();
       });
-      row.append($("<td class='liste'>").append(delLink));
+      if (ebaTickEdit()) { row.append($("<td class='liste'>").append(delLink)); }
       t.append(row);
     });
     cont.append($("<center>").append(t));
@@ -2122,6 +2122,13 @@ function isHistoryKey(k) {
 // Ein Tombstone gilt dauerhaft: auch die laufende Erfassung schreibt diesen
 // Zeitpunkt nicht noch einmal.
 // ---------------------------------------------------------------------------
+// Zeilen löschen / Tick neu erfassen sind ausgeblendet. Einblenden in der
+// Browser-Konsole (F12) auf eatenbyants.de: localStorage.setItem("eba_tickedit", "1")
+// Ausblenden: localStorage.removeItem("eba_tickedit"). Bereits gelöschte Zeilen
+// bleiben gelöscht, der Abgleich der Löschliste läuft immer.
+function ebaTickEdit() {
+  try { return window.localStorage.getItem("eba_tickedit") === "1"; } catch (e) { return false; }
+}
 function ebaRowDelKey() { return "eba_rowdel_" + srvKey() + "list"; }
 var EBA_ROWDEL_CACHE = { raw: null, set: {} };
 
@@ -5712,7 +5719,7 @@ function renderHistoryPage(rangeKey) {
   var hs = "style='cursor:pointer;background:#14391f;color:#e6f5ea;border:1px solid #3CAC56;border-radius:3px;"
     + "padding:4px 8px;margin:4px 0;user-select:none'";
   ebaHistStockSection(page, add, since, open, hs);
-  ebaHistRowsSection(page, open, hs, function() { renderHistoryPage(cur); });
+  if (ebaTickEdit()) { ebaHistRowsSection(page, open, hs, function() { renderHistoryPage(cur); }); }
   var ids = ebaFormiIds();
   ids.sort(function(a, b) { return parseInt(a, 10) - parseInt(b, 10); });
   if (!ids.length) {

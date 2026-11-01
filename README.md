@@ -72,6 +72,7 @@ Die Konfiguration steht auf der Statistik-Seite des Spiels unter *openEBA*. Die 
 - *Historien per WebDAV/Nextcloud zwischen Geräten abgleichen*: Gleicht die Verläufe mehrerer Geräte ab (siehe unten).
 - *Exportieren* / *Importieren*: Sichert und überträgt die Daten als JSON.
 - *Kolonie umziehen / Historien zusammenführen*: Führt die Historie einer alten Spiel-ID mit der neuen zusammen.
+- *Falsche Einträge korrigieren* (versteckt): Einzelne Zeitzeilen löschen (🗑 im openEBA-Verlauf unter „Datentabellen“, in der Kolonie-Tabelle und bei älteren Suchergebnissen) und „↻ aktuellen Tick neu erfassen“ in der Formicarien-Übersicht. Normalerweise nicht nötig, daher ausgeblendet. Einblenden: auf eatenbyants.de die Browser-Konsole öffnen (F12 → Konsole) und `localStorage.setItem("eba_tickedit", "1")` eingeben, Seite neu laden. Ausblenden: `localStorage.removeItem("eba_tickedit")`. Die Einstellung gilt je Browser und Server (normal/speed getrennt). Gelöschte Zeilen bleiben gelöscht, auch per WebDAV auf den anderen Geräten.
 
 ## Daten und Datenschutz
 
