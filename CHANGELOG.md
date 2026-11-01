@@ -15,6 +15,13 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
 
 > **Hinweis vor dem Update:** Mehrere Versionen (31.1, 31.7, 31.9) wandeln gespeicherte Daten beim ersten Start automatisch um. Empfehlung: vorher in der openEBA-Konfiguration die Daten über *Exportieren* sichern.
 
+## 33.36 (02.11.2026)
+
+- Jobs: Der Job „Verhaltensforscher für Studie gesucht“ zeigt jetzt sein Bild.
+- Spielhilfe: Beim Weihnachtsmann-Job unter „Frühere Events“ steht jetzt das Bild dazu.
+- Info → Abzeichen: Platz 1–3 der ASW-Statistik (gesamt und letzter Monat) mit allen drei Bildern; beim Auszug werden alle Wohnungs-Abzeichen gezeigt.
+- Info → Bildersuche: zeigt nur noch die Liste, welche Forschungsbilder gefunden bzw. nicht gefunden wurden.
+
 ## 33.35 (02.11.2026)
 
 - Spielerprofile: neue Option mit Links „← vorherige ID“ / „nächste ID →“ neben dem Spielernamen; die Option für die Tasten Q/E steuert nur noch die Tasten (dann mit „(Q)/(E)“ beschriftet).
