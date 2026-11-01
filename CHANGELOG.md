@@ -15,6 +15,13 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
 
 > **Hinweis vor dem Update:** Mehrere Versionen (31.1, 31.7, 31.9) wandeln gespeicherte Daten beim ersten Start automatisch um. Empfehlung: vorher in der openEBA-Konfiguration die Daten über *Exportieren* sichern.
 
+## 33.30 (01.11.2026)
+
+- Einstellungsseite: oben „openEBA Version X“, damit man im Spiel sieht, welche Version geladen ist.
+- Neue Option (Entwickler-Werkzeug): Auf Spielerprofilen mit Q / E zum vorherigen / nächsten Spieler blättern (ID −1 / +1), keine automatischen Abrufe.
+- Bildersuche: bereits erfolglos geprüfte Namen entfernt (dokumentiert in `BILDERSUCHE_GEPRUEFT.md`), neue Kandidaten für die sieben unbekannten Forschungsbilder, neue Gruppe für Saisonbilder (Ostern, Halloween).
+- `IDEEN.md`: Abschnitt „Vor dem Release v34“ (Bildersuche entfernen) und Winter-Skin-Idee.
+
 ## 33.29 (01.11.2026)
 
 - Spielhilfe: Pheidologeton diversus zeigt das größte vorhandene Bild (`Pheidologeton_diversus2.jpg`).
