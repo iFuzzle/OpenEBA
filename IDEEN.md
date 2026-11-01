@@ -8,7 +8,13 @@ Zusätzlich zum bestehenden Schnee-Effekt (Option *Schnee*) jahreszeitliche Effe
 
 - **Winter-/Weihnachts-Titelbilder:** Das Spiel hat Spezial-Titelbilder `https://www.eatenbyants.de/img/winter/winter01.png` bis `winter27.png` (27 Dateien). Zusammen mit dem Schnee-Effekt als winterlicher Kopfbereich nutzbar.
   Quelle der Liste: Spielerprofil https://www.eatenbyants.de/profil.php?id=39267
-- Weitere Jahreszeiten (Frühling, Sommer, Herbst, Ostern) als Ideen offen; Bilder dafür sind nicht bekannt.
+- **Winter-Skin:** Im Dezember je Tag das Bild `img/winter/winterNN.png` (NN = Tag des Monats, ggf. bis 27) im Kopfbereich rechts neben dem Logo einblenden (Bereich zwischen Logo und Statusbox im `#header`), zusammen mit dem Schnee-Effekt; eigene Option. Ostern und Halloween analog, sobald passende Bilder gefunden sind (Suche: Info → Bildersuche, Saisonbilder; Abzeichen `img/awards/osterei.png` ist bekannt).
+- Weitere Jahreszeiten (Frühling, Sommer, Herbst, Ostern) als Ideen offen; Bilder dafür sind noch nicht bekannt (Ostern/Halloween werden in der Bildersuche gesucht).
+
+## Vor dem Release v34
+
+- Bildersuche (Info → Bildersuche) entfernen – reines Entwickler-Werkzeug (geprüfte Namen: `BILDERSUCHE_GEPRUEFT.md`).
+- Profil-Blättern (Q/E) prüfen: als Dev-Tool behalten oder entfernen.
 
 ## Daten und Auswertungen
 

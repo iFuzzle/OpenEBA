@@ -19,6 +19,13 @@
 // @grant          GM_xmlhttpRequest
 // ==/UserScript==
 
+// Fallback für die angezeigte Skriptversion, falls GM_info fehlt (bei Versionserhöhung mit @version angleichen).
+const EBA_VERSION_FALLBACK = "33.29";
+function ebaScriptVersion() {
+  try { if (typeof GM_info !== "undefined" && GM_info && GM_info.script && GM_info.script.version) { return String(GM_info.script.version); } } catch (e) { /* ignorieren */ }
+  return EBA_VERSION_FALLBACK;
+}
+
 // Version des Speicherschemas der Historien.
 // 0/1 = Altbestand (nur Formi- und Futter-Historie, ohne Versionsschlüssel)
 // 2   = zusätzliche Zeitreihen für Geld, Punkte, Ticklänge sowie Futter-/Ameisensuchen
@@ -64,6 +71,7 @@ const configItems = {
   "eba_enable_copy_percentages"              : [copyHungerPercentages, "Hunger-Prozente mit Nachkommastelle"],
   "eba_enable_formi_move_form"               : [processSingleFormicariumView, "F&uuml;tterformular &uuml;ber die Futtertabelle schieben"],
   "eba_enable_key_navi"                      : [enableKeyNavi, "Mit v und n (bzw. q und e) zwischen Formicarien navigieren, mit z bzw. p f&uuml;ttern"],
+  "eba_enable_profile_hotkeys"               : [ebaProfileHotkeys, "Profil-Bl&auml;ttern mit Q / E (Entwickler-Werkzeug)", "Auf Spielerprofilen mit Q / E zum vorherigen / n&auml;chsten Spieler (ID &minus;1 / +1) bl&auml;ttern. Nur Navigation per Tastendruck, es gibt keine automatischen Abrufe. Wirkt nicht in Eingabefeldern und nicht mit Strg/Alt/Meta."],
   "eba_enable_always_show_shop_prices"       : [alwaysShowShopPrices, "Ameisenshop-Preise immer zeigen", "Links neben dem Ameisenshop-Men&uuml;eintrag. Kann sein, dass nicht jeder Browser das richtig (verkleinert) darstellt."],
   "eba_enable_highlight_shop_prices"         : [highlightShopPrices, "Ameisenshop-Preise f&auml;rben", "Preise ab 95 % des H&ouml;chstpreises gelb, ab 98 % sanft rot, bei 100 % dunkelrot mit wei&szlig;er Schrift."],
   "eba_enable_stat_beautify"                 : [statBeautify, "Statistik verbessern", "Einf&uuml;gen von 1.000er-Trennzeichen und Tooltips, die die Differenz zu den eigenen Punkten anzeigen. Das Avatar-Bild oben rechts bekommt als Tooltip die eigene Punkte-Entwicklung pro Stunde."],
@@ -3051,6 +3059,28 @@ function enableKeyNavi() {
     if (link!=null) window.location.href = link;
   });
 }
+// Entwickler-Werkzeug: auf profil.php?id=N mit Q / E zu N-1 / N+1 blättern (nur Navigation, keine Abrufe)
+function ebaProfileHotkeys() {
+  if (!/\/profil\.php$/.test(window.location.pathname)) { return; }
+  var m = /[?&]id=(\d+)/.exec(window.location.search);
+  if (!m) { return; }
+  var id = parseInt(m[1], 10);
+  var go = function(n) { return "profil.php?id=" + n; };
+  var h2 = $("#text h2").first();
+  if (h2.length && !$(".eba-prof-nav").length) {
+    h2.before("<div class='eba-prof-nav' style='text-align:center;font-size:0.8em;color:#888'>"
+      + (id > 1 ? "<a href='" + go(id - 1) + "'>Q &larr;</a>" : "Q &larr;") + " | <a href='" + go(id + 1) + "'>&rarr; E</a></div>");
+  }
+  $(document).on("keydown", function(e) {
+    if (e.ctrlKey || e.altKey || e.metaKey) { return; }
+    var t = e.target, tag = t && t.tagName ? t.tagName.toLowerCase() : "";
+    if (tag === "input" || tag === "textarea" || tag === "select" || (t && (t.isContentEditable || t.contentEditable === "true"))) { return; }
+    var k = (e.key || "").toLowerCase(), n = 0;
+    if (k === "q") { n = id - 1; } else if (k === "e") { n = id + 1; } else { return; }
+    if (n < 1) { return; }
+    window.location.href = go(n);
+  });
+}
 function processSingleFormicariumView() {
   if (!$("h3:contains('Formicarium')").length || ($("h3:contains('einrichten')").length)) {return}
   //move food table
@@ -3965,6 +3995,7 @@ function enableConfig() {
     //show config
     mainArea.empty();
     var configHTML = "<div id='shopitem'>";
+    configHTML += "<h3 id='eba_version' style='margin:0 0 0.8em 0;padding-bottom:0.3em;border-bottom:1px solid #bbb;font-weight:bold;color:#555'>openEBA Version " + ebaShE(ebaScriptVersion()) + "</h3>";
     $.each(configItems, function(k, v) {
       configHTML += (EBA_CONFIG_SUB[k] ? "<span style='display:inline-block;width:1.6em'></span>" : "") + "<input type='checkbox' id='"+k+"'>"+v[1];
       if (v[2]) {
@@ -6965,16 +6996,16 @@ function ebaShWohnTab() {
 // nacheinander geprobt, das erste ladbare gilt), Gruppe, Zweige. Steht nur ein Name da, ist die Datei vom Nutzer im Spiel
 // bestätigt und wird normal geladen; die übrigen sind GESCHÄTZTE Namen (das Namensschema im Spiel ist gemischt deutsch/englisch).
 // Der Knoten "jobs" hat keine eigenen Kandidaten: er zeigt das erste gefundene Bild von jk/jv/jf (ebaShImgExtra).
-// Die früheren Kandidatenlisten (research_general, _ameisen, _escape, _biology, _craft, _nests, _job, _allgemeines, _grundlagen,
-// _talkum, _koerperbau, _formicarienbau, _ytong, _puempel, _lehrbuch u. a.) sind im Spiel erfolglos geprüft und entfernt; die Listen
-// unten sind die neue Runde. jf (research_gabelstapler.jpg) ist vom Nutzer im Spiel bestätigt.
+// Alle bisher erfolglos geprüften Kandidaten (allg, ausb, bio, form, nest, jk, jv) stehen in BILDERSUCHE_GEPRUEFT.md und werden
+// nicht erneut geprüft; die Listen unten sind die neue Runde. jf (research_gabelstapler.jpg) ist vom Nutzer im Spiel bestätigt.
+// Kandidaten mit "img/..." sind Pfade ab Wurzel (z. B. img/awards/...), alle anderen liegen unter /img/tasks/.
 var ebaShNodes = [
-  ["allg", "Allgemeines\nüber Ameisen", ["research_ameisen_allgemein.jpg", "research_basics2.jpg", "research_ameisenwissen.jpg", "research_ant_basics.jpg", "research_general2.jpg"], "t", ["allg"]],
+  ["allg", "Allgemeines\nüber Ameisen", ["research_ameisen_info.jpg", "research_ameisen_wissen.jpg", "research_allgemeinwissen.jpg", "research_einfuehrung.jpg", "research_intro.jpg", "research_antfacts.jpg", "research_ameisen_basis.jpg"], "t", ["allg"]],
   ["einh", "Einheimische\nArten", ["research_ameisen_einheimisch.jpg"], "a", ["einh"]],
-  ["ausb", "Ausbruchschutz", ["research_protection.jpg", "research_escape_protection.jpg", "research_ausbruchsicherung.jpg", "research_barrier.jpg", "research_fluon.jpg"], "f", ["ausb"]],
+  ["ausb", "Ausbruchschutz", ["research_ausbruch_schutz.jpg", "research_ausbruchsprevention.jpg", "research_escape_prevention.jpg", "research_gitter.jpg", "research_sicherung.jpg", "research_schutz.jpg", "research_glass.jpg"], "f", ["ausb"]],
   ["futt", "Futtertiere", ["research_futter.jpg"], "f", ["futt"]],
   ["bonus", "Forschungs-\nbonus", ["research_forschungsbonus.jpg"], "b", ["bonus"]],
-  ["bio", "Biologie der\nAmeisen", ["research_ameisenbiologie.jpg", "research_ant_biology.jpg", "research_biologie2.jpg", "research_biology_ants.jpg", "research_antbiology.jpg"], "b", ["bio"]],
+  ["bio", "Biologie der\nAmeisen", ["research_ameisen_biologie.jpg", "research_ant_anatomy.jpg", "research_zoologie.jpg", "research_myrmekologie.jpg", "research_myrmecology.jpg", "research_lebensweise.jpg", "research_biologie_ant.jpg"], "b", ["bio"]],
   ["hand", "Handwerkliches\nGeschick", ["research_werkzeug.jpg"], "h", ["hand"]],
   ["find", "Ameisen finden\nund bestimmen", ["research_ameisenfinden.jpg"], "a", ["find"]],
   ["jobs", "Jobver-\nbesserungen", [], "j", ["jk", "jv", "jf"]],
@@ -6984,8 +7015,8 @@ var ebaShNodes = [
   ["zucker", "Zuckerwasser\nselbst\nherstellen", ["research_sugarwater.jpg"], "f", ["zucker"]],
   ["poly", "Polygynie", ["research_polygyny.jpg"], "b", ["poly"]],
   ["wachs", "Ameisen-\nwachstum", ["research_wachstum.jpg"], "b", ["wachs"]],
-  ["form", "Formicarien-\nbau", ["research_terrarium.jpg", "research_formicarium_bau.jpg", "research_formicary_building.jpg", "research_formicarienbau2.jpg", "research_behaelter.jpg"], "h", ["form"]],
-  ["nest", "Nestbau", ["research_nest_bau.jpg", "research_nestbau2.jpg", "research_ytong_bau.jpg", "research_nest_building.jpg", "research_gasbeton.jpg"], "h", ["nest"]],
+  ["form", "Formicarien-\nbau", ["research_formikarienbau.jpg", "research_formicarium_building.jpg", "research_formicariumbau.jpg", "research_formicarien_bau.jpg", "research_formicary_build.jpg", "research_aquarium.jpg", "research_glasbau.jpg"], "h", ["form"]],
+  ["nest", "Nestbau", ["research_nest_bauen.jpg", "research_nestbauen.jpg", "research_ameisennest.jpg", "research_ant_nest.jpg", "research_nesting.jpg", "research_nest_ytong.jpg", "research_gips.jpg"], "h", ["nest"]],
   ["asw", "Ameisen-\nschutzwarte", ["research_asw.jpg"], "j", ["asw"]],
   ["exot", "Exotische\nArten", ["research_ameisen_exotisch.jpg"], "a", ["exot"]],
   ["blaetter", "Blätter-\nsammeln", ["research_blaetter.jpg"], "f", ["blaetter"]]
@@ -6993,9 +7024,16 @@ var ebaShNodes = [
 // Die drei Jobverbesserungen einzeln (nur Bildsuche, kein eigener Baumknoten): Kloputz-Ausrüstung (Pümpel),
 // Verhaltensforscher (Lehrbücher), Online-Fahrschule (Gabelstaplerschein).
 var ebaShImgExtra = [
-  ["jk", "Jobverbesserung:\nKloputz (Pümpel)", ["research_p%C3%BCmpel.jpg", "research_plunger.jpg", "research_toilet.jpg", "research_toilette.jpg", "research_klo2.jpg"], "j", []],
-  ["jv", "Jobverbesserung:\nVerhaltensforscher", ["research_behavior.jpg", "research_books.jpg", "research_buecher.jpg", "research_verhalten.jpg", "research_behaviour.jpg"], "j", []],
-  ["jf", "Jobverbesserung:\nGabelstaplerschein", ["research_gabelstapler.jpg"], "j", []]
+  ["jk", "Jobverbesserung:\nKloputz (Pümpel)", ["research_klopumpel.jpg", "research_klo_pumpel.jpg", "research_pumpe.jpg", "research_rohrreiniger.jpg", "research_toilet_brush.jpg", "research_klobuerste.jpg", "research_klosett.jpg"], "j", []],
+  ["jv", "Jobverbesserung:\nVerhaltensforscher", ["research_verhaltensstudie.jpg", "research_verhaltensforschung.jpg", "research_forschung.jpg", "research_ethologie.jpg", "research_ethology.jpg", "research_notizbuch.jpg", "research_fachbuch.jpg"], "j", []],
+  ["jf", "Jobverbesserung:\nGabelstaplerschein", ["research_gabelstapler.jpg"], "j", []],
+  // Saisonbilder (Gruppe "s", nur Bildersuche): bestätigt sind img/winter/winter01.png ... winter27.png und img/awards/osterei.png (nicht prüfen)
+  ["sat", "Saison Ostern:\nTitelbild", ["img/easter/easter01.png", "img/ostern/ostern01.png", "img/easter/ostern01.png", "img/ostern/easter01.png", "img/spring/spring01.png", "img/fruehling/fruehling01.png"], "s", []],
+  ["sht", "Saison Halloween:\nTitelbild", ["img/halloween/halloween01.png", "img/herbst/herbst01.png", "img/autumn/autumn01.png", "img/fall/fall01.png", "img/spooky/spooky01.png"], "s", []],
+  ["saf", "Saison Ostern:\nFutter Osterei", ["img/items/food_osterei.jpg", "img/items/osterei.jpg", "img/items/item_osterei.jpg", "img/items/futter_osterei.jpg", "img/items/food_easteregg.jpg", "img/items/easteregg.jpg", "img/items/food_ei.jpg", "img/items/osterei.png"], "s", []],
+  ["shf", "Saison Halloween:\nKürbis (Item)", ["img/items/item_kuerbis.jpg", "img/items/kuerbis.jpg", "img/items/food_kuerbis.jpg", "img/items/food_pumpkin.jpg", "img/items/pumpkin.jpg", "img/items/item_pumpkin.jpg", "img/items/halloween.jpg"], "s", []],
+  ["saa", "Saison Ostern:\nAbzeichen", ["img/awards/ostern.png", "img/awards/easter.png", "img/awards/osterhase.png", "img/awards/hase.png", "img/awards/ostern2.png"], "s", []],
+  ["sha", "Saison Halloween:\nAbzeichen", ["img/awards/halloween.png", "img/awards/kuerbis.png", "img/awards/pumpkin.png", "img/awards/geist.png", "img/awards/fledermaus.png", "img/awards/gruselig.png"], "s", []]
 ];
 // Raster von oben nach unten: id -> [Spalte, Zeile, eingerückt]. Zeile 0 = Zweige unter der Wurzel,
 // darunter hängen deren Folge-Forschungen (eingerückt, Ast links daneben) bzw. stehen bei Ketten direkt darunter;
@@ -7024,6 +7062,7 @@ var ebaShGroupNames = { a: "Ameisenarten &amp; Suchen", f: "Futter &amp; Sammeln
 // ebaShImgRes: id -> Dateiname | "" (nicht gefunden); fehlt = nicht geprüft.
 // Cache (GM): eba_sh_imgcache = JSON { id: { f: Datei | "none", t: Zeitpunkt, s: Kandidaten } }.
 var ebaShImgRes = {}, ebaShImgRun = {}, ebaShImgGen = 0, ebaShTitleBase = {}, ebaShImgKnown = {}, ebaShImgDone = false;
+function ebaShImgSrc(f) { return f.indexOf("img/") === 0 ? "/" + f : "/img/tasks/" + f; }
 function ebaShNode(id) {
   var all = ebaShNodes.concat(ebaShImgExtra);
   for (var i = 0; i < all.length; i++) { if (all[i][0] === id) { return all[i]; } }
@@ -7084,7 +7123,7 @@ function ebaShImgNodeUpdate(id) {
     var n = ebaShNode(nid), g = $("svg.sh-tree g[data-nid='" + nid + "']");
     if (g.length && n) {
       var r = ebaShImgRes[nid], im = g.find("image");
-      if (r) { im.removeAttr("opacity"); im[0].setAttribute("href", "/img/tasks/" + r); }
+      if (r) { im.removeAttr("opacity"); im[0].setAttribute("href", ebaShImgSrc(r)); }
       g.find("title").first().text((ebaShTitleBase[nid] || n[1].replace(/\n/g, " ")) + " | " + ebaShImgStatus(n));
     }
   });
@@ -7104,14 +7143,14 @@ function ebaShImgProbeNode(n, gen, done) {
     im.onload = function() { end(im.naturalWidth > 0); };
     im.onerror = function() { end(false); };
     to = window.setTimeout(function() { end(false); }, 10000);
-    im.src = "/img/tasks/" + file;
+    im.src = ebaShImgSrc(file);
   };
   next();
 }
 // Anzahl der Anfragen eines vollständigen Durchlaufs (alle Kandidaten der noch unbekannten Knoten; bekannte werden nicht geprüft)
-function ebaShImgProbeCount() {
+function ebaShImgProbeCount(grp) {
   var n = 0;
-  $.each(ebaShImgList(), function(i, nd) { if (nd[2].length > 1) { n += nd[2].length; } });
+  $.each(ebaShImgList(), function(i, nd) { if (nd[2].length > 1 && (!grp || nd[3] === grp)) { n += nd[2].length; } });
   return n;
 }
 // Nur auf Knopfdruck: alle Kandidaten einmal prüfen, Cache neu schreiben
@@ -7228,7 +7267,7 @@ function ebaShTreeSvg() {
     svg += "<g class='sh-nodeg' data-nid='" + n[0] + "' transform='translate(" + p.x + " " + p.y + ")'><title>" + ebaShE(ebaShTitleBase[n[0]] + " | " + ebaShImgStatus(n)) + "</title>"
       + "<rect class='sh-node' width='" + NW + "' height='" + NH + "' rx='6' stroke='" + c + "'/>"
       + "<rect x='5' y='5' width='36' height='36' rx='4' class='sh-nph'/><text x='23' y='30' class='sh-nphl' text-anchor='middle'>" + ebaShE(lines[0].charAt(0)) + "</text>"
-      + "<image" + (r ? " href='/img/tasks/" + r + "'" : "") + " x='5' y='5' width='36' height='36' preserveAspectRatio='xMidYMid slice' clip-path='url(#shclip)'/>";
+      + "<image" + (r ? " href='" + ebaShImgSrc(r) + "'" : "") + " x='5' y='5' width='36' height='36' preserveAspectRatio='xMidYMid slice' clip-path='url(#shclip)'/>";
     $.each(lines, function(j, l) { svg += "<text x='46' y='" + (15 + j * 11.5) + "' class='sh-nname'>" + ebaShE(l) + "</text>"; });
     svg += "<text x='6' y='" + (NH - 17) + "' class='sh-nstat'>" + t.n + " St. &middot; " + ebaShN(t.cost, 1) + " €</text>"
       + "<text x='6' y='" + (NH - 6) + "' class='sh-nstat'>" + dur + "</text></g>";
@@ -7483,10 +7522,14 @@ function ebaShFoodTab() {
 // ---- Reiter: Info -----------------------------------------------------------
 
 function ebaShImgInfoHtml() {
-  var h = "<table class='liste sh-tab sh-imgtab'><tr><th>Forschung</th><th>Ergebnis</th><th>geprobte Dateien</th></tr>", n = 0, found = 0, report = [], running = false, cache = ebaShImgCacheLoad();
+  var h = "<table class='liste sh-tab sh-imgtab'><tr><th>Forschung</th><th>Ergebnis</th><th>geprobte Dateien</th></tr>", n = 0, found = 0, report = [], running = false, seasonHead = false, cache = ebaShImgCacheLoad();
   $.each(ebaShImgList(), function(i, nd) {
     var r = ebaShImgRes[nd[0]], known = ebaShImgKnown[nd[0]];
-    n++; if (r) { found++; }
+    if (nd[3] === "s" && !seasonHead) {
+      seasonHead = true;
+      h += "<tr><th colspan='3'>Saisonbilder (Ostern, Halloween; nur Entwickler-Suche, " + ebaShImgProbeCount("s") + " Anfragen)</th></tr>";
+    }
+    if (nd[3] !== "s") { n++; if (r) { found++; } }
     if (ebaShImgRun[nd[0]]) { running = true; }
     var c = cache[nd[0]];
     if (c && c.s === nd[2].join("|")) { report.push(nd[0] + "=" + (c.f === "none" ? "\u2013" : c.f)); } // geprüft (manuell)
@@ -7499,7 +7542,7 @@ function ebaShImgInfoHtml() {
     + "bei den &uuml;brigen steht ein Buchstabe. Der Knopf pr&uuml;ft einmal die Dateinamen der noch unbekannten Bilder im Browser (die bekannten werden nicht angefragt); gefundene Bilder merkt sich der Browser danach f&uuml;r dich. "
     + "Die Jobverbesserungen werden einzeln gesucht; der Baumknoten zeigt das erste gefundene der drei.</div>"
     + "<p><button type='button' class='sh-chip sh-imgre'" + (running ? " disabled" : "") + ">Bildnamen jetzt einmal pr&uuml;fen</button> "
-    + "<span class='sh-small'>Macht ca. " + ebaShImgProbeCount() + " Anfragen an den Spielserver.</span></p>" + h + "</table>";
+    + "<span class='sh-small'>Macht ca. " + ebaShImgProbeCount() + " Anfragen an den Spielserver (davon " + ebaShImgProbeCount("s") + " f&uuml;r die Saisonbilder).</span></p>" + h + "</table>";
   if (report.length && !running) {
     out += "<p class='sh-small'>Ergebnis zum Kopieren (bitte dem Entwickler schicken; &ndash; = nicht gefunden):<br>"
       + "<textarea class='sh-imgreport' readonly rows='" + Math.min(report.length + 1, 12) + "' style='width:100%;font-family:monospace'>"
