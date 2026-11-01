@@ -96,6 +96,7 @@ const configItems = {
   "eba_enable_webdav_sync"                   : [enableWebdavSync, "Historien per WebDAV/Nextcloud zwischen Ger&auml;ten abgleichen", "Jede Zeitreihe (Formicarien, Futter, Geld, Punkte, Tickl&auml;nge, Suchen) liegt als eigene Datei in einem WebDAV-Ordner und wird mit den lokalen Daten verschmolzen, h&ouml;chstens einmal pro Tick und nur f&uuml;r den aktuellen Server. Lokal geht dabei nie etwas verloren. Einrichtung unten unter <i>Abgleich der Historien per WebDAV</i>; der automatische Abgleich startet erst nach einem erfolgreichen <i>Verbindung testen</i> auf diesem Ger&auml;t. Tampermonkey fragt dabei einmal, ob das Skript den Host erreichen darf. Ein Skriptmanager, der stattdessen hart blockt, braucht im Skriptkopf eine Zeile <i>// @connect &lt;host&gt;</i>. Optionen, Filter und Notizen werden nie abgeglichen. Vertr&auml;gt sich nicht mit der Kompaktierung."],
   "eba_enable_search_history_view"          : [showSearchHistory, "Alle gespeicherten Ergebnisse unter draussen.php?cat=3 anzeigen", "Zeigt unter jeder der beiden Ergebnistabellen des Spiels (Ameisensuche, Futtertiersuche; nur die letzten 10) eine einklappbare Tabelle mit den &auml;lteren gespeicherten Ergebnissen, neueste oben, samt kurzen Summen. Die Erfassung wird auf dieser Seite selbst angesto&szlig;en (Option <i>Futter- und Ameisensuchen vollst&auml;ndig historisieren</i> ist nicht n&ouml;tig, aber die Historie w&auml;chst nur, wenn die Seite aufgerufen wird). Wird keine Tabelle erkannt, erscheint ein kleiner Hinweis."],
   "eba_enable_growth_percent"                : [showGrowthPercent, "Auswachszustand der Kolonien in Prozent anzeigen", "Hinter den Punkten (bei aktivierter maximaler Punktzahl dahinter) steht in Klammern der Auswachszustand, z.B. <i>4998 / 5000 +37 (99,9 %)</i> (ohne maximale Punktzahl <i>4998 +37 (99,9 %)</i>; der Zuwachs im letzten Tick kommt aus der Formicarien-Statistik) in Formicarien-&Uuml;bersicht und Einzelansicht: Arbeiterinnen geteilt durch die maximalen Arbeiterinnen der Art (bei polygynen Arten mit dem Zuwachs je K&ouml;nigin laut Polygynierechner wie bei der maximalen Punktzahl, bei unbekanntem Zuwachs ein <i>?</i>). Die Prozentzahl wird abgeschnitten, nicht gerundet. Die Farbe zeigt die Wachstumsphase: unter 24 % Anlaufphase (blau), 24&ndash;94 % Hauptwachstumsphase (gr&uuml;n), ab 94 % Endphase (gelb), 100 % ausgewachsen (hell, fett). Ist das Nest zu mehr als 75 % belegt, erscheint ein oranges <i>&#9888;</i>, denn das bremst das Wachstum (in der Einzelansicht mit der Belegung des Spiels, in der &Uuml;bersicht nur, wenn schon die Arbeiterinnen allein dar&uuml;ber liegen). Der Tooltip zeigt Phase, ob Nest oder Formicarium zuerst voll ist (z.B. <i>Nest voll bei ca. 5.000 Arbeiterinnen</i>) und die Belegung. Der Platzbedarf der Brut ist nicht eingerechnet."],
+  "eba_enable_max_habitat"                   : [showMaxHabitat, "Formicarium-Einzelansicht: h&ouml;chstens ben&ouml;tigtes Formicarium bzw. Nest anzeigen", "In der Formicarium-Detailansicht unter &bdquo;Formicarium wechseln&ldquo; und &bdquo;Nest wechseln&ldquo; anzeigen, welches Formicarium bzw. Nest die Art h&ouml;chstens braucht, mit &#10003;, wenn das aktuelle schon reicht. Grundlage sind die Daten der Spielhilfe (Platzbedarf &times; maximale Arbeiterinnen, ohne Brut); bei polygynen Arten wird die aktuelle K&ouml;niginnenzahl eingerechnet. Der Tooltip zeigt die Rechnung."],
   "eba_enable_history_charts"                : [enableHistoryCharts, "Verlaufsgrafiken f&uuml;r Geld, Punkte und Formicarien", "Beim &Uuml;berfahren von <i>Geld</i> und <i>Punkte</i> in der Kopfzeile erscheint eine kleine Kurve aus den gespeicherten Werten. Ein Klick darauf &ouml;ffnet unter <i>Statistik</i> die Seite <i>openEBA-Verlauf</i> mit gro&szlig;en Diagrammen (Geld, Punkte, Tickl&auml;nge, je Formicarium Arbeiterinnen, Punkte, Brut und Hunger). Die Kurven brauchen die Optionen <i>Geld, Punkte und Tickl&auml;nge historisieren</i> bzw. <i>Formicarien-Statistik</i>."],
   "eba_enable_overview_escape_bar"           : [ebaNoop, "Ausbruchschutz in der &Uuml;bersicht mit Prozentbalken", "Zeigt in der Zeile <i>Ausbruchschutz</i> zus&auml;tzlich einen Prozentbalken vor dem Text. Wirkt nur, wenn die Option <i>Ausbruchschutz in der Formicarien-&Uuml;bersicht anzeigen</i> aktiv ist; ohne diese Option erscheint nur der Text (z.B. <i>97,4 % PTFE</i>)."],
   "eba_enable_overview_escape"               : [showOverviewEscape, "Ausbruchschutz in der Formicarien-&Uuml;bersicht anzeigen", "Unter dem Hunger (Proteine) bzw. dem Pilzstatus jeder Kolonie erscheint eine Zeile <i>Ausbruchschutz</i> mit Balken, Prozentwert (z.B. <i>97,4 %</i>; die Art, z.B. PTFE, steht im Tooltip). Das Spiel zeigt ihn in der &Uuml;bersicht nicht; der Wert stammt aus der zuletzt festgehaltenen Futter-Historie (daf&uuml;r muss die Option <i>Futterbestand und Ausbruchschutz pro Tick festhalten</i> aktiv sein). Stammt der Wert nicht aus dem aktuellen Tick, erscheint er blasser und kursiv, der Tooltip nennt den Zeitpunkt; solange ein Abruf aussteht, erscheint dahinter ein &#9203;. Sobald der Hintergrundabruf den neuen Wert geholt hat, wird die Zeile automatisch normal dargestellt. Den Prozentbalken schaltet die separate Option <i>mit Prozentbalken</i> zu. Unter 20 % orange, unter 10 % rot."],
@@ -4636,6 +4637,75 @@ function showGrowthPercent() {
 }
 
 // ---------------------------------------------------------------------------
+// Einzelansicht: höchstens nötiges Formicarium / Nest
+//
+// Unter "Formicarium wechseln" und "Nest wechseln" je eine dezente Zeile
+// "höchstens nötig: <Vorschlag>" (Regalrechnung ebaShRegal() der Spielhilfe, bei
+// polygynen Arten mit der Königinnenzahl der Kolonie hochgerechnet). ✓, wenn das
+// aktuelle Formicarium bzw. Nest schon reicht. Unbekannte Art -> keine Zeile.
+// ---------------------------------------------------------------------------
+
+// Reine Rechnung ohne DOM. Rückgabe null bei unbekannter Art, sonst
+// { key, g (ebaShRegal), q (Königinnen für die Rechnung), ants (max. Arbeiterinnen), note, polyNote, excel, alt }
+function ebaMaxHabitatCalc(kind, queens, speed) {
+  var key = null, nk = ebaAntmaxNorm(kind);
+  $.each(ebaShAnts, function(k) { if (ebaAntmaxNorm(k) === nk) { key = k; return false; } });
+  var e = key ? antmax[key] : null;
+  if (!e) { return null; }
+  var fac = 1, q = (isFinite(queens) && queens >= 1) ? Math.floor(queens) : null, note = "", ants = e.a;
+  if (e.poly) {
+    var mp = q != null ? ebaMaxPoints(key, q, speed) : null;
+    if (mp && !mp.unknown && mp.ants > 0) { fac = mp.ants / e.a; ants = mp.ants; if (q === 1) { note = " (bei 1 Königin)"; } }
+    else { note = " (für 1 Königin)"; q = 1; }
+  }
+  var g = ebaShRegal(key, fac);
+  if (!g) { return null; }
+  var a = ebaShAnts[key], excel = null;
+  if (!g.formNest && !g.alt && ebaShNestIdx(a[1]) > ebaShNestIdx(g.nest)) { excel = a[1]; }
+  return { key: key, g: g, q: q, ants: ants, poly: !!e.poly, note: note, excel: excel };
+}
+
+function showMaxHabitat() {
+  if (!$("h3:contains('Formicarium')").length || $("h3:contains('einrichten')").length) { return; }
+  var apply = function() {
+    try {
+      var forms = $("form").filter(function() { return $(this).find("input[name=action]").val() === "changeformi" || $(this).find("input[name=action]").val() === "changenest"; });
+      if (!forms.length) { return; }
+      var box = $("div[data-formi='stats']").first();
+      var c = box.length ? ebaColonyCells(box) : {};
+      var kind = c["Art"] ? $.trim(c["Art"].text()) : ebaDetailKind(box);
+      if (!kind) { return; }
+      var qRaw = c["Königinnen"] ? parseInt(("" + c["Königinnen"].text()).replace(/\./g, ""), 10) : NaN;
+      var r = ebaMaxHabitatCalc(kind, qRaw, isSpeedServer());
+      if (!r) { return; }
+      var g = r.g;
+      forms.each(function() {
+        var form = $(this), isNest = form.find("input[name=action]").val() === "changenest";
+        if (form.next(".eba_maxhab").length) { return; }
+        var cur = $.trim(form.closest("td").find("b").first().text().replace(/^[^:]*:\s*/, ""));
+        var need = isNest ? g.nestNeed : g.formNeed;
+        var cap = ebaHousingCap(cur, !isNest || g.formNest);
+        var name = isNest ? g.nest : g.form, extra = "";
+        if (isNest && g.formNest) { extra = " (als Nestbecken)"; }
+        if (g.alt) { extra += isNest ? " (Haselnuss reicht, falls in Haselnuss gefunden)" : " (" + g.alt.form + " reicht, falls in Haselnuss gefunden)"; }
+        if (isNest && r.excel) { extra += " (Spielhilfe empfiehlt " + r.excel + ")"; }
+        var tip = (isNest ? g.nestWord : "Formicarium") + " " + name + ": " + g.calc + "."
+          + (r.poly ? " Polygyn: gerechnet mit " + ebaFmtInt(Math.round(r.ants)) + " max. Arbeiterinnen" + (r.note ? r.note : " bei " + r.q + " Königinnen") + "." : "")
+          + (cap != null ? " Aktuell: " + cur + " (Kapazität " + ebaFmtInt(cap) + ", Bedarf " + ebaFmtInt(Math.round(need)) + ")." : "")
+          + " Die Brut ist nicht eingerechnet. Quelle: Spielhilfe.";
+        var ok = cap != null && cap >= need;
+        var el = $("<div class='eba_maxhab' style='font-size:0.8em;opacity:0.8;margin-top:0.3em'></div>")
+          .append($("<span></span>").text("höchstens nötig: " + name + extra + r.note + (ok ? " " : "") ), ok ? $("<span style='color:#7cc47c'></span>").text("✓") : "", " ", ebaTip("Rechnung", tip));
+        form.after(el);
+      });
+    } catch (err) {}
+  };
+  apply();
+  // Die Einzelansicht wird nach dem Füttern per AJAX neu aufgebaut; apply() ist idempotent.
+  new MutationObserver(apply).observe(document.body, {childList: true, subtree: true});
+}
+
+// ---------------------------------------------------------------------------
 // Abgleich der Historien über WebDAV (z.B. Nextcloud)
 //
 // Wer auf mehreren Geräten spielt, erfasst auf jedem nur, was sein Tab
@@ -6852,9 +6922,11 @@ function ebaShNestIdx(nm) {
   for (var i = 0; i < ebaShNestSteps.length; i++) { if (ebaShNestSteps[i][1] === k) { return i; } }
   return -1;
 }
-function ebaShRegal(name) {
+function ebaShRegal(name, fac) {
   var m = antmax[name], a = ebaShAnts[name];
   if (!m || !a || m.n == null || m.f == null) { return null; }
+  // fac: Vielfaches der Koloniegröße (polygyne Arten mit mehreren Königinnen), Platzbedarf wächst linear mit den Arbeiterinnen
+  if (fac && fac !== 1) { m = { n: m.n * fac, f: m.f * fac, a: m.a * fac }; }
   var i, ni = -1, fi = -1, bi = -1, dev = [];
   var xf = ebaShFormiIdx(a[0]), xnF = ebaShFormiIdx(a[1]), xn = ebaShNestIdx(a[1]);
   var becken = xnF >= 0; // Excel: als min. Nest steht ein Formicarium = Nestbecken (eigenes Formicarium neben dem Formicarium)
