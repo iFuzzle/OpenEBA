@@ -15,6 +15,11 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
 
 > **Hinweis vor dem Update:** Mehrere Versionen (31.1, 31.7, 31.9) wandeln gespeicherte Daten beim ersten Start automatisch um. Empfehlung: vorher in der openEBA-Konfiguration die Daten über *Exportieren* sichern.
 
+## 33.20 (01.11.2026)
+
+- Spielhilfe: neuer Reiter „ASW“ mit den Aktionen der Ameisenschutzwarte (riesige Anlage, Riesen-YTong-Nest, Käferlarven) samt Bild, Dauer, Kosten und verbrauchten ASW-Punkten; ASW-Punkte gibt es fürs Auswildern.
+- Spielhilfe: Quellen klargestellt – bei Abweichungen gilt die Spielhilfe-Tabelle (Excel), das Lexikon ergänzt nur (Entwicklungszeiten, Shop-Kaufpreis, Futterliste).
+
 ## 33.19 (01.11.2026)
 
 - Spielhilfe, Forschungsbaum: „Handwerkliches Geschick“ steht links unter „Zuckerwasser selbst herstellen“, der Baum passt ohne Seitenscrollen in die Lexikon-Spalte; Karten und Schrift etwas größer.
