@@ -15,6 +15,13 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
 
 > **Hinweis vor dem Update:** Mehrere Versionen (31.1, 31.7, 31.9) wandeln gespeicherte Daten beim ersten Start automatisch um. Empfehlung: vorher in der openEBA-Konfiguration die Daten über *Exportieren* sichern.
 
+## 33.35 (02.11.2026)
+
+- Spielerprofile: neue Option mit Links „← vorherige ID“ / „nächste ID →“ neben dem Spielernamen; die Option für die Tasten Q/E steuert nur noch die Tasten (dann mit „(Q)/(E)“ beschriftet).
+- Spielhilfe, Jobs: „Aushilfskraft zum Regale einräumen gesucht“ vollständig – Stufe 1 8 h / 15 €, mit Gabelstaplerschein 8 h / 20 €.
+- Spielhilfe, Abzeichen: ASW-Statistik (Platz 3, letzter Monat Platz 2), Marsameise, Auszug-Abzeichen je nach Wohnung.
+- Bildersuche (Entwickler-Werkzeug): Varianten der ASW- und Wohnungs-Abzeichen.
+
 ## 33.34 (02.11.2026)
 
 - Spielhilfe, Info: Abzeichen ans Ende verschoben, eingeklappt und in Originalgröße (16×16); Speedserver-Medaillen 1–4. Danksagung an seupai8969 (Peppers Skript nach dem Serverumzug wieder lauffähig gemacht).
