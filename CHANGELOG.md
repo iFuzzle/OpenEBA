@@ -15,6 +15,17 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
 
 > **Hinweis vor dem Update:** Mehrere Versionen (31.1, 31.7, 31.9) wandeln gespeicherte Daten beim ersten Start automatisch um. Empfehlung: vorher in der openEBA-Konfiguration die Daten über *Exportieren* sichern.
 
+## 33.24 (01.11.2026)
+
+- Spielhilfe, Ameisen: Steckbrief neu geordnet – vorne Max. Punkte, Max. Kolonie, ASW-Punkte, Verkaufspreis, Max. Nest, Max. Formi, Platzbedarf (bei Nestbecken „N + M (Nestbecken) Regalplätze“); in den Details „Polygyn“ (z. B. „20.000 A je K“), Freischaltung kurz („Exotische Arten 3“), Fundorte.
+- Spielhilfe, Forschungsbaum: rechts nicht mehr abgeschnitten (Breitenberechnung korrigiert, Spaltenabstand verringert). Gabelstaplerschein-Bild fest eingetragen; neue Kandidaten für die Bildersuche.
+- Spielhilfe, Jobs: Texte gekürzt (keine Job-IDs, keine Tick-Hinweise), Pizzeria Omerta mit Originaltext, Pümpel nach 200 Klos, Regale immer 8 h, Werbeplakate nach ca. 10 Abstimmungen.
+- Spielhilfe, ASW: Faustformel ASW-Punkte ≈ 1,57 × ∛(Punkte). Futter: Filter „züchtbar“, Brombeerblätter über Blättersammeln, Ertrags-Verbesserung für Samen und Blätter, Dauer der Futtersuche erklärt.
+- Spielhilfe, Info: Telas verlinkt, Links neu (Discord, openEBA auf GitHub, Fork von Peppers Skript).
+- Tooltips im openEBA-Stil (wie in den Einstellungen) auf „Ameisen suchen“; „auch im Shop“ / „nicht im Shop“ fett.
+- Lexikon → Futter: Zeilen sauber abwechselnd eingefärbt, „Schon züchtbar“.
+- Neue Option „Spielhilfe überall zugänglich“ (unter „Spielhilfe im Lexikon anzeigen“): Link in der Seitenleiste jeder Seite, unter den Lesezeichen.
+
 ## 33.23 (01.11.2026)
 
 - Spielhilfe: neuer Reiter „Sammlung“ – alle 35 Arten zum Abhaken (open → ready → active → done), mit Fortschritt, `*` für versteckte Arten, Shop-Kennzeichen und Vorschlägen aus Lager, aktiven Formicarien und ausgewachsenen Kolonien (nur per Klick übernommen). Liste als Text einfügen und als BBCode exportieren; getrennt je Server, in Export/Import und im WebDAV-Abgleich (Datei `eba_collection_ants.tsv`).
