@@ -10,7 +10,7 @@
 // @exclude        https://forum.eatenbyants.de/*
 // @exclude        http://test.eatenbyants.de/*
 // @exclude        https://test.eatenbyants.de/*
-// @version        33.25
+// @version        33.26
 // @require        http://ajax.googleapis.com/ajax/libs/jquery/1/jquery.min.js
 // @grant          GM_getValue
 // @grant          GM_setValue
@@ -7620,10 +7620,10 @@ function ebaCollFillPx(px, m) {
 function ebaCollExport() {
   var cur = ebaCollGet(), groups = { 1: [], 2: [], 3: [] }, m = ebaCollMeasurer();
   $.each(antcat, function(name, c) { groups[c].push(name); });
-  var out = [];
+  var out = [], w = 0;
+  // eine gemeinsame Spaltenbreite über alle Gruppen, damit die | überall bündig stehen
+  $.each(antcat, function(n) { w = Math.max(w, m ? m(n) : n.length); });
   $.each([1, 2, 3], function(i, c) {
-    var w = 0;
-    $.each(groups[c], function(j, n) { w = Math.max(w, m ? m(n) : n.length); });
     out.push("== " + ebaShCollGroupNames[c] + " ==");
     $.each(groups[c], function(j, n) {
       var st = cur[n] || "open", pad = "";
