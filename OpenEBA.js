@@ -8,6 +8,8 @@
 // @include        https://*.eatenbyants.de/*
 // @exclude        http://forum.eatenbyants.de/*
 // @exclude        https://forum.eatenbyants.de/*
+// @exclude        http://test.eatenbyants.de/*
+// @exclude        https://test.eatenbyants.de/*
 // @version        33.13
 // @require        http://ajax.googleapis.com/ajax/libs/jquery/1/jquery.min.js
 // @grant          GM_getValue
@@ -41,7 +43,7 @@ var EBA_SRV_PREFIXES = [
   "eba_hist_", "eba_statistic_", "eba_food_", "eba_tickdur_",
   "eba_schemaversion_", "eba_points_", "eba_hours_",
   "eba_inventory_", "eba_shop_prices_", "eba_saved_state_",
-  "eba_shop_remember_price_", "eba_formi_active_"
+  "eba_shop_remember_price_", "eba_formi_active_", "eba_rowdel_"
 ];
 
 const configItems = {
@@ -586,6 +588,15 @@ function getServerNow() {
 
 // Nur die Subdomain speed.* ist der Speed-Server. Die frühere, unverankerte
 // Prüfung hat jedes "speed" im Hostnamen erkannt (z.B. speedtest.eatenbyants.de).
+// Das Skript läuft NUR auf dem Normalserver (eatenbyants.de, www.) und dem Speed-
+// server (speed.). Alle anderen Hosts (z.B. test.eatenbyants.de) werden ignoriert,
+// damit dort nichts in die gemeinsamen GM-Daten geschrieben wird. Die Prüfung im
+// Code ist nötig, weil @exclude bei bestehenden Installationen erst nach einem
+// Update gilt.
+function ebaHostAllowed(h) {
+  return /^(www\.|speed\.)?eatenbyants\.de$/i.test(h === undefined ? location.hostname : h);
+}
+var EBA_HOST_OK = ebaHostAllowed();
 function isSpeedServer() { return /^speed\./i.test(location.hostname); }
 // Tick-Länge in Minuten: Normal = 60, Speed = 12
 function getTickMinutes() { return isSpeedServer() ? 12 : 60; }
@@ -723,6 +734,7 @@ function mergeFoodHistory(a, b) {
 // Zeile: nach dem Verschmelzen mit einem anderen Gerät muss die letzte Zeile
 // nicht die aktuellste sein.
 function hasFoodSnapshot(id, tickMin) {
+  if (ebaRowDelHas("eba_food_" + srvKey() + id, "" + tickMin)) { return true; } // gelöscht
   var saved = GM_getValue("eba_food_" + srvKey() + id, "");
   if (!saved) { return false; }
   var ls = saved.split("\n");
@@ -927,6 +939,8 @@ function updateFormiStatistic() {
     for (var q = lines.length - 1; q >= 1; q--) {
       if (Math.abs(parseFloat(lines[q].split("\t")[0]) - nowElapsed) < 0.005) { haveTick = true; break; }
     }
+    // Zeile dieses Ticks vom Nutzer gelöscht: nicht neu anlegen
+    if (!haveTick && ebaRowDelHas(key, "" + Math.round((baseHour + nowElapsed) * 60))) { haveTick = true; }
     if (tk.done && !haveTick) {
       // chronologisch einsortieren (normal: ans Ende)
       var at = lines.length;
@@ -980,23 +994,70 @@ function updateFormiStatistic() {
       ebaDownloadFormiCsv(id);
     });
     $("#eba_statistic_show_"+id).on("click", function(e) {
-      var mainArea = $("td[width='700px']");
-      mainArea.empty();
-      var statisticHTML = "<div id='shopitem'><textarea id='eba_statistic_area' style='height:300px;width:100%;padding:0;border:1px solid #3aab54;font-family:monospace;'></textarea>";
-      statisticHTML += "<button id='eba_statistic_ok' type='button'>OK</button></div>";
-      mainArea.append(statisticHTML);
-      var t = ebaFormiStatTable(id, savedData);
-      var headLines = savedData.substring(0, savedData.indexOf("\n"))+"\n"+t.head.join("\t")+"\n";
-      var body = $.map(t.rows, function(r) { return r.join("\t"); }).join("\n");
-      $("#eba_statistic_area").val(headLines+body).select();
-      $("#eba_statistic_ok").on("click", function(e) {
-        window.location.href = window.location.href.replace(/\?.*/, '');
-      });
+      e.preventDefault();
+      ebaShowFormiTable(id, 60);
     });
   });
 }
 
-// Statistik-Tabelle einer Kolonie: {head: [Spalten], rows: [[Felder]]}.
+// Tabellenansicht einer Kolonie (Link "Tabelle"): Text zum Kopieren und darunter
+// die Zeilen, neueste zuerst, je Zeile mit Papierkorb zum Löschen.
+function ebaShowFormiTable(id, limit) {
+  var mainArea = $("td[width='700px']");
+  mainArea.empty();
+  var savedData = GM_getValue("eba_statistic_" + srvKey() + id, "");
+  var box = $("<div id='shopitem'></div>");
+  box.append("<textarea id='eba_statistic_area' style='height:300px;width:100%;padding:0;border:1px solid #3aab54;font-family:monospace;'></textarea>");
+  box.append("<button id='eba_statistic_ok' type='button'>OK</button>");
+  mainArea.append(box);
+  if (!savedData) { box.append("<p>Keine Daten.</p>"); }
+  var t = savedData ? ebaFormiStatTable(id, savedData) : { head: [], rows: [], keys: [] };
+  var headLines = savedData.substring(0, savedData.indexOf("\n")) + "\n" + t.head.join("\t") + "\n";
+  var body = $.map(t.rows, function(r) { return r.join("\t"); }).join("\n");
+  $("#eba_statistic_area").val(headLines + body).select();
+  $("#eba_statistic_ok").on("click", function() {
+    window.location.href = window.location.href.replace(/\?.*/, '');
+  });
+  if (!t.rows.length) { return; }
+  var n = t.rows.length, shown = Math.min(n, limit || n);
+  var wrap = $("<div class='eba_rowtable' style='margin-top:10px;overflow-x:auto'></div>");
+  wrap.append("<b>Zeilen</b> (neueste zuerst) &ndash; <span style='font-size:0.9em'>&#128465; l&ouml;scht die Zeile dieses Zeitpunkts "
+    + "samt Futterangabe; bei aktivem WebDAV-Abgleich auch auf den anderen Ger&auml;ten.</span>");
+  var tbl = $("<table class='liste' style='border-collapse:collapse;font-size:0.85em'></table>");
+  var htr = $("<tr class='liste'></tr>");
+  $.each(t.head, function(j, h) { htr.append($("<td class='liste'></td>").text($.trim(h))); });
+  htr.append("<td class='liste'></td>");
+  tbl.append(htr);
+  for (var i = n - 1, c = 0; i >= n - shown; i--, c++) {
+    var tr = $("<tr></tr>").addClass(c % 2 ? "color2" : "color1");
+    $.each(t.rows[i], function(j, v) { tr.append($("<td class='liste'></td>").text(v)); });
+    var del = $("<a href='javascript:void(0)' class='eba_rowdel' title='Zeile l\u00F6schen' style='text-decoration:none'>\uD83D\uDDD1</a>");
+    del.on("click", (function(idx) { return function(ev) {
+      ev.preventDefault();
+      var r = t.rows[idx], k = t.keys[idx];
+      if (!k) { return; }
+      var parts = [];
+      $.each(t.head, function(j, h) { h = $.trim(h); if (r[j] !== "" && r[j] != null && h !== "Nest" && h !== "Formicarium") { parts.push(h + " " + r[j]); } });
+      if (!window.confirm("Zeile l\u00F6schen?\n\nKolonie: " + (ebaFormiKind(id) || "?") + " (Formicarium " + id + ")\n"
+        + "Zeitpunkt: " + r[11] + "\nWerte: " + parts.join(", ") + "\n\n"
+        + "Gel\u00F6scht werden die Statistik- und die Futterzeile dieses Zeitpunkts. Das l\u00E4sst sich nicht r\u00FCckg\u00E4ngig machen; "
+        + "mit WebDAV-Abgleich wird die L\u00F6schung auf die anderen Ger\u00E4te \u00FCbertragen.")) { return; }
+      ebaRowDelRemove([["eba_statistic_" + srvKey() + id, k], ["eba_food_" + srvKey() + id, k]]);
+      ebaShowFormiTable(id, limit);
+    }; })(i));
+    tr.append($("<td class='liste'></td>").append(del));
+    tbl.append(tr);
+  }
+  wrap.append(tbl);
+  if (shown < n) {
+    wrap.append($("<a href='javascript:void(0)'></a>").text("alle " + n + " Zeilen anzeigen").on("click", function(ev) {
+      ev.preventDefault(); ebaShowFormiTable(id, 0);
+    }));
+  }
+  box.append(wrap);
+}
+
+// Statistik-Tabelle einer Kolonie: {head: [Spalten], rows: [[Felder]], keys: [absolute Minuten]}.
 // Zeiten in Serverzeit-Darstellung, Dezimalkomma bei der Zeit(h)-Spalte.
 function ebaFormiStatTable(id, savedData) {
   var tickMin = getTickMinutes();
@@ -1009,10 +1070,11 @@ function ebaFormiStatTable(id, savedData) {
   });
   var baseHour = parseInt(savedData.substring(0, savedData.indexOf("\t")));
   var head = ["Zeit(h)", "Kön.", "Arb.", "Eier", "Larven", "Puppen", "Punkte", "Nest       ", "Formicarium", "Zu(%)", "Pr(%)", "Uhrzeit", "Futter", "Ausbruchschutz"];
-  var rows = [];
+  var rows = [], keys = [];
   $.each(savedData.substr(savedData.indexOf("\n")+1).split("\n"), function(k, line) {
     var r = line.split("\t");
     var elapsed = parseFloat(r[0]);
+    keys.push(isNaN(elapsed) ? "" : "" + Math.round((baseHour + elapsed) * 60));
     if (r.length < 12) { // alte Zeile ohne Uhrzeit
       r.push(formatStatTime((baseHour + elapsed) * 3600000));
     }
@@ -1022,7 +1084,7 @@ function ebaFormiStatTable(id, savedData) {
     r[0] = r[0].replace(".", ",");
     rows.push(r);
   });
-  return { head: head, rows: rows };
+  return { head: head, rows: rows, keys: keys };
 }
 
 // Statistik einer Kolonie als CSV laden (Semikolon, UTF-8 mit BOM für Excel)
@@ -1079,6 +1141,7 @@ function histHead(name, unit) {
 // wenn tatsächlich geschrieben wurde.
 function histAppend(name, timeKey, fields, unit) {
   var key = histKey(name);
+  if (ebaRowDelHas(key, "" + timeKey)) { return false; } // dieser Zeitpunkt wurde gelöscht
   var saved = GM_getValue(key, "");
   if (!saved) {
     saved = histHead(name, unit);
@@ -1273,6 +1336,7 @@ function ebaStockFields(cat, stock) {
 // Gibt es in dieser Reihe schon eine Zeile für den Tick? Die Reihe wird von hinten
 // durchsucht (nach dem Abgleich muss die letzte Zeile nicht die jüngste sein).
 function ebaStockHasTick(cat, tickMin) {
+  if (ebaRowDelHas(histKey("stock_" + cat), "" + tickMin)) { return true; } // gelöscht: nicht erneut schreiben
   var saved = GM_getValue(histKey("stock_" + cat), "");
   if (!saved) { return false; }
   var ls = saved.split("\n");
@@ -1650,6 +1714,7 @@ function captureSearchRows(kind, tbl, bySet) {
     oldContent.push(lines[i].substr(lines[i].indexOf("\t") + 1));
   }
   var fresh;
+  var gone = ebaRowDelSet(); // vom Nutzer gelöschte Ergebniszeilen nicht erneut erfassen
   if (bySet) {
     var known = {};
     for (var o = 0; o < oldContent.length; o++) { known["C " + oldContent[o]] = true; }
@@ -1661,6 +1726,8 @@ function captureSearchRows(kind, tbl, bySet) {
   } else {
     fresh = mergeRollingRows(oldContent, rows);
   }
+
+  fresh = $.grep(fresh, function(r) { return gone[key + "\t" + r] !== true; });
 
   // Spaltenbelegung geändert? Kopfzeile aktualisieren und den Wechsel als
   // Marker festhalten, damit ältere Zeilen weiterhin deutbar bleiben.
@@ -1794,6 +1861,7 @@ function renderSearchHistoryFor(kind, tbl) {
     var head = tbl.find("tr").first().children("td,th").map(function() { return $.trim($(this).text()); }).get();
     var htr = $("<tr class='liste'>");
     $.each(head, function(j, h) { htr.append($("<td class='liste'>").text(h)); });
+    htr.append("<td class='liste'></td>");
     t.append(htr);
     var start = st.page * SEARCH_VIEW_PAGE_SIZE, n = 0;
     $.each(rows.slice(start, start + SEARCH_VIEW_PAGE_SIZE), function(i, r) {
@@ -1801,6 +1869,16 @@ function renderSearchHistoryFor(kind, tbl) {
       $.each(r.cells, function(j, v) {
         row.append($("<td class='liste'>").text(v).css(j === 0 ? {textAlign: "left"} : {}));
       });
+      var delLink = $("<a href='#' class='eba_rowdel' title='Zeile l\u00F6schen' style='text-decoration:none'>\uD83D\uDDD1</a>");
+      delLink.on("click", function(e) {
+        e.preventDefault();
+        if (!window.confirm("Gespeicherte Zeile l\u00F6schen?\n\n" + r.cells.join(" | ") + "\n\n"
+          + "Betrifft nur die gespeicherte Historie (nicht die Spieltabelle). Das l\u00E4sst sich nicht r\u00FCckg\u00E4ngig machen; "
+          + "mit WebDAV-Abgleich wird die L\u00F6schung auf die anderen Ger\u00E4te \u00FCbertragen.")) { return; }
+        ebaRowDelRemove([[histKey(kind), r.cells.join("\t")]]);
+        rerender();
+      });
+      row.append($("<td class='liste'>").append(delLink));
       t.append(row);
     });
     cont.append($("<center>").append(t));
@@ -2011,7 +2089,158 @@ function migrateMisfiledSearches() {
 
 // Zeitreihen-Schlüssel: werden beim Import verschmolzen statt überschrieben
 function isHistoryKey(k) {
-  return k.indexOf("eba_hist_") === 0 || k.indexOf("eba_statistic_") === 0 || k.indexOf("eba_food_") === 0;
+  return k.indexOf("eba_hist_") === 0 || k.indexOf("eba_statistic_") === 0 || k.indexOf("eba_food_") === 0
+    || k.indexOf("eba_rowdel_") === 0;
+}
+
+// ---------------------------------------------------------------------------
+// Zeilen-Tombstones: gelöschte Zeilen einer Zeitreihe
+//
+// Wer eine falsche Zeile löscht, würde sie beim WebDAV-Abgleich (Zwei-Wege-
+// Verschmelzen = Vereinigung) sofort von einem anderen Gerät oder der Datei
+// zurückbekommen. Deshalb merkt sich eba_rowdel_<srv>list die gelöschten Zeilen:
+//   Kopfzeile "eba_rowdel<TAB>1", dann je Zeile "<Speicherschlüssel><TAB><Zeilenschlüssel>".
+// Zeilenschlüssel = der Zeitpunkt der Zeile, bei Suchen deren Inhalt:
+//   eba_hist_*money/points/tickdur, eba_hist_*stock_*, eba_food_*  Tick-Beginn in Minuten seit Epoch
+//   eba_statistic_*                                              ebenfalls absolute Minuten (Basis-Stunde + Zeit)
+//   eba_hist_*foodsearch/antsearch                               Inhalt der Zeile (ohne Erfassungszeit)
+// Die Datei ist eine Menge (sortiert, ohne Doppelte): Vereinigung ist idempotent,
+// kommutativ und assoziativ, die Geräte konvergieren. Sie wird wie eine Zeitreihe
+// per WebDAV abgeglichen (Dateiname eba_rowdel_<srv>list.tsv). Ältere Skript-
+// versionen kennen die Datei nicht und ignorieren sie; neue Geräte filtern alles,
+// was ein altes Gerät zurückbringt, beim Verschmelzen wieder heraus.
+// Ein Tombstone gilt dauerhaft: auch die laufende Erfassung schreibt diesen
+// Zeitpunkt nicht noch einmal.
+// ---------------------------------------------------------------------------
+function ebaRowDelKey() { return "eba_rowdel_" + srvKey() + "list"; }
+var EBA_ROWDEL_CACHE = { raw: null, set: {} };
+
+// Text -> Menge {"Schlüssel\tZeile": true}. Ungültige Zeilen fallen weg.
+function ebaRowDelParse(text) {
+  var set = {}, n = 0, dropped = 0;
+  if (typeof text !== "string") { return { set: set, dropped: 0 }; }
+  var lines = text.replace(/\r/g, "").split("\n");
+  for (var i = 0; i < lines.length; i++) {
+    var l = lines[i];
+    if (!l || l === "eba_rowdel\t1") { continue; }
+    var tab = l.indexOf("\t");
+    var k = tab > 0 ? l.substr(0, tab) : "";
+    if (!k || tab === l.length - 1 || !isHistoryKey(k) || k.indexOf("eba_rowdel_") === 0
+        || keyServer(k) !== srvKey() || !/^[a-z0-9_]+$/.test(k) || ++n > 20000) { dropped++; continue; }
+    set[l] = true;
+  }
+  return { set: set, dropped: dropped };
+}
+function ebaRowDelText(set) {
+  var ks = [];
+  for (var k in set) { if (Object.prototype.hasOwnProperty.call(set, k)) { ks.push(k); } }
+  if (!ks.length) { return ""; }
+  ks.sort();
+  return "eba_rowdel\t1\n" + ks.join("\n");
+}
+// Vereinigung zweier Texte, kanonisch
+function ebaRowDelMerge(a, b) {
+  var s = ebaRowDelParse(a).set, t = ebaRowDelParse(b).set;
+  for (var k in t) { if (Object.prototype.hasOwnProperty.call(t, k)) { s[k] = true; } }
+  return ebaRowDelText(s);
+}
+function ebaRowDelSet() {
+  var raw = GM_getValue(ebaRowDelKey(), "");
+  if (typeof raw !== "string") { raw = ""; }
+  if (EBA_ROWDEL_CACHE.raw !== raw) { EBA_ROWDEL_CACHE = { raw: raw, set: ebaRowDelParse(raw).set }; }
+  return EBA_ROWDEL_CACHE.set;
+}
+// Wurde diese Zeile (Zeilenschlüssel als Text) gelöscht?
+function ebaRowDelHas(key, rowKey) {
+  return ebaRowDelSet()[key + "\t" + rowKey] === true;
+}
+
+// Zeilenschlüssel einer Datenzeile; null = keine Datenzeile
+function ebaRowDelRowKey(kind, base, line) {
+  if (kind === "search") {
+    var tab = line.indexOf("\t");
+    return (isNaN(parseFloat(line)) || tab < 0) ? null : line.substr(tab + 1);
+  }
+  var t = parseFloat(line);
+  if (isNaN(t)) { return null; }
+  if (kind === "formi") { return isNaN(base) ? null : "" + Math.round((base + t) * 60); }
+  return "" + t;
+}
+// Alle Zeilenschlüssel einer Reihe (für Tabellen und "alle Reihen dieses Zeitpunkts")
+function ebaRowDelKeysOf(key, text) {
+  var out = [];
+  if (typeof text !== "string" || !text) { return out; }
+  var kind = davKind(key), lines = text.split("\n");
+  var base = kind === "formi" ? parseInt(lines[0], 10) : NaN;
+  for (var i = kind === "food" ? 0 : 1; i < lines.length; i++) {
+    if (!lines[i] || (kind === "search" && lines[i].indexOf("H\t") === 0)) { continue; }
+    var k = ebaRowDelRowKey(kind, base, lines[i]);
+    if (k !== null) { out.push(k); }
+  }
+  return out;
+}
+
+// Gelöschte Zeilen aus einer Reihe entfernen. Gibt denselben String zurück,
+// wenn nichts zu entfernen ist.
+function ebaRowDelFilter(key, text, set) {
+  if (typeof text !== "string" || !text) { return text; }
+  set = set || ebaRowDelSet();
+  var prefix = key + "\t", has = false;
+  for (var s in set) { if (set.hasOwnProperty(s) && s.indexOf(prefix) === 0) { has = true; break; } }
+  if (!has) { return text; }
+  var kind = davKind(key), lines = text.split("\n"), out = [], changed = false, base = NaN, start = 1;
+  if (kind === "formi") { base = parseInt(lines[0], 10); if (isNaN(base)) { return text; } }
+  if (kind === "food") { start = 0; }
+  for (var h = 0; h < start; h++) { out.push(lines[h]); }
+  for (var i = start; i < lines.length; i++) {
+    var line = lines[i];
+    if (!line || (kind === "search" && line.indexOf("H\t") === 0)) { out.push(line); continue; }
+    var rk = ebaRowDelRowKey(kind, base, line);
+    if (rk !== null && set[prefix + rk] === true) { changed = true; continue; }
+    out.push(line);
+  }
+  return changed ? out.join("\n") : text;
+}
+// Alle lokalen Reihen dieses Servers bereinigen (nach Löschen, Abgleich, Import)
+function ebaRowDelApplyAll() {
+  var set = ebaRowDelSet(), n = 0;
+  $.each(GM_listValues(), function(i, k) {
+    if (!isHistoryKey(k) || k.indexOf("eba_rowdel_") === 0 || keyServer(k) !== srvKey()) { return; }
+    var v = GM_getValue(k, "");
+    if (typeof v !== "string") { return; }
+    var nv = ebaRowDelFilter(k, v, set);
+    if (nv !== v) { GM_setValue(k, nv); n++; }
+  });
+  return n;
+}
+// Zeilen löschen: entries = [[Speicherschlüssel, Zeilenschlüssel], ...]
+function ebaRowDelRemove(entries) {
+  var set = $.extend({}, ebaRowDelSet());
+  $.each(entries, function(i, e) { set[e[0] + "\t" + e[1]] = true; });
+  GM_setValue(ebaRowDelKey(), ebaRowDelText(set));
+  return ebaRowDelApplyAll();
+}
+// Reihen dieses Servers (ohne Suchen), die eine Zeile zu diesem Zeitpunkt (Minuten) haben
+function ebaRowDelSeriesAt(minute) {
+  var out = [], want = "" + minute;
+  $.each(GM_listValues(), function(i, k) {
+    if (!isHistoryKey(k) || k.indexOf("eba_rowdel_") === 0 || keyServer(k) !== srvKey()) { return; }
+    if (davKind(k) === "search") { return; }
+    if ($.inArray(want, ebaRowDelKeysOf(k, GM_getValue(k, ""))) >= 0) { out.push(k); }
+  });
+  out.sort();
+  return out;
+}
+// Lesbarer Name einer Reihe für Rückfragen
+function ebaRowDelLabel(key) {
+  var rest = key.replace(/^eba_(hist|statistic|food)_(speed_)?/, "");
+  if (key.indexOf("eba_hist_") === 0) {
+    var names = { money: "Geld", points: "Punkte", tickdur: "Ticklänge", foodsearch: "Futtersuchen", antsearch: "Ameisensuchen",
+      stock_food: "Lager Futter", stock_acc: "Lager Zubehör", stock_nest: "Lager Nester", stock_furn: "Lager Möbel", stock_ants: "Lager Ameisen" };
+    return names[rest] || rest;
+  }
+  if (/^\d+$/.test(rest)) { return (key.indexOf("eba_food_") === 0 ? "Futter " : "") + "Kolonie " + rest; }
+  return rest;
 }
 
 // ---------------------------------------------------------------------------
@@ -2290,7 +2519,9 @@ function importHistoryJSON(text) {
     if (isHistoryKey(k) && typeof v === "string") {
       var mine = GM_getValue(k, "");
       var res;
-      if (k.indexOf("eba_statistic_") === 0) {
+      if (k.indexOf("eba_rowdel_") === 0) {
+        res = ebaRowDelMerge(mine, v);
+      } else if (k.indexOf("eba_statistic_") === 0) {
         res = mergeFormiHistory(mine, v);
       } else if (k.indexOf("eba_food_") === 0) {
         res = mergeFoodHistory(mine, v);
@@ -2312,6 +2543,7 @@ function importHistoryJSON(text) {
   // Schema 1 wäre danach nie migriert worden. Stattdessen wird die lokale
   // Version auf den Stand der Importdaten zurückgesetzt (nur nach unten) und
   // die Migration regulär angestoßen.
+  ebaRowDelApplyAll(); // importierte Zeilen, die hier gelöscht wurden, wieder entfernen
   var incoming = parseInt(data.schema, 10);
   if (!isNaN(incoming) && incoming < EBA_SCHEMA_VERSION) { GM_setValue(schemaKey(), incoming); }
   migrateHistorySchema();
@@ -4179,6 +4411,7 @@ function davRequest(method, url, body, headers, cb) {
 
 // Welche Merge-Funktion gehört zu einem Schlüssel? Gleiche Zuordnung wie im Import.
 function davKind(key) {
+  if (key.indexOf("eba_rowdel_") === 0) { return "rowdel"; }
   if (key.indexOf("eba_statistic_") === 0) { return "formi"; }
   if (key.indexOf("eba_food_") === 0) { return "food"; }
   if (/_(foodsearch|antsearch)$/.test(key)) { return "search"; }
@@ -4186,13 +4419,17 @@ function davKind(key) {
   return "hist";
 }
 function davMerge(key, a, b) {
+  var r;
   switch (davKind(key)) {
-    case "formi": return mergeFormiHistory(a, b);
-    case "food": return mergeFoodHistory(a, b);
-    case "search": return mergeSeries(a, b, true, true);
-    case "stock": return mergeStockHistory(a, b);
-    default: return mergeSeries(a, b, true, false);
+    case "rowdel": return ebaRowDelMerge(a, b);
+    case "formi": r = mergeFormiHistory(a, b); break;
+    case "food": r = mergeFoodHistory(a, b); break;
+    case "search": r = mergeSeries(a, b, true, true); break;
+    case "stock": r = mergeStockHistory(a, b); break;
+    default: r = mergeSeries(a, b, true, false);
   }
+  // Gelöschte Zeilen (Tombstones) kommen auch von anderen Geräten nicht zurück.
+  return ebaRowDelFilter(key, r);
 }
 
 // Remote-Inhalt prüfen und filtern, ohne irgendetwas zu schreiben.
@@ -4205,6 +4442,12 @@ function davValidate(key, text) {
   if (text === "") { res.ok = true; return res; }
   if (/^\s*</.test(text)) { res.reason = "HTML statt Daten (Login-Seite oder Fehlerseite?)"; return res; }
   var kind = davKind(key);
+  if (kind === "rowdel") {
+    if (text.split("\n")[0] !== "eba_rowdel\t1") { res.reason = "keine L\u00F6schliste oder neueres Format"; return res; }
+    var pr = ebaRowDelParse(text);
+    res.ok = true; res.dropped = pr.dropped; res.text = ebaRowDelText(pr.set);
+    return res;
+  }
   var lines = text.split("\n");
   var out = [], start = 0;
   if (kind === "formi") {
@@ -4248,6 +4491,7 @@ function davValidate(key, text) {
 function davLocalReadable(key, text) {
   if (!text) { return true; }
   var kind = davKind(key);
+  if (kind === "rowdel") { return true; }
   if (kind === "formi") { return !isNaN(parseInt(text, 10)); }
   if (kind === "food") { return true; }
   return !isNaN(parseInt(text, 10));
@@ -4279,6 +4523,8 @@ function syncMergeOne(key, remoteText) {
   var body = davBody(key, merged);
   if (body === null) { res.reason = "verschmolzene Reihe ungültig"; return res; }
   if (merged !== mine) { GM_setValue(key, merged); res.changed = true; }
+  // Neue Tombstones von einem anderen Gerät: lokale Reihen sofort bereinigen
+  if (res.changed && davKind(key) === "rowdel") { ebaRowDelApplyAll(); }
   res.ok = true; res.local = merged; res.body = body;
   return res;
 }
@@ -4426,6 +4672,10 @@ function davKeys(withRemote) {
   $.each(GM_listValues(), function(i, k) { add(k); });
   if (withRemote) { $.each(davInvList(), function(i, k) { add(k); }); }
   out.sort();
+  // Die Löschliste zuerst: ihre Tombstones wirken dann schon beim Verschmelzen
+  // der übrigen Reihen dieses Laufs.
+  var rd = ebaRowDelKey(), at = $.inArray(rd, out);
+  if (at > 0) { out.splice(at, 1); out.unshift(rd); }
   return out;
 }
 function davAllKeys() { return davKeys(true); }
@@ -5411,6 +5661,7 @@ function renderHistoryPage(rangeKey) {
   var hs = "style='cursor:pointer;background:#14391f;color:#e6f5ea;border:1px solid #3CAC56;border-radius:3px;"
     + "padding:4px 8px;margin:4px 0;user-select:none'";
   ebaHistStockSection(page, add, since, open, hs);
+  ebaHistRowsSection(page, open, hs, function() { renderHistoryPage(cur); });
   var ids = ebaFormiIds();
   ids.sort(function(a, b) { return parseInt(a, 10) - parseInt(b, 10); });
   if (!ids.length) {
@@ -5679,6 +5930,119 @@ function ebaHistStockSection(page, add, since, open, hs) {
   if (open.lager) { setMain(true); }
 }
 
+// Datentabellen: die Zeilen der globalen Reihen (Geld, Punkte, Tickdauer, Suchen,
+// Lager), neueste zuerst, je Zeile mit Papierkorb. Eine falsche Zeile (z.B. ein
+// Fehlaufruf mit falschen Werten) lässt sich so entfernen; ein Tombstone sorgt
+// dafür, dass sie der WebDAV-Abgleich nicht zurückholt (siehe ebaRowDelRemove()).
+var EBA_ROWS_STATE = { sel: null, all: true, n: 30 };
+function ebaHistRowsSection(page, open, hs, rerender) {
+  var defs = [["money", "Geld"], ["points", "Punkte"], ["tickdur", "Tickl\u00E4nge"], ["foodsearch", "Futtersuchen"],
+    ["antsearch", "Ameisensuchen"], ["stock_food", "Lager Futter"], ["stock_acc", "Lager Zubeh\u00F6r"],
+    ["stock_nest", "Lager Nester"], ["stock_furn", "Lager M\u00F6bel"], ["stock_ants", "Lager Ameisen"]];
+  var avail = $.grep(defs, function(d) {
+    var v = GM_getValue(histKey(d[0]), "");
+    return typeof v === "string" && v.indexOf("\n") >= 0;
+  });
+  if (!avail.length) { return; }
+  var st = EBA_ROWS_STATE;
+  if (!st.sel || !$.grep(avail, function(d) { return d[0] === st.sel; }).length) { st.sel = avail[0][0]; }
+  var sec = $("<div class='eba_rows' data-open='0' style='margin:12px 0'></div>");
+  page.append(sec);
+  sec.append("<div class='eba_rows_head' " + hs + "><span class='eba_rows_arrow'>\u25B8</span> <b>Datentabellen</b> "
+    + "<span style='color:#a8d5b3;font-size:0.9em'>&ndash; Zeilen ansehen und falsche Zeilen l&ouml;schen</span></div>");
+  var body = $("<div class='eba_rows_body' style='display:none;padding-left:8px'></div>");
+  sec.append(body);
+  var rowsOf = function(name) {
+    var key = histKey(name), kind = davKind(key), out = [];
+    var lines = ("" + GM_getValue(key, "")).split("\n");
+    for (var i = 1; i < lines.length; i++) {
+      var line = lines[i];
+      if (!line || (kind === "search" && line.indexOf("H\t") === 0)) { continue; }
+      var rk = ebaRowDelRowKey(kind, NaN, line);
+      if (rk === null) { continue; }
+      var f = line.split("\t"), t = parseFloat(f[0]), text;
+      if (kind === "search") { text = f.slice(1).join(" | "); }
+      else {
+        t = t * 60000;
+        if (kind === "stock") { text = f.slice(1).join(", ") || "(leer)"; }
+        else {
+          var v = parseFloat(f[1]);
+          text = isNaN(v) ? f.slice(1).join(" ") : ebaMetricFmt(name)(v) + (ebaMetricUnit(name) ? " " + ebaMetricUnit(name) : "");
+        }
+      }
+      out.push({ rk: rk, t: t, text: text });
+    }
+    out.reverse(); // neueste zuerst
+    return out;
+  };
+  var draw = function() {
+    body.empty();
+    var name = st.sel, key = histKey(name), kind = davKind(key);
+    var label = $.grep(avail, function(d) { return d[0] === name; })[0][1];
+    var sel = $("<select class='eba_rows_sel'></select>");
+    $.each(avail, function(i, d) { sel.append($("<option></option>").attr("value", d[0]).text(d[1]).prop("selected", d[0] === name)); });
+    sel.on("change", function() { st.sel = $(this).val(); st.n = 30; draw(); });
+    body.append($("<div style='margin:4px 0'></div>").append("Reihe: ").append(sel));
+    if (kind !== "search") {
+      var cb = $("<input type='checkbox' class='eba_rows_all'>").prop("checked", st.all).on("change", function() { st.all = this.checked; });
+      body.append($("<div style='margin:4px 0;font-size:0.9em'></div>").append($("<label></label>").append(cb)
+        .append(" Beim L&ouml;schen alle Reihen dieses Servers zu genau diesem Zeitpunkt l&ouml;schen "
+          + "(Geld, Punkte, Tickl&auml;nge, Lager, Kolonien &ndash; ein Fehlaufruf betrifft meist alle)")));
+    }
+    var rows = rowsOf(name);
+    if (!rows.length) { body.append("<p>Keine Zeilen.</p>"); return; }
+    var tbl = $("<table class='liste' style='border-collapse:collapse;font-size:0.9em'></table>");
+    tbl.append("<tr class='liste'><td class='liste'>Zeitpunkt</td><td class='liste'>" + (kind === "search" ? "Ergebnis" : "Wert")
+      + "</td><td class='liste'></td></tr>");
+    $.each(rows.slice(0, st.n), function(i, row) {
+      var tr = $("<tr></tr>").addClass(i % 2 ? "color2" : "color1");
+      tr.append($("<td class='liste'></td>").text(formatStatTime(row.t)));
+      tr.append($("<td class='liste' style='text-align:left;word-break:break-word'></td>").text(row.text));
+      var del = $("<a href='javascript:void(0)' class='eba_rowdel' title='Zeile l\u00F6schen' style='text-decoration:none'>\uD83D\uDDD1</a>");
+      del.on("click", function(ev) {
+        ev.preventDefault();
+        var targets = [key], names = label;
+        if (kind !== "search" && st.all) {
+          var at = ebaRowDelSeriesAt(row.rk);
+          if (at.length && $.inArray(key, at) >= 0) {
+            targets = at;
+            names = $.map(at, function(k) { return ebaRowDelLabel(k); }).join(", ");
+          }
+        }
+        var msg = "Zeile l\u00F6schen?\n\nZeitpunkt: " + formatStatTime(row.t) + "\n" + label + ": " + row.text + "\n\n"
+          + (targets.length > 1 ? "Gel\u00F6scht wird dieser Zeitpunkt in " + targets.length + " Reihen: " + names + "."
+                                : "Gel\u00F6scht wird nur diese Zeile der Reihe " + label + ".")
+          + "\n\nDas l\u00E4sst sich nicht r\u00FCckg\u00E4ngig machen. Mit WebDAV-Abgleich wird die L\u00F6schung auf die anderen Ger\u00E4te \u00FCbertragen.";
+        if (!window.confirm(msg)) { return; }
+        var entries = [];
+        $.each(targets, function(j, k) { entries.push([k, row.rk]); });
+        ebaRowDelRemove(entries);
+        open.rows = 1;
+        ebaHistOpenSave(open);
+        rerender();
+      });
+      tr.append($("<td class='liste'></td>").append(del));
+      tbl.append(tr);
+    });
+    body.append($("<div style='overflow-x:auto'></div>").append(tbl));
+    if (rows.length > st.n) {
+      body.append($("<a href='javascript:void(0)'></a>").text("weitere anzeigen (" + st.n + " von " + rows.length + ")")
+        .on("click", function(ev) { ev.preventDefault(); st.n += 100; draw(); }));
+    } else {
+      body.append("<div style='font-size:0.9em;margin-top:2px'>" + rows.length + " Zeilen</div>");
+    }
+  };
+  var setOpen = function(isOpen) {
+    sec.attr("data-open", isOpen ? "1" : "0");
+    sec.find(".eba_rows_arrow").text(isOpen ? "\u25BE" : "\u25B8");
+    body.toggle(isOpen);
+    if (isOpen) { draw(); open.rows = 1; } else { body.empty(); delete open.rows; }
+    ebaHistOpenSave(open);
+  };
+  sec.on("click", ".eba_rows_head", function() { setOpen(sec.attr("data-open") !== "1"); });
+  if (open.rows) { setOpen(true); }
+}
+
 // Auf/Zu-Zustand der Formi-Gruppen nur für die Sitzung (sessionStorage), nicht dauerhaft
 var EBA_HIST_OPEN_MEM = null;
 function ebaHistOpenLoad() {
@@ -5694,7 +6058,7 @@ function ebaHistOpenSave(o) {
 }
 
 $(window).on("hashchange", function() {
-  if (ebaHistHash() && ebaIsStatsPage() && GM_getValue("eba_enable_history_charts", false)) {
+  if (EBA_HOST_OK && ebaHistHash() && ebaIsStatsPage() && GM_getValue("eba_enable_history_charts", false)) {
     renderHistoryPage();
   }
 });
@@ -5798,7 +6162,9 @@ function ebaShImgError(e) {
     t.setAttribute("opacity", "0");
     var nid = $(t).parent().attr("data-nid");
     if (nid && ebaShImgRes[nid]) { // gecachte Datei ist verschwunden: Cache-Eintrag verwerfen
-      var cc = ebaShImgCacheLoad(); delete cc[nid]; ebaShImgCacheSave(cc); delete ebaShImgRes[nid];
+      var cc = ebaShImgCacheLoad();
+      if (cc[nid]) { delete cc[nid]; ebaShImgCacheSave(cc); }
+      delete ebaShImgRes[nid];
     }
     return;
   }
@@ -6111,11 +6477,14 @@ var ebaShReq = { hand: "1000 Pkt." };
 var ebaShGroupCol = { t: "#3CAC56", a: "#4fa8d8", f: "#E8963C", b: "#d9c34a", h: "#b08adf", j: "#d96a8a" };
 var ebaShGroupNames = { a: "Ameisenarten &amp; Suchen", f: "Futter &amp; Sammeln", b: "Biologie &amp; Wachstum", h: "Handwerk", j: "Jobs &amp; ASW", t: "Stamm" };
 
-// ---- Bildersuche: Kandidaten nacheinander per Image-Probe, Ergebnis im Cache ----
-// ebaShImgRes: id -> Dateiname | "" (nicht gefunden); fehlt = noch nicht geprüft.
-// Cache (GM): eba_sh_imgcache = JSON { id: { f: Datei | "none", t: Zeitpunkt, s: Kandidaten } }; "none" gilt 7 Tage.
-var ebaShImgRes = {}, ebaShImgRun = {}, ebaShImgGen = 0, ebaShTitleBase = {};
-var EBA_SH_NONE_MS = 7 * 86400000;
+// ---- Bildersuche: nur auf Knopfdruck, Ergebnis im Cache ----
+// Es gibt KEINE automatischen Probe-Anfragen (Last und Logs beim Spielbetreiber). Knoten mit genau einem
+// Dateinamen sind bekannt und werden normal geladen. Bei den übrigen steht ein Buchstabe, bis der Nutzer
+// unter Info -> Bildersuche einmal "Bildnamen jetzt einmal prüfen" drückt; die gefundenen Dateien merkt
+// sich der Cache für diesen Nutzer (kein erneutes Probieren von selbst).
+// ebaShImgRes: id -> Dateiname | "" (nicht gefunden); fehlt = nicht geprüft.
+// Cache (GM): eba_sh_imgcache = JSON { id: { f: Datei | "none", t: Zeitpunkt, s: Kandidaten } }.
+var ebaShImgRes = {}, ebaShImgRun = {}, ebaShImgGen = 0, ebaShTitleBase = {}, ebaShImgKnown = {}, ebaShImgDone = false;
 function ebaShNode(id) {
   for (var i = 0; i < ebaShNodes.length; i++) { if (ebaShNodes[i][0] === id) { return ebaShNodes[i]; } }
   return null;
@@ -6125,6 +6494,21 @@ function ebaShImgCacheLoad() {
   return {};
 }
 function ebaShImgCacheSave(c) { try { GM_setValue("eba_sh_imgcache", JSON.stringify(c)); } catch (e) { /* ignorieren */ } }
+// Ergebnisse aus Dateinamenliste (bekannt) und Cache (früher manuell geprüft) einlesen - ohne Netzzugriff
+function ebaShImgInit() {
+  var cache = ebaShImgCacheLoad();
+  $.each(ebaShNodes, function(i, n) {
+    var id = n[0], c = cache[id];
+    if (ebaShImgRun[id]) { return; }
+    ebaShImgKnown[id] = n[2].length === 1;
+    if (ebaShImgKnown[id]) { ebaShImgRes[id] = n[2][0]; return; }
+    if (c && c.s === n[2].join("|") && (c.f === "none" || $.inArray(c.f, n[2]) >= 0)) {
+      ebaShImgRes[id] = c.f === "none" ? "" : c.f;
+    } else {
+      delete ebaShImgRes[id];
+    }
+  });
+}
 function ebaShImgStatus(n) {
   var r = ebaShImgRes[n[0]];
   if (r === undefined) { return ebaShImgRun[n[0]] ? "Bild: wird gesucht ..." : "Bild: noch nicht geprüft"; }
@@ -6157,21 +6541,19 @@ function ebaShImgProbeNode(n, gen, done) {
   };
   next();
 }
-// force: Cache verwerfen und alles neu suchen
-function ebaShProbeAll(force) {
-  var now = new Date().getTime(), cache, todo = [];
-  if (force) { ebaShImgGen++; ebaShImgRes = {}; ebaShImgRun = {}; cache = {}; ebaShImgCacheSave({}); } else { cache = ebaShImgCacheLoad(); }
-  var gen = ebaShImgGen;
-  $.each(ebaShNodes, function(i, n) {
-    var id = n[0], c = cache[id], key = n[2].join("|");
-    if (id in ebaShImgRes || ebaShImgRun[id]) { return; }
-    if (c && c.s === key && (c.f === "none" ? now - c.t < EBA_SH_NONE_MS : $.inArray(c.f, n[2]) >= 0)) {
-      ebaShImgRes[id] = c.f === "none" ? "" : c.f;
-      ebaShImgNodeUpdate(id);
-      return;
-    }
-    todo.push(n); ebaShImgRun[id] = true;
-  });
+// Anzahl der Anfragen eines vollständigen Durchlaufs (alle Kandidaten aller Knoten)
+function ebaShImgProbeCount() {
+  var n = 0;
+  $.each(ebaShNodes, function(i, nd) { n += nd[2].length; });
+  return n;
+}
+// Nur auf Knopfdruck: alle Kandidaten einmal prüfen, Cache neu schreiben
+function ebaShProbeManual() {
+  if ($.grep(ebaShNodes, function(n) { return ebaShImgRun[n[0]]; }).length) { return; } // läuft schon
+  ebaShImgGen++; ebaShImgRes = {}; ebaShImgRun = {}; ebaShImgDone = false;
+  ebaShImgCacheSave({});
+  var gen = ebaShImgGen, todo = [];
+  $.each(ebaShNodes, function(i, n) { todo.push(n); ebaShImgRun[n[0]] = true; ebaShImgKnown[n[0]] = n[2].length === 1; });
   var active = 0, step = function() {
     while (active < 4 && todo.length) {
       (function(n) {
@@ -6184,6 +6566,7 @@ function ebaShProbeAll(force) {
           var cc = ebaShImgCacheLoad();
           cc[n[0]] = { f: file || "none", t: new Date().getTime(), s: n[2].join("|") };
           ebaShImgCacheSave(cc);
+          if (!todo.length && !active) { ebaShImgDone = true; }
           ebaShImgNodeUpdate(n[0]);
           step();
         });
@@ -6290,7 +6673,7 @@ function ebaShTreeTab() {
   $.each(ebaShGroupNames, function(k, v) { leg += "<span><i style='background:" + ebaShGroupCol[k] + "'></i>" + v + "</span>"; });
   var h = "<p class='sh-note'>Forschungsbaum nach der Spielhilfe (Arthuriel). Die Plakette am Ende jeder Linie (direkt an der Karte) nennt die ben&ouml;tigte Stufe des Vorg&auml;ngers; kommt eine zweite Linie von der Seite, ist das eine weitere Voraussetzung, gestrichelt = nur zus&auml;tzlich;"
     + " weitere Voraussetzungen stehen im Tooltip der Karte. Unter jedem Namen: Stufen &middot; Gesamtkosten &middot; Gesamtdauer (" + (speed ? "Speedserver" : "Normalserver")
-    + "). Ein Buchstabe statt Bild bedeutet: Bild nicht gefunden (die Dateinamen werden im Browser geprobt; Ergebnis im Tooltip und unter Info &rarr; Bildersuche). Ist der Baum breiter als die Spalte (z.&nbsp;B. am Handy), l&auml;sst er sich seitlich schieben.</p>"
+    + "). Ein Buchstabe statt Bild bedeutet: Bild nicht bekannt bzw. nicht gefunden (die Dateinamen werden nur auf Knopfdruck im Browser geprobt; Ergebnis im Tooltip; &bdquo;Bildnamen jetzt einmal pr&uuml;fen&ldquo; unter Info &rarr; Bildersuche). Ist der Baum breiter als die Spalte (z.&nbsp;B. am Handy), l&auml;sst er sich seitlich schieben.</p>"
     + "<div class='sh-legend'>" + leg + "</div>" + ebaShTreeSvg()
     + "<p class='sh-note'>Alles erforscht: <b>" + ebaShN(all.pts) + "</b> Punkte, <b>" + ebaShEuro(all.cost) + "</b>, <b>" + ebaShDur(all.min, speed) + "</b> (" + all.n + " Stufen).</p>"
     + "<h4>Stufen je Zweig</h4>";
@@ -6344,12 +6727,15 @@ function ebaShGoalsTab() {
 
 // ---- Reiter: Jobs -----------------------------------------------------------
 
-// Jobs: Familie -> Stufen. Stufe: [Name, Bild (oder null), Dauer in h (oder Text), Lohn in EUR (gesamt), Stundenlohn, Freischaltung, Hinweis, takejob-ID (oder null)]
-// null = unbekannt (wird so angezeigt). Quellen: Nutzerangaben und echte Seite des Arbeitsamts (haben Vorrang) und Blatt Forschungsbaum.
+// Jobs: Familie -> Lohnstufen. Prinzip: Die Joblänge unterscheidet die Jobs, das Gehalt die Stufen je Länge
+// (ein Job = eine Länge; Verbesserungen erhöhen nur den Lohn).
+// Stufe: [Name, Bild (oder null), Dauer in h (oder "tick" = Länge eines Ticks), Lohn in EUR (gesamt), Stundenlohn, Freischaltung, Hinweis,
+//         takejob-ID (oder null), Verknüpfung [Text, Familie] (oder fehlt)]
+// Dauern gelten für den Normalserver; Speedserver = 1/5. null = unbekannt (wird so angezeigt). Quellen: Nutzerangaben und echte Seite des Arbeitsamts (haben Vorrang) und Blatt Forschungsbaum.
 var ebaShJobs = [
   ["Kloputzer", [
-    ["Kloputzer", "klo.jpg", "1 Tick", 3, 3, "von Anfang an", "Dauer 1 Tick (Normalserver 1:00:00, Speedserver 12 Minuten). Lohn 3 € je Tick.", 301],
-    ["Kloputzer mit Pümpel", "klo2.jpg", "1 Tick", 4, 4, "Forschung Pümpel (frei nach 200 geputzten Klos)", "Dauer 1 Tick (Normalserver 1:00:00, Speedserver 12 Minuten). Lohn 4 € je Tick.", 301]]],
+    ["Kloputzer", "klo.jpg", "tick", 3, 3, "von Anfang an", "Dauer = Länge eines Ticks (Normalserver 1 h, Speedserver 12 min). Lohn 3 € je Tick.", 301],
+    ["Kloputzer mit Pümpel", "klo2.jpg", "tick", 4, 4, "Forschung Pümpel (frei nach 200 geputzten Klos)", "Dauer = Länge eines Ticks (Normalserver 1 h, Speedserver 12 min). Lohn 4 € je Tick.", 301]]],
   ["Pizza ausfahren", [
     ["Pizza ausfahren", "job_pizza.jpg", 5, 20, 4, "von Anfang an", "Auf dem Server gibt es den Job einmal je 12 aktive Spieler; er dauert 5 Stunden und wird nach 4 Stunden wieder angeboten (dann kann ihn ein anderer Spieler nehmen).", null],
     ["Pizza ausfahren mit Pümpel", "job_pizza.jpg", 5, 25, 5, "Forschung Pümpel (wie beim Kloputzer)", "Laut Spielhilfe bringt der Pizzajob nach dem Pümpel 25 € statt 20 € je fünf Stunden.", null]]],
@@ -6359,27 +6745,40 @@ var ebaShJobs = [
   ["Museum sucht versierten Myrmekologen", [
     ["Museum sucht versierten Myrmekologen", "job_museum.jpg", 3, 8, 8 / 3, "Forschung Ameisen finden und bestimmen, Stufe 4 („Wo sind die besten Chancen?“; laut Spielhilfe)", "Das ist der Museumsjob; eine frühere Museumsstufe gibt es nicht.", 305]]],
   ["Job nach der Verhaltensforscher-Studie", [
-    ["Neuer Job (Name unbekannt)", null, 12, 30, 2.5, "150-mal den Museumsjob, Allgemeines über Ameisen Stufe 11, dann Forschung Verhaltensforscher für Studie (Lehrbücher kaufen, auswendig lernen, Prüfung ablegen)", "Name und Bild des neuen Jobs sind unbekannt; ob er den Museumsjob ersetzt, ebenfalls.", null]]],
+    ["Neuer Job (Name unbekannt)", null, 12, 30, 2.5, "150-mal den Museumsjob, Allgemeines über Ameisen Stufe 11, dann Forschung Verhaltensforscher für Studie (Lehrbücher kaufen, auswendig lernen, Prüfung ablegen)", "Name und Bild sind unbekannt (Spieltext der Forschung: „Neuer Job, Dauer 12:00:00, Verdienst 30 €“). Vermutlich eine Vorstufe des Jobs „Betreuer bei studentischer Biologie Exkursion“ (dort zeigt das Arbeitsamt 20 h / 50 €; eine Spielerangabe nennt 12 h / 50 €). Ungeklärt, bis der Job im Spiel erscheint; hier steht nur, was die Forschung ankündigt.", null,
+     ["vermutlich Vorstufe von", "Betreuer bei studentischer Biologie-Exkursion"]]]],
   ["Werbeplakate kleben", [
     ["Werbeplakate kleben", "job_plakate.jpg", 10, 25, 2.5, "häufiges Abstimmen für EBA (Voting-Links), Anzahl unbekannt", "Spieltext: „Da du immer fleißig für EBA abgestimmt hast …“. Ob der Job einmalig oder dauerhaft freigeschaltet wird, ist unbekannt.", 315]]],
   ["Betreuer bei studentischer Biologie-Exkursion", [
-    ["Betreuer bei studentischer Biologie Exkursion", "job_exkursion.jpg", 20, 50, 2.5, "Forschung Biologie der Ameisen, Stufe 4 (Kolonie mit 250 Ameisen)", "Zuordnung der Freischaltung laut Spielhilfe-Excel.", 304]]]
+    ["Betreuer bei studentischer Biologie Exkursion", "job_exkursion.jpg", 20, 50, 2.5, "Forschung Biologie der Ameisen, Stufe 4 (Kolonie mit 250 Ameisen)", "Zuordnung der Freischaltung laut Spielhilfe-Excel. Das Arbeitsamt zeigt hier 20 h / 50 €; eine Spielerangabe nennt 12 h / 50 € (Widerspruch ungeklärt).", 304,
+     ["vermutlich Nachfolger von", "Job nach der Verhaltensforscher-Studie"]]]]
 ];
 function ebaShJobsTab() {
-  var h = "<p class='sh-note'>Jobs mit Bild je Stufe, Dauer, Lohn und Stundenlohn. Nicht bekannte Werte stehen als &bdquo;unbekannt&ldquo;. "
+  var speed = ebaShSpeed();
+  var h = "<p class='sh-note'>Jobs mit Bild je Lohnstufe, Dauer, Lohn und Stundenlohn. Nicht bekannte Werte stehen als &bdquo;unbekannt&ldquo;. "
     + "Quelle: Angaben aus der Spielerschaft, Arbeitsamt im Spiel und Spielhilfe (Forschungsbaum); die Liste ist nicht zwingend vollst&auml;ndig. "
-    + "Klein neben dem Namen: die Job-ID (<i>takejob</i>) aus dem Formular des Arbeitsamts.</p><div class='sh-jobs'>";
+    + "Klein neben dem Namen: die Job-ID (<i>takejob</i>) aus dem Formular des Arbeitsamts.</p>"
+    + "<p class='sh-note'><b>Prinzip:</b> Die Joblänge unterscheidet die Jobs, das Gehalt die Stufen je Länge. Ein Job hat also eine feste Länge; "
+    + "Verbesserungen (z.&nbsp;B. P&uuml;mpel, Gabelstaplerschein) erh&ouml;hen nur den Lohn. "
+    + "<b>Jobdauern gelten f&uuml;r den Normalserver.</b> Auf dem Speedserver entspricht 1&nbsp;h = 12&nbsp;min (Faktor 1/5); "
+    + (speed ? "der Schalter &bdquo;Speedserver-Werte&ldquo; ist an, die Dauern sind umgerechnet, der Lohn bleibt gleich (Stundenlohn je Spielstunde = 12&nbsp;min). "
+             : "mit dem Schalter &bdquo;Speedserver-Werte&ldquo; oben werden die Dauern umgerechnet (der Lohn bleibt gleich). ")
+    + "</p><div class='sh-jobs'>";
   var u = "<i class='sh-unk'>unbekannt</i>";
   $.each(ebaShJobs, function(i, fam) {
     $.each(fam[1], function(k, j) {
+      var dur = j[2] == null ? u : (j[2] === "tick" ? (speed ? "12&nbsp;min" : "1&nbsp;h") + " (1&nbsp;Tick)"
+        : (typeof j[2] === "string" ? ebaShE(j[2]) : (speed ? ebaShDur(j[2] * 60, true) : j[2] + "&nbsp;h")));
       h += "<div class='sh-card sh-jcard' data-job='" + ebaShE(fam[0]) + "' data-stage='" + (k + 1) + "'>"
         + (j[1] ? ebaShImg(["/img/tasks/" + j[1]], "sh-jimg", j[0]) : "<span class='sh-ph sh-jimg'>?</span>")
-        + "<div><b>" + ebaShE(j[0]) + "</b>" + (fam[1].length > 1 ? " <small>(Stufe " + (k + 1) + " von " + fam[1].length + ")</small>" : "")
+        + "<div><b>" + ebaShE(j[0]) + "</b>" + (fam[1].length > 1 ? " <small>(Lohnstufe " + (k + 1) + " von " + fam[1].length + ")</small>" : "")
         + (j[7] ? " <small class='sh-jid' title='takejob-ID im Arbeitsamt'>takejob " + j[7] + "</small>" : "")
-        + "<table class='sh-kv'><tr><td>Dauer</td><td>" + (j[2] == null ? u : (typeof j[2] === "string" ? ebaShE(j[2]) : j[2] + "&nbsp;h")) + "</td></tr>"
+        + (j[8] ? "<div class='sh-small'><i>" + ebaShE(j[8][0]) + "</i> <a href='#' class='sh-jlink' data-target='" + ebaShE(j[8][1]) + "'>"
+                  + ebaShE(j[8][1] === "Job nach der Verhaltensforscher-Studie" ? "Neuer Job (12 h, 30 €)" : j[8][1]) + "</a></div>" : "")
+        + "<table class='sh-kv'><tr><td>Dauer</td><td>" + dur + "</td></tr>"
         + "<tr><td>Lohn</td><td>" + (j[3] != null ? ebaShEuro(j[3]) : u) + "</td></tr>"
-        + "<tr><td>Stundenlohn</td><td>" + (j[4] != null ? "<b>" + ebaShEuro(j[4]) + "</b> je Stunde" : u) + "</td></tr></table>"
-        + "<div class='sh-small'><b>" + (k ? "Verbesserung / Freischaltung" : "Freischaltung") + ":</b> " + ebaShE(j[5]) + (j[6] ? "<br>" + ebaShE(j[6]) : "") + "</div></div></div>";
+        + "<tr><td>Stundenlohn</td><td>" + (j[4] != null ? "<b>" + ebaShEuro(j[4]) + "</b> je " + (speed ? "Spielstunde" : "Stunde") : u) + "</td></tr></table>"
+        + "<div class='sh-small'><b>" + (k ? "Verbesserung (nur Lohn)" : "Freischaltung") + ":</b> " + ebaShE(j[5]) + (j[6] ? "<br>" + ebaShE(j[6]) : "") + "</div></div></div>";
     });
   });
   h += "</div><h4>Jobverbesserungen (Forschung)</h4>";
@@ -6473,16 +6872,28 @@ function ebaShFoodTab() {
 // ---- Reiter: Info -----------------------------------------------------------
 
 function ebaShImgInfoHtml() {
-  var h = "<table class='liste sh-tab sh-imgtab'><tr><th>Forschung</th><th>Ergebnis</th><th>geprobte Dateien</th></tr>", n = 0, found = 0;
+  var h = "<table class='liste sh-tab sh-imgtab'><tr><th>Forschung</th><th>Ergebnis</th><th>geprobte Dateien</th></tr>", n = 0, found = 0, report = [], running = false, cache = ebaShImgCacheLoad();
   $.each(ebaShNodes, function(i, nd) {
-    var r = ebaShImgRes[nd[0]];
+    var r = ebaShImgRes[nd[0]], known = ebaShImgKnown[nd[0]];
     n++; if (r) { found++; }
+    if (ebaShImgRun[nd[0]]) { running = true; }
+    var c = cache[nd[0]];
+    if (c && c.s === nd[2].join("|")) { report.push(nd[0] + "=" + (c.f === "none" ? "\u2013" : c.f)); } // geprüft (manuell)
     h += "<tr><td>" + ebaShE(nd[1].replace(/\n/g, " ")) + "</td><td class='" + (r ? "ok" : (r === "" ? "no" : "")) + "'>"
-      + (r === undefined ? (ebaShImgRun[nd[0]] ? "wird gesucht &hellip;" : "noch nicht gepr&uuml;ft") : (r ? "gefunden: " + ebaShE(r) : "nicht gefunden")) + "</td><td class='sh-small'>" + ebaShE(nd[2].join(", ")) + "</td></tr>";
+      + (r === undefined ? (ebaShImgRun[nd[0]] ? "wird gesucht &hellip;" : "nicht gepr&uuml;ft")
+        : (r ? (known && !ebaShImgDone ? "bekannt: " : "gefunden: ") + ebaShE(r) : "nicht gefunden"))
+      + "</td><td class='sh-small'>" + ebaShE(nd[2].join(", ")) + "</td></tr>";
   });
-  return "<div class='sh-small'>" + found + " von " + n + " Forschungsbildern gefunden. Ergebnisse werden zwischengespeichert (&bdquo;nicht gefunden&ldquo; 7 Tage). "
-    + "Fehlt ein Bild, bitte den richtigen Dateinamen aus dem Spiel melden (Bild im Spiel Rechtsklick &rarr; Adresse).</div>" + h
-    + "</table><button type='button' class='sh-chip sh-imgre'>Bildersuche neu starten</button>";
+  var out = "<div class='sh-small'>" + found + " von " + n + " Forschungsbildern bekannt. Es gibt keine automatische Suche: Bilder mit festem Dateinamen werden normal geladen, "
+    + "bei den &uuml;brigen steht ein Buchstabe. Der Knopf pr&uuml;ft einmal alle Dateinamen im Browser; gefundene Bilder merkt sich der Browser danach f&uuml;r dich.</div>"
+    + "<p><button type='button' class='sh-chip sh-imgre'" + (running ? " disabled" : "") + ">Bildnamen jetzt einmal pr&uuml;fen</button> "
+    + "<span class='sh-small'>Macht ca. " + ebaShImgProbeCount() + " Anfragen an den Spielserver.</span></p>" + h + "</table>";
+  if (report.length && !running) {
+    out += "<p class='sh-small'>Ergebnis zum Kopieren (bitte dem Entwickler schicken; &ndash; = nicht gefunden):<br>"
+      + "<textarea class='sh-imgreport' readonly rows='" + Math.min(report.length + 1, 12) + "' style='width:100%;font-family:monospace'>"
+      + ebaShE(report.join("\n")) + "</textarea></p>";
+  }
+  return out;
 }
 function ebaShImgInfoUpdate() {
   var b = $("#shopitem.ebash .sh-imgbody");
@@ -6587,6 +6998,7 @@ function ebaShRender(tab) {
   }
   var tabs = "";
   $.each(ebaShTabs, function(i, t) { tabs += "<button type='button' data-t='" + t[0] + "'" + (s.tab === t[0] ? " class='on'" : "") + ">" + t[1] + "</button>"; });
+  ebaShImgInit(); // nur Cache und feste Namen, keine Anfragen
   var body = { ameisen: ebaShAntsTab, shop: ebaShShopTab, wohn: ebaShWohnTab, baum: ebaShTreeTab, ziele: ebaShGoalsTab,
                jobs: ebaShJobsTab, futter: ebaShFoodTab, info: ebaShInfoTab }[s.tab] || ebaShAntsTab;
   root.html("<h3>openEBA: Spielhilfe</h3>"
@@ -6595,7 +7007,6 @@ function ebaShRender(tab) {
     + "<div class='sh-tabs'>" + tabs + "</div><div class='sh-body'>" + body() + "</div>"
     + "<p class='sh-thanks'>Danke an Martin f&uuml;r EBA!</p>");
   ebaShOpenCalc();
-  if (s.tab === "baum") { ebaShProbeAll(); }
   try { history.replaceState(null, "", "#eba-spielhilfe:" + s.tab); } catch (e) { /* ignorieren */ }
 }
 function ebaShOpenCalc() {
@@ -6606,7 +7017,17 @@ function ebaShBind(root) {
   var s = ebaShState;
   var refresh = function(sel) { root.find(".sh-grid").html(ebaShAntBody()); ebaShOpenCalc(); };
   root.on("click", ".sh-tabs button", function() { ebaShRender($(this).attr("data-t")); });
-  root.on("click", ".sh-imgre", function() { ebaShProbeAll(true); });
+  root.on("click", ".sh-imgre", function() { ebaShProbeManual(); });
+  root.on("focus click", ".sh-imgreport", function() { this.select(); });
+  root.on("click", ".sh-jlink", function(e) {
+    e.preventDefault();
+    var t = $(this).attr("data-target");
+    var card = root.find(".sh-jcard").filter(function() { return $(this).attr("data-job") === t; }).first();
+    if (!card.length) { return; }
+    if (card[0].scrollIntoView) { card[0].scrollIntoView({ block: "center" }); }
+    card.css("outline", "2px solid #E8963C");
+    window.setTimeout(function() { card.css("outline", ""); }, 1800);
+  });
   root.on("click", ".sh-tolinfo", function(e) { e.preventDefault(); ebaShRender("info"); });
   root.on("change", ".sh-speed", function() { s.speed = this.checked; ebaShRender(); });
   root.on("click", ".sh-chip", function() {
@@ -6655,7 +7076,7 @@ function ebaShBind(root) {
   // toggle bubbelt nicht -> Capture
   root[0].addEventListener("toggle", function(e) {
     var d = $(e.target);
-    if (d.is("details.sh-det-img")) { s.open.imgs = d[0].open; if (d[0].open) { ebaShProbeAll(); } return; }
+    if (d.is("details.sh-det-img")) { s.open.imgs = d[0].open; return; }
     if (!d.is("details.sh-det-box")) { return; }
     var id = d.attr("data-id");
     s.open["t_" + id] = d[0].open;
@@ -6699,11 +7120,13 @@ function enableSpielhilfe() {
 
 // Einmalige Schema-Migration vor allen Features, damit der Versionsschlüssel
 // auch gesetzt wird, wenn keine der neuen Optionen aktiv ist.
-migrateHistorySchema();
-enableConfig();
-ebaStockSnapshotEarly();
-$.each(configItems, function(k, v) {
-  var timer = new Date().getTime();
-  GM_getValue(k, false) && v[0]();
-  var time = new Date().getTime()-timer;
-});
+if (EBA_HOST_OK) {
+  migrateHistorySchema();
+  enableConfig();
+  ebaStockSnapshotEarly();
+  $.each(configItems, function(k, v) {
+    var timer = new Date().getTime();
+    GM_getValue(k, false) && v[0]();
+    var time = new Date().getTime()-timer;
+  });
+}
