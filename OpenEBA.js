@@ -6414,7 +6414,8 @@ function ebaShAntCard(r, maxP) {
     + "<tr><td>ASW-Punkte</td><td>" + ebaShN(a[4]) + "</td></tr>"
     + "<tr><td>Verkaufspreis</td><td>" + (a[5] ? ebaShE(a[5]) + "&nbsp;&euro;" : "&ndash;") + "</td></tr>"
     + "<tr><td>Ben&ouml;tigt</td><td class='sh-regal' title='" + (rg ? ebaShE(ebaShRegalTip(rg)) : "") + "'>"
-    + (rg ? "Nest " + ebaShE(rg.nest) + ", Formicarium " + ebaShE(rg.form) + ", <b>" + ebaShN(rg.shelf, 1) + (rg.shelf === 1 ? " Regalplatz" : " Regalpl&auml;tze") + "</b>" + (rg.dev.length ? " <sup>&Dagger;</sup>" : "") : "&ndash;") + "</td></tr></table>"
+    + (rg ? ebaShE(rg.nestWord) + " " + ebaShE(rg.nest) + ", Formicarium " + ebaShE(rg.form) + ", <b>" + ebaShN(rg.shelf, 1) + (rg.shelf === 1 ? " Regalplatz" : " Regalpl&auml;tze") + "</b>" + (rg.dev.length ? " <sup>&Dagger;</sup>" : "")
+      + (rg.alt ? "<br><span class='sh-note'>Haselnuss-Variante (selten): " + ebaShE(rg.alt.nest) + ", " + ebaShE(rg.alt.form) + ", <b>" + ebaShN(rg.alt.shelf, 1) + " Regalpl&auml;tze</b></span>" : "") : "&ndash;") + "</td></tr></table>"
     + "<div class='sh-more'>" + (open ? "&#9650; weniger" : "&#9660; Details") + "</div>";
   if (open) {
     var ph = (m.n != null ? m.n / m.a : null), pf = (m.f != null ? m.f / m.a : null), nestImg = "";
@@ -6491,16 +6492,17 @@ function ebaShAntsTab() {
 
 // ---- Reiter: Vergleich (alle Arten; Shopameisen mit Verkaufsrechnung) -------
 
-// Regalplätze je Art (alle Arten). Regel: Platzbedarf = Platzbedarf je Arbeiterin x max. Arbeiterinnen
-// (antmax.n bzw. antmax.f, Brut nicht eingerechnet wie im Blatt Ameisen) -> kleinstes passendes Nest bzw.
-// Formicarium (Kapazitäten: nestCapacity/formiCapacity). Nest und Formicarium gehören paarweise zusammen
-// (Excel: Reagenzglas/Mini Arena, kleines Nest/kleines Formi, mittleres Nest/mittleres Formi, großes Nest/großes Formi,
-// mittleres Ytong/mittlere Anlage, großes Ytong/große Anlage, riesiges Ytong/riesige Anlage): Ist das Nest größer als
-// das Formicarium, zieht das Formicarium auf die Klasse des Nests nach (z.B. Lasius flavus, Anochetus).
-// Nester belegen keine Regalplätze (im Excel haben nur Formicarien einen Regalwert); jedes Formicarium belegt seine.
-// Das Excel hat Vorrang (min. Nest / min. Formi, bei Shopameisen auch die Regalplätze); Abweichungen der Rechnung
-// werden in .dev gesammelt. Ist als min. Nest ein Formicarium genannt (Nestbecken: Acromyrmex, Polyrhachis),
-// zählen beide Formicarien. Riesige Anlage: Regalplätze 0 (Absicht: braucht eigenen Platz in der Wohnung).
+// Regalplätze je Art (alle Arten). Regeln (im Spiel geprüft): Platzbedarf = Platzbedarf je Arbeiterin x max. Arbeiterinnen
+// (antmax.n bzw. antmax.f, Brut nicht eingerechnet wie im Blatt Ameisen) -> kleinstes passendes Nest bzw. Formicarium
+// (Kapazitäten: nestCapacity/formiCapacity). Ein normales Nest steht IM Formicarium: Das Formicarium hat mindestens die Klasse
+// des Nests (Reagenzglas/Mini Arena, kleines Nest/kleines Formi, mittleres Nest/mittleres Formi, großes Nest/großes Formi,
+// mittleres Ytong/mittlere Anlage, großes Ytong/große Anlage, riesiges Ytong/riesige Anlage), sonst zieht es nach (z.B. Lasius flavus).
+// Normale Nester belegen keine Regalplätze, Formicarien ihre eigenen (riesige Anlage: 0, Absicht: braucht eigenen Platz in der Wohnung).
+// Nestbecken (Excel: min. Nest ist ein Formicarium; Acromyrmex spec., A. versicolor, Polyrhachis dives): Das Nest ist ein eigenes
+// Formicarium NEBEN dem Formicarium, seine Größe ist unabhängig davon (kein Nachziehen); Regalplätze = Regal(Formi) + Regal(Nestbecken).
+// Temnothorax nylanderi: Normalfall (im Reagenzglas gefunden) kleines Nest + kleines Formi; selten in einer Haselnuss gefunden:
+// Haselnuss in Mini Arena (0,5), dann als Variante (.alt) mitgeführt. Das Excel (Blatt Ameisen: min. Nest / min. Formi von Hand
+// eingetragen, Blatt Shopameisen: Regalplätze) wird nur verglichen; Abweichungen stehen in .dev (‡ + Erklärung im Tooltip).
 var ebaShNestSteps = [["Reagenzglas", "reagenzglas", "Mini Arena"], ["kleines Nest", "kleines nest", "kleines Formicarium"],
   ["mittleres Nest", "mittleres nest", "mittleres Formicarium"], ["großes Nest", "großes nest", "großes Formicarium"],
   ["mittleres Ytong Nest", "mittleres ytong nest", "mittlere Anlage"], ["großes Ytong Nest", "großes ytong nest", "große Anlage"],
@@ -6520,41 +6522,55 @@ function ebaShNestIdx(nm) {
 function ebaShRegal(name) {
   var m = antmax[name], a = ebaShAnts[name];
   if (!m || !a || m.n == null || m.f == null) { return null; }
-  var i, ni = -1, fi = -1;
-  for (i = ebaShNestSteps.length - 1; i >= 0; i--) { if (nestCapacity[ebaShNestSteps[i][1]] >= m.n) { ni = i; } }
+  var i, ni = -1, fi = -1, bi = -1, dev = [];
+  var xf = ebaShFormiIdx(a[0]), xnF = ebaShFormiIdx(a[1]), xn = ebaShNestIdx(a[1]);
+  var becken = xnF >= 0; // Excel: als min. Nest steht ein Formicarium = Nestbecken (eigenes Formicarium neben dem Formicarium)
   for (i = ebaShFormiSteps.length - 1; i >= 0; i--) { if (formiCapacity[ebaShFormiSteps[i][0].toLowerCase()] >= m.f) { fi = i; } }
-  if (ni < 0 || fi < 0) { return null; }
-  var pair = ebaShFormiIdx(ebaShNestSteps[ni][2]), pulled = pair > fi;
-  if (pulled) { fi = pair; }
-  var rule = { nest: ebaShNestSteps[ni][0], form: ebaShFormiSteps[fi][0], shelf: ebaShFormiSteps[fi][1] };
-  // Excel (Blatt Ameisen): min. Nest / min. Formicarium, Nestbecken = Formicarium als Nest
-  var xf = ebaShFormiIdx(a[0]), xnF = ebaShFormiIdx(a[1]), xn = ebaShNestIdx(a[1]), dev = [];
-  var form = xf >= 0 ? ebaShFormiSteps[xf][0] : rule.form, formNest = xnF >= 0, nest;
-  if (formNest) { nest = ebaShFormiSteps[xnF][0]; } else if (xn >= 0) { nest = ebaShNestSteps[xn][0]; } else { nest = a[1] || rule.nest; }
-  var shelf = (xf >= 0 ? ebaShFormiSteps[xf][1] : rule.shelf) * (formNest ? 2 : 1);
-  var s = ebaShShop[name], shelfRule = shelf;
-  if (nest !== rule.nest && !formNest) { dev.push("Nest: Rechnung " + rule.nest + ", Excel " + nest); }
-  if (formNest) { dev.push("Nest: Rechnung " + rule.nest + ", Excel " + nest + " (Formicarium als Nest)"); }
-  if (form !== rule.form) { dev.push("Formicarium: Rechnung " + rule.form + ", Excel " + form); }
+  if (becken) {
+    for (i = ebaShFormiSteps.length - 1; i >= 0; i--) { if (formiCapacity[ebaShFormiSteps[i][0].toLowerCase()] >= m.n) { bi = i; } }
+  } else {
+    for (i = ebaShNestSteps.length - 1; i >= 0; i--) { if (nestCapacity[ebaShNestSteps[i][1]] >= m.n) { ni = i; } }
+  }
+  if (fi < 0 || (becken ? bi < 0 : ni < 0)) { return null; }
+  var pulled = false;
+  if (!becken) { var pair = ebaShFormiIdx(ebaShNestSteps[ni][2]); pulled = pair > fi; if (pulled) { fi = pair; } }
+  var nest = becken ? ebaShFormiSteps[bi][0] : ebaShNestSteps[ni][0], form = ebaShFormiSteps[fi][0];
+  var nestShelf = becken ? ebaShFormiSteps[bi][1] : 0, shelf = ebaShFormiSteps[fi][1] + nestShelf;
+  var nestCap = becken ? formiCapacity[nest.toLowerCase()] : nestCapacity[ebaShNestSteps[ni][1]];
+  var alt = null, s = ebaShShop[name];
+  // Haselnuss-Variante (Excel nennt sie als min. Nest): selten gefunden, passt in eine Mini Arena
+  if (!becken && a[1] === "Haselnuss" && xf >= 0) {
+    alt = { nest: "Haselnuss", form: ebaShFormiSteps[xf][0], shelf: ebaShFormiSteps[xf][1] };
+    dev.push("Excel nennt nur die Haselnuss-Variante (" + alt.nest + ", " + alt.form + ", " + ebaShN(alt.shelf, 1) + " Regalplätze); der Normalfall (im Reagenzglas gefunden) braucht " + nest + " + " + form);
+  } else {
+    if (becken ? xnF !== bi : xn !== ni) {
+      var exNest = becken ? ebaShFormiSteps[xnF][0] : (xn >= 0 ? ebaShNestSteps[xn][0] : a[1]);
+      var t = "Nest: Rechnung " + nest + " (Bedarf " + ebaShN(m.n, 2) + " = " + ebaShN(100 * m.n / nestCap, 0) + " % der Kapazität), Excel " + exNest;
+      if (!becken && xn > ni) { t += " – im Blatt Ameisen von Hand eingetragen, keine Belegungsschwelle erkennbar (z.B. Plagiolepis pygmaea mit 83 % bleibt beim mittleren Ytong)"; }
+      dev.push(t);
+    }
+    if (xf >= 0 && xf !== fi) { dev.push("Formicarium: Rechnung " + form + ", Excel " + ebaShFormiSteps[xf][0]); }
+  }
   if (s && s[1] != null && s[1] !== shelf) {
-    dev.push("Regalplätze: Spielhilfe-Blatt Shopameisen " + s[1] + ", Rechnung " + shelf);
-    shelf = s[1];
+    dev.push("Regalplätze: Spielhilfe-Blatt Shopameisen " + ebaShN(s[1], 1) + ", Rechnung " + ebaShN(shelf, 1)
+      + (becken ? " (das Blatt zählt nur ein Formicarium; das Nestbecken ist ein eigenes Formicarium und belegt zusätzlich Regalplätze)" : ""));
   }
   var rn = m.n / m.a, rf = m.f / m.a, fm = function(x) { return ebaShN(x, 4); };
-  return { nest: nest, form: form, formNest: formNest, shelf: shelf, shelfCalc: shelfRule, dev: dev, pulled: pulled,
-           nestNeed: m.n, formNeed: m.f, shopExcel: !!(s && s[1] != null),
+  return { nest: nest, form: form, formNest: becken, nestWord: becken ? "Nestbecken" : "Nest", nestShelf: nestShelf, shelf: shelf, alt: alt,
+           dev: dev, pulled: pulled, nestNeed: m.n, formNeed: m.f,
            calc: fm(rn) + " Nest und " + fm(rf) + " Formicarium je Arbeiterin × " + ebaShN(m.a) + " = Nest " + ebaShN(m.n, 2)
              + ", Formicarium " + ebaShN(m.f, 2) + (pulled ? "; Formicarium zieht auf die Klasse des Nests nach" : "")
-             + (formNest ? "; Formicarium dient als Nest, beide zählen" : "") };
+             + (becken ? "; Nestbecken ist ein eigenes Formicarium neben dem Formicarium, unabhängig von dessen Größe" : "") };
 }
 function ebaShRegalTip(g) {
-  var t = "Nest " + g.nest + ", Formicarium " + g.form + " (Rechnung: " + g.calc + ")."
-    + " Regalplätze " + ebaShN(g.shelf, 1) + (g.formNest ? " (Rechnung mit beiden Formicarien: 2 × " + ebaShN(g.shelfCalc / 2, 1) + " = " + ebaShN(g.shelfCalc, 1) + ")" : "") + "; Nester belegen keinen Regalplatz."
-    + (g.formNeed <= 200000 ? " Mit riesiger Anlage (ASW-Aktion: 150 ASW-Punkte + 1 Regal) 0 Regalplätze; sie braucht einen eigenen Platz in der Wohnung (Bedarf " + ebaShN(g.formNeed, 2) + " ≤ 200.000: passt)." : "");
-  if (g.dev.length) { t += " Abweichung: " + g.dev.join("; ") + "."; }
+  var t = g.nestWord + " " + g.nest + ", Formicarium " + g.form + " (Rechnung: " + g.calc + ")."
+    + " Regalplätze " + ebaShN(g.shelf, 1) + (g.formNest ? " (Formicarium " + ebaShN(g.shelf - g.nestShelf, 1) + " + Nestbecken " + ebaShN(g.nestShelf, 1) + ")" : "") + "; normale Nester belegen keinen Regalplatz."
+    + (g.formNeed <= 200000 && (!g.formNest || g.nestNeed <= 200000) ? " Mit riesiger Anlage (ASW-Aktion: 150 ASW-Punkte + 1 Regal) 0 Regalplätze" + (g.formNest ? " je Formicarium bzw. Nestbecken" : "") + "; sie braucht einen eigenen Platz in der Wohnung (Bedarf " + ebaShN(g.formNeed, 2) + (g.formNest ? " bzw. " + ebaShN(g.nestNeed, 2) : "") + " ≤ 200.000: passt)." : "");
+  if (g.alt) { t += " Sonderfall Haselnuss: Wird die Art selten in einer Haselnuss gefunden (verbraucht dann kein Reagenzglas), bietet sie genug Platz für die ausgewachsene Kolonie und passt in eine " + g.alt.form + ": " + ebaShN(g.alt.shelf, 1) + " Regalplätze."; }
+  if (g.dev.length) { t += " ‡ Abweichung zur Spielhilfe: " + g.dev.join("; ") + "."; }
   return t;
 }
-function ebaShRegalTxt(g) { return g ? ebaShE(g.nest) + ", " + ebaShE(g.form) + ", " + ebaShN(g.shelf, 1) + " Regalplätze" : "&ndash;"; }
+function ebaShRegalTxt(g) { return g ? ebaShE(g.nestWord) + " " + ebaShE(g.nest) + ", " + ebaShE(g.form) + ", " + ebaShN(g.shelf, 1) + " Regalplätze" : "&ndash;"; }
 
 // Zeilen für ALLE Arten. Werte, die es nur für Shopameisen gibt (Blatt "Shopameisen":
 // Tage, Verkaufserlös), bleiben bei den übrigen Arten null (Anzeige "–"). Regalplätze: ebaShRegal().
@@ -6579,7 +6595,7 @@ var ebaShVCols = [
   ["a", "Kolonie &dagger;", "Maximale Arbeiterinnen bei einer Königin (Blatt Ameisen, alle Arten)", false],
   ["pta", "Pt/A &dagger;", "Punkte je Arbeiterin = Punkte / Kolonie; aus Blatt Ameisen gerechnet, alle Arten", false],
   ["asw", "ASW-Pt &dagger;", "Punkte f\u00FCr die Ameisenschutzwarte (Blatt Ameisen, Spalte ASW Pt; alle Arten)", false],
-  ["shelf", "Regalpl&auml;tze", "Regalplätze = Regalplätze der Formicarien, die die Art bei voller Kolonie braucht (Rechnung im Tooltip der Zeile); Excel hat Vorrang; &Dagger; = Abweichung zur Rechnung", true],
+  ["shelf", "Regalpl&auml;tze", "Regalplätze = Regalplätze der Formicarien, die die Art bei voller Kolonie braucht (bei Nestbecken Formicarium + Nestbecken; Rechnung im Tooltip der Zeile); &Dagger; = Abweichung zur Spielhilfe", true],
   ["minf", "min. Formi &dagger;", "Mindest-Formicarium (Blatt Ameisen, alle Arten); sortiert nach Kapazität", true],
   ["pmax", "Verkauf (&euro;)", "Erlös einer ausgewachsenen Kolonie im Shop; nur für Shopameisen bekannt", false],
   ["buy", "Ankauf max./Ameise", "Höchster Ankaufspreis je Ameise; nur für Shopameisen bekannt", false],
@@ -6632,7 +6648,7 @@ function ebaShShopTab() {
   h += "</div><p class='sh-note sh-polynote'><b>Polygynie:</b> Die meisten Angaben beziehen sich auf eine K&ouml;nigin; bei polygynen Arten bringt jede K&ouml;nigin denselben Zuwachs an Arbeiterinnen.</p><p class='sh-note'>Vergleich aller Arten. <b>Im Shop kaufbar</b> = die Art wird im Shop angeboten (auch diese Arten lassen sich in der Natur finden), <b>nicht im Shop</b> = kein Shop-Angebot. Fundorte stehen im Steckbrief (Reiter Ameisen). "
     + "<b>Tage</b> (Auswachszeit bei h&ouml;chster Stufe <i>Ameisenwachstum</i>), <b>Verkauf</b> und <b>Ankauf</b> gibt es in der Spielhilfe nur f&uuml;r Shopameisen, "
     + "sonst steht &bdquo;&ndash;&ldquo; (beim Sortieren immer am Ende); die davon abh&auml;ngigen Spalten (Pkt/Tag, &euro;/Tag, &hellip;) ebenso. "
-    + "<b>Regalpl&auml;tze</b> gibt es f&uuml;r alle Arten: Platzbedarf je Arbeiterin &times; max. Arbeiterinnen, abgebildet auf das kleinste passende Nest bzw. Formicarium; das Formicarium ist mindestens so gro&szlig; wie die Klasse des Nests, nur Formicarien belegen Regalpl&auml;tze (bei Formicarium als Nest beide). Rechnung im Tooltip. <sup>&Dagger;</sup> = Abweichung der Rechnung zur Spielhilfe (Spielhilfe hat Vorrang). "
+    + "<b>Regalpl&auml;tze</b> gibt es f&uuml;r alle Arten: Platzbedarf je Arbeiterin &times; max. Arbeiterinnen, abgebildet auf das kleinste passende Nest bzw. Formicarium; das Formicarium ist mindestens so gro&szlig; wie die Klasse des Nests, nur Formicarien belegen Regalpl&auml;tze; ein <i>Nestbecken</i> (Acromyrmex, Polyrhachis dives) ist ein eigenes Formicarium neben dem Formicarium, unabh&auml;ngig von dessen Gr&ouml;&szlig;e, und z&auml;hlt zus&auml;tzlich. Temnothorax nylanderi: Normalfall kleines Nest + kleines Formicarium, in einer Haselnuss gefunden (selten) Mini Arena. Rechnung im Tooltip. <sup>&Dagger;</sup> = Abweichung zur Spielhilfe (Erkl&auml;rung im Tooltip). "
     + "Mit der <i>riesigen Anlage</i> (ASW-Aktion, 150 ASW-Punkte + 1 Regal) w&auml;ren es 0 Regalpl&auml;tze, sie braucht aber einen eigenen Platz in der Wohnung (Absicht); sie fasst jede Art. "
     + "<b>&dagger;</b> = f&uuml;r alle Arten aus dem Blatt <i>Ameisen</i> (Pt/A = Punkte je Arbeiterin, gerechnet; ASW-Pt = Punkte f&uuml;r die Ameisenschutzwarte). "
     + "<b>ASW/Tag</b> und <b>ASW/Tag/Platz</b> gibt es nur, wo die Auswachszeit bekannt ist, <b>ASW je &euro; Kauf</b> nur f&uuml;r Arten mit Shop-Kaufpreis. "
