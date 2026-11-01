@@ -171,3 +171,14 @@ Weitere bestätigte Bilder (nicht Forschung):
 - `research_zuckerwasser_mixer.jpg`
 
 Insgesamt: 128 verschiedene `research_*`-Dateinamen in der Historie, davon 15 bestätigt.
+
+## Ameisen-Stufenbilder
+
+Bestätigte Listen (aus echten Spielerprofilen) stehen in `OpenEBA.js` in `ebaShAntImgs` (Stufenreihe je Art) und `ebaShAntImgMain` (nur ein Bild der ausgewachsenen Kolonie):
+
+- `ebaShAntImgs`: Camponotus herculeanus (1–2), Camponotus ligniperda (1–3), Formica fusca (1–3, 5–11; 4 fehlt), Lasius flavus (1–6), Lasius niger (1–10), Myrmica rubra (1–4, evtl. unvollständig), Temnothorax nylanderi (`items/item_haselnuss.jpg`, 2–5), Pheidole pallidula (1, 2, `_shop`).
+- `ebaShAntImgMain`: Solenopsis fugax (`_shop`), Acromyrmex spec. (`3`), Camponotus cruentatus (`3`), Pheidologeton diversus (`2`).
+
+Alle übrigen Arten haben noch keine bestätigte Liste; der Steckbrief probiert dort `<Art>_shop.jpg` und `<Art>1.jpg` (dabei entsteht ein harmloses 404).
+
+Neuer Scan: Info → Bildersuche → „Ameisen-Stufenbilder prüfen“ (nur auf Klick, 35 Arten × 17 = 595 Anfragen: `img/ants/<Basis>0.jpg` bis `15.jpg` und `<Basis>_shop.jpg`). Das Ergebnis (Tabelle und Kopiertext `Art=datei1,datei2,…`) wird nur angezeigt, nicht gespeichert oder übernommen. Mit dem Ergebnis werden die Listen später fest eingetragen.

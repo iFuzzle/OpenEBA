@@ -14,6 +14,7 @@ Zusätzlich zum bestehenden Schnee-Effekt (Option *Schnee*) jahreszeitliche Effe
 ## Vor dem Release v34
 
 - Bildersuche (Info → Bildersuche) entfernen – reines Entwickler-Werkzeug (geprüfte Namen: `BILDERSUCHE_GEPRUEFT.md`).
+- Der Ameisen-Stufenbilder-Scan (Info → Bildersuche) wird zusammen mit der Bildersuche entfernt (Ergebnis vorher in `ebaShAntImgs` eintragen).
 - Profil-Blättern (Q/E) prüfen: als Dev-Tool behalten oder entfernen.
 
 ## Daten und Auswertungen

@@ -7188,6 +7188,91 @@ function ebaShProbeManual() {
   step();
 }
 
+// ---- Bildersuche 2: Ameisen-Stufenbilder (Entwicklerwerkzeug, nur auf Knopfdruck, Ergebnis nur anzeigen/kopieren) ----
+// Prüft je Art in antcat img/ants/<Basis>0..15.jpg und <Basis>_shop.jpg; es wird nichts gespeichert oder übernommen.
+var ebaShAntScan = { gen: 0, running: false, total: 0, done: 0, res: null, names: [] };
+function ebaShAntScanFiles(name) {
+  var b = ebaShAntBase(name), f = [], i;
+  for (i = 0; i <= 15; i++) { f.push(b + i + ".jpg"); }
+  f.push(b + "_shop.jpg");
+  return f;
+}
+function ebaShAntScanCount() { return Object.keys(antcat).length * 17; }
+function ebaShAntScanStart() {
+  var sc = ebaShAntScan;
+  if (sc.running) { return; }
+  var gen = ++sc.gen, todo = [], active = 0;
+  sc.names = Object.keys(antcat); sc.res = {}; sc.done = 0; sc.total = 0; sc.running = true;
+  $.each(sc.names, function(i, name) {
+    sc.res[name] = [];
+    $.each(ebaShAntScanFiles(name), function(j, f) { todo.push([name, j, f]); });
+  });
+  sc.total = todo.length;
+  var finish = function() { sc.running = false; ebaShAntScanUpdate(true); };
+  var probe = function(t, cb) {
+    var im = new Image(), fin = false, to;
+    var end = function(ok) {
+      if (fin) { return; }
+      fin = true; window.clearTimeout(to); im.onload = im.onerror = null; cb(ok);
+    };
+    im.onload = function() { end(im.naturalWidth > 0); };
+    im.onerror = function() { end(false); };
+    to = window.setTimeout(function() { end(false); }, 10000);
+    im.src = "/img/ants/" + t[2];
+  };
+  var step = function() {
+    if (gen !== sc.gen) { return; }
+    while (active < 4 && todo.length) {
+      (function(t) {
+        active++;
+        probe(t, function(ok) {
+          active--;
+          if (gen !== sc.gen) { return; }
+          sc.done++;
+          if (ok) { sc.res[t[0]].push([t[1], t[2]]); }
+          if (!todo.length && !active) { finish(); } else { ebaShAntScanUpdate(false); step(); }
+        });
+      })(todo.shift());
+    }
+  };
+  ebaShAntScanUpdate(true);
+  step();
+}
+function ebaShAntScanCancel() {
+  var sc = ebaShAntScan;
+  if (!sc.running) { return; }
+  sc.gen++; sc.running = false; ebaShAntScanUpdate(true);
+}
+function ebaShAntScanFound(name) {
+  var l = (ebaShAntScan.res[name] || []).slice().sort(function(a, b) { return a[0] - b[0]; });
+  return $.map(l, function(x) { return x[1]; });
+}
+function ebaShAntScanHtml() {
+  var sc = ebaShAntScan, total = ebaShAntScanCount();
+  var h = "<h4>Ameisen-Stufenbilder</h4><div class='sh-small'>Entwicklerwerkzeug: pr&uuml;ft f&uuml;r alle " + Object.keys(antcat).length + " Arten <code>img/ants/&lt;Art&gt;0.jpg</code> bis <code>15.jpg</code> und <code>&lt;Art&gt;_shop.jpg</code>. "
+    + "Das Ergebnis wird nur angezeigt und nicht in die Spielhilfe &uuml;bernommen oder gespeichert.</div>"
+    + "<p><button type='button' class='sh-chip sh-antscan'" + (sc.running ? " disabled" : "") + ">Ameisen-Stufenbilder pr&uuml;fen</button> "
+    + (sc.running ? "<button type='button' class='sh-chip sh-antscancancel'>Abbrechen</button> " : "")
+    + "<span class='sh-small'>Macht " + total + " Anfragen an den Spielserver (" + Object.keys(antcat).length + " &times; 17); die meisten werden mit 404 beantwortet.</span></p>";
+  if (!sc.res) { return h; }
+  h += "<p class='sh-small sh-antprog'>" + sc.done + " / " + sc.total + (sc.running ? " &hellip;" : (sc.done < sc.total ? " (abgebrochen)" : " (fertig)")) + "</p>";
+  if (sc.running) { return h; }
+  var rep = [], t = "<table class='liste sh-tab sh-imgtab'><tr><th>Art</th><th>gefundene Dateien</th></tr>";
+  $.each(sc.names, function(i, name) {
+    var f = ebaShAntScanFound(name);
+    rep.push(name + "=" + (f.length ? f.join(",") : "\u2013"));
+    t += "<tr><td>" + ebaShE(name) + "</td><td class='sh-small " + (f.length ? "ok" : "no") + "'>" + (f.length ? ebaShE(f.join(", ")) : "&ndash;") + "</td></tr>";
+  });
+  return h + t + "</table><p class='sh-small'>Ergebnis zum Kopieren (bitte dem Entwickler schicken; &ndash; = nichts gefunden):<br>"
+    + "<textarea class='sh-antreport' readonly rows='12' style='width:100%;font-family:monospace'>" + ebaShE(rep.join("\n")) + "</textarea></p>";
+}
+function ebaShAntScanUpdate(full) {
+  var b = $("#shopitem.ebash .sh-antscanbody");
+  if (!b.length) { return; }
+  if (full) { b.html(ebaShAntScanHtml()); }
+  else { b.find(".sh-antprog").html(ebaShAntScan.done + " / " + ebaShAntScan.total + " &hellip;"); }
+}
+
 function ebaShPill(cx, cy, text, col, dash, title) {
   var w = Math.max(32, Math.round(text.length * 5.2 + 9));
   return "<g class='sh-pillg'><title>" + ebaShE(title) + "</title><rect x='" + (cx - w / 2) + "' y='" + (cy - 7.5) + "' width='" + w + "' height='15' rx='7.5' class='sh-pill' stroke='" + col + "'"
@@ -7556,7 +7641,7 @@ function ebaShImgInfoUpdate() {
 }
 function ebaShInfoTab() {
   return "<div class='sh-card'><details class='sh-det-img'" + (ebaShState.open.imgs ? " open" : "") + "><summary><b>Bildersuche</b> <small>(Forschungsbilder)</small></summary>"
-    + "<div class='sh-imgbody'>" + ebaShImgInfoHtml() + "</div></details></div><div class='sh-card'><h4>Hinweise zum Wachstum</h4><ul class='sh-list'>"
+    + "<div class='sh-imgbody'>" + ebaShImgInfoHtml() + "</div><div class='sh-antscanbody'>" + ebaShAntScanHtml() + "</div></details></div><div class='sh-card'><h4>Hinweise zum Wachstum</h4><ul class='sh-list'>"
     + "<li><span class='sh-tag warn'>&gt; 75 %</span> Belegung von Nest oder Formicarium bremst das Wachstum.</li>"
     + "<li>Hauptwachstumsphase: etwa <b>24&ndash;94&nbsp;%</b> der Koloniegr&ouml;&szlig;e.</li>"
     + "<li>Brut verbraucht nur Platz im <b>Nest</b>, nicht im Formicarium.</li>"
@@ -7942,6 +8027,8 @@ function ebaShBind(root) {
   var refresh = function(sel) { root.find(".sh-grid").html(ebaShAntBody()); ebaShOpenCalc(); };
   root.on("click", ".sh-tabs button", function() { ebaShRender($(this).attr("data-t")); });
   root.on("click", ".sh-imgre", function() { ebaShProbeManual(); });
+  root.on("click", ".sh-antscan", function() { ebaShAntScanStart(); });
+  root.on("click", ".sh-antscancancel", function() { ebaShAntScanCancel(); });
   root.on("focus click", ".sh-imgreport", function() { this.select(); });
   root.on("click", ".sh-jlink", function(e) {
     e.preventDefault();
