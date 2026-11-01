@@ -15,6 +15,10 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
 
 > **Hinweis vor dem Update:** Mehrere Versionen (31.1, 31.7, 31.9) wandeln gespeicherte Daten beim ersten Start automatisch um. Empfehlung: vorher in der openEBA-Konfiguration die Daten über *Exportieren* sichern.
 
+## 33.22 (01.11.2026)
+
+- Spielhilfe, Regalplätze korrigiert: Bei den Nestbecken-Arten (Acromyrmex spec., A. versicolor, Polyrhachis dives) ist das Nest ein eigenes Formicarium neben dem Formicarium, unabhängig in der Größe, und belegt eigene Regalplätze (jetzt 12 statt 6). Temnothorax nylanderi: Normalfall kleines Nest + kleines Formicarium (1 Regalplatz), Haselnuss-Fund als Sonderfall in der Mini Arena (0,5). Lasius fuliginosus: großes Ytong reicht rechnerisch genau (Spielhilfe-Tabelle: riesiges Ytong), Regalplätze 0 wegen riesiger Anlage.
+
 ## 33.21 (01.11.2026)
 
 - Spielhilfe: Regalplätze für alle 35 Arten berechnet (Platzbedarf je Arbeiterin × maximale Arbeiterinnen → kleinstes passendes Nest und Formicarium; das Formicarium zieht mit der Nestgröße nach; bei Nestbecken zählen beide Formicarien). Neue sortierbare Spalte im Vergleich mit Rechnung im Tooltip, Zeile „Benötigt“ im Steckbrief. Hinweis auf die riesige Anlage (0 Regalplätze, gewollt). Abweichungen zur Spielhilfe-Tabelle sind mit ‡ markiert, die Tabelle hat Vorrang.
