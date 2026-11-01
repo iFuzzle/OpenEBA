@@ -15,6 +15,11 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
 
 > **Hinweis vor dem Update:** Mehrere Versionen (31.1, 31.7, 31.9) wandeln gespeicherte Daten beim ersten Start automatisch um. Empfehlung: vorher in der openEBA-Konfiguration die Daten über *Exportieren* sichern.
 
+## 33.18 (01.11.2026)
+
+- Kolonie-Verlauf: Arbeiterinnen und Punkte in einem Diagramm (Punkte auf eigener rechter Achse), direkt darunter neu der Punktezuwachs je Tick (bei Lücken Durchschnitt je Tick, Nulllinie). Untertitel nennt die fehlenden Punkte bis zum Maximum und wie lange die Kolonie schon ohne Zuwachs ist – hilft zu entscheiden, ob sich das Weiterwachsen noch lohnt.
+- README auf den aktuellen Stand gebracht.
+
 ## 33.17 (01.11.2026)
 
 - Spielhilfe, Jobs: Der 12-h-Job (30 €) nach der Verhaltensforscher-Forschung ist ein eigener Job, keine Vorstufe der Biologie-Exkursion (20 h, 50 €).

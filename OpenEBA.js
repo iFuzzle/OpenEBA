@@ -10,7 +10,7 @@
 // @exclude        https://forum.eatenbyants.de/*
 // @exclude        http://test.eatenbyants.de/*
 // @exclude        https://test.eatenbyants.de/*
-// @version        33.17
+// @version        33.18
 // @require        http://ajax.googleapis.com/ajax/libs/jquery/1/jquery.min.js
 // @grant          GM_getValue
 // @grant          GM_setValue
@@ -5795,6 +5795,12 @@ function renderHistoryPage(rangeKey) {
   var drawGroup = function(g) {
     var id = g.attr("data-id"), body = g.find(".eba_formi_body");
     body.empty();
+    // Arbeiterinnen und Punkte wachsen proportional: eine Grafik, Punkte auf eigener rechter Achse
+    var ptsS = ebaFormiSeries(id, "points");
+    add(body, "Arbeiterinnen (gr&uuml;n, links) und Punkte (orange, rechts)", ebaFormiSeries(id, "ants"), "count",
+      [{ points: ptsS, color: "#E8963C", name: "Punkte", axis2: true, fmt: ebaMetricFmt("points") }],
+      { chart: { multiTip: true, name: "Arbeiterinnen" },
+        legend: [["Arbeiterinnen", "#3CAC56"], ["Punkte", "#E8963C"]] });
     // Punktezuwachs je Tick: zeigt, ob eine noch nicht ausgewachsene Kolonie stagniert
     var pt = ebaFormiPointsPerTick(id), subs = [];
     var mx = ebaMaxPoints(ebaFormiKind(id), pt.queens, isSpeedServer());
@@ -5813,12 +5819,6 @@ function renderHistoryPage(rangeKey) {
       chart: { zeroLine: true, yMin: Math.min(0, ebaMinOf(pt.series)), yMax: Math.max(0, ebaMaxOf(pt.series)),
                markFn: function(p) { return p[2] > 1; },
                tipText: function(p) { return p[2] > 1 ? "\u00D8 \u00FCber " + p[2] + " Ticks:" : ""; } } });
-    // Arbeiterinnen und Punkte wachsen proportional: eine Grafik, Punkte auf eigener rechter Achse
-    var ptsS = ebaFormiSeries(id, "points");
-    add(body, "Arbeiterinnen (gr&uuml;n, links) und Punkte (orange, rechts)", ebaFormiSeries(id, "ants"), "count",
-      [{ points: ptsS, color: "#E8963C", name: "Punkte", axis2: true, fmt: ebaMetricFmt("points") }],
-      { chart: { multiTip: true, name: "Arbeiterinnen" },
-        legend: [["Arbeiterinnen", "#3CAC56"], ["Punkte", "#E8963C"]] });
     var bc = ebaBroodColors();
     add(body, "Brut", ebaFormiBroodSeries(id), "count", [
       { points: ebaFormiSeries(id, "eggs"), color: bc.eggs, name: "Eier" },
