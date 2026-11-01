@@ -15,6 +15,13 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
 
 > **Hinweis vor dem Update:** Mehrere Versionen (31.1, 31.7, 31.9) wandeln gespeicherte Daten beim ersten Start automatisch um. Empfehlung: vorher in der openEBA-Konfiguration die Daten über *Exportieren* sichern.
 
+## 33.32 (01.11.2026)
+
+- Vier Server getrennt: Normal (`www.`/ohne www), Speed (`speed.`), Testserver Normal (`test.`) und Testserver Speed (`testspeed.`). Jeder Server hat eigene Daten, eigene WebDAV-Dateien und einen eigenen Index; Testserver Speed rechnet wie Speed (12-Minuten-Tick). Bestehende Daten von Normal und Speed bleiben unverändert. Andere Subdomains (z. B. Forum) bleiben ausgeschlossen.
+- Spielhilfe, Ameisen: Bildlisten aller 35 Arten fest eingetragen (Ergebnis des Stufen-Scans); der Steckbrief lädt nur noch bestätigte Bilder, keine Fehlanfragen (404) mehr. „Allgemeines über Ameisen“ hat sein Bild (`research_allgemeinwissen.jpg`).
+- Bildersuche (Entwickler-Werkzeug): Stufen-Scan prüft nur noch Unbekanntes, nacheinander mit kurzen Pausen; Halloween-Suche entfernt.
+- Spielhilfe, Jobs: Pizza „Je 12* aktive Spieler pro Tick …“ und Werbeplakate „ca. 10* Abstimmungen“ mit Hinweis im openEBA-Stil, Spieltexte entfernt.
+
 ## 33.31 (01.11.2026)
 
 - Bildersuche (Entwickler-Werkzeug): zweiter Button „Ameisen-Stufenbilder prüfen“ – prüft für alle 35 Arten die Bilder Stufe 0–15 und `_shop` (ca. 595 Anfragen, nur per Klick, abbrechbar) und liefert eine Liste zum Kopieren.
