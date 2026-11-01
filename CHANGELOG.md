@@ -15,6 +15,10 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
 
 > **Hinweis vor dem Update:** Mehrere Versionen (31.1, 31.7, 31.9) wandeln gespeicherte Daten beim ersten Start automatisch um. Empfehlung: vorher in der openEBA-Konfiguration die Daten über *Exportieren* sichern.
 
+## 33.17 (01.11.2026)
+
+- Spielhilfe, Jobs: Der 12-h-Job (30 €) nach der Verhaltensforscher-Forschung ist ein eigener Job, keine Vorstufe der Biologie-Exkursion (20 h, 50 €).
+
 ## 33.16 (01.11.2026)
 
 - Zeilen löschen (🗑, „Datentabellen“ im Verlauf) und „↻ aktuellen Tick neu erfassen“ sind ausgeblendet. Einblenden über die Browser-Konsole, siehe README (*Falsche Einträge korrigieren*). Der Abgleich bereits gelöschter Zeilen läuft weiter.

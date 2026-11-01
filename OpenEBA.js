@@ -10,7 +10,7 @@
 // @exclude        https://forum.eatenbyants.de/*
 // @exclude        http://test.eatenbyants.de/*
 // @exclude        https://test.eatenbyants.de/*
-// @version        33.16
+// @version        33.17
 // @require        http://ajax.googleapis.com/ajax/libs/jquery/1/jquery.min.js
 // @grant          GM_getValue
 // @grant          GM_setValue
@@ -6803,13 +6803,11 @@ var ebaShJobs = [
   ["Museum sucht versierten Myrmekologen", [
     ["Museum sucht versierten Myrmekologen", "job_museum.jpg", 3, 8, 8 / 3, "Forschung Ameisen finden und bestimmen, Stufe 4 („Wo sind die besten Chancen?“; laut Spielhilfe)", "Das ist der Museumsjob; eine frühere Museumsstufe gibt es nicht.", 305]]],
   ["Job nach der Verhaltensforscher-Studie", [
-    ["Neuer Job (Name unbekannt)", null, 12, 30, 2.5, "150-mal den Museumsjob, Allgemeines über Ameisen Stufe 11, dann Forschung Verhaltensforscher für Studie (Lehrbücher kaufen, auswendig lernen, Prüfung ablegen)", "Name und Bild sind unbekannt (Spieltext der Forschung: „Neuer Job, Dauer 12:00:00, Verdienst 30 €“). Vermutlich eine Vorstufe des Jobs „Betreuer bei studentischer Biologie Exkursion“ (dort zeigt das Arbeitsamt 20 h / 50 €; eine Spielerangabe nennt 12 h / 50 €). Ungeklärt, bis der Job im Spiel erscheint; hier steht nur, was die Forschung ankündigt.", null,
-     ["vermutlich Vorstufe von", "Betreuer bei studentischer Biologie-Exkursion"]]]],
+    ["Neuer Job (Name unbekannt)", null, 12, 30, 2.5, "150-mal den Museumsjob, Allgemeines über Ameisen Stufe 11, dann Forschung Verhaltensforscher für Studie (Lehrbücher kaufen, auswendig lernen, Prüfung ablegen)", "Eigener Job. Name und Bild sind unbekannt (Spieltext der Forschung: „Neuer Job, Dauer 12:00:00, Verdienst 30 €“).", null]]],
   ["Werbeplakate kleben", [
     ["Werbeplakate kleben", "job_plakate.jpg", 10, 25, 2.5, "häufiges Abstimmen für EBA (Voting-Links), Anzahl unbekannt", "Spieltext: „Da du immer fleißig für EBA abgestimmt hast …“. Ob der Job einmalig oder dauerhaft freigeschaltet wird, ist unbekannt.", 315]]],
   ["Betreuer bei studentischer Biologie-Exkursion", [
-    ["Betreuer bei studentischer Biologie Exkursion", "job_exkursion.jpg", 20, 50, 2.5, "Forschung Biologie der Ameisen, Stufe 4 (Kolonie mit 250 Ameisen)", "Zuordnung der Freischaltung laut Spielhilfe-Excel. Das Arbeitsamt zeigt hier 20 h / 50 €; eine Spielerangabe nennt 12 h / 50 € (Widerspruch ungeklärt).", 304,
-     ["vermutlich Nachfolger von", "Job nach der Verhaltensforscher-Studie"]]]]
+    ["Betreuer bei studentischer Biologie Exkursion", "job_exkursion.jpg", 20, 50, 2.5, "Forschung Biologie der Ameisen, Stufe 4 (Kolonie mit 250 Ameisen)", "Zuordnung der Freischaltung laut Spielhilfe-Excel; Dauer und Lohn laut Arbeitsamt.", 304]]]
 ];
 function ebaShJobsTab() {
   var speed = ebaShSpeed();
