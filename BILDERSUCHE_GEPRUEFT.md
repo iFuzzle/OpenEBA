@@ -201,7 +201,164 @@ Nicht gefunden:
 
 ## Offene Kandidaten
 
-Keine. Die Forschungsbilder `ausb`, `bio`, `form`, `nest`, `ha2`, `jk`, `jv` bleiben unbekannt; es werden keine neuen Namen mehr geraten. Die Bildersuche zeigt nur noch die Statusliste.
+Noch nicht geprüft (136 Namen, alle `.jpg` unter `/img/tasks/`; Bildersuche unter *Info → Bildersuche*, je Knoten bis zum ersten Treffer). Nach dem Lauf das Ergebnis hier eintragen bzw. nach „Geprüft, nicht gefunden“ verschieben.
+
+### Ausbruchschutz (`ausb`) – 19 Dateien
+
+- `research_ausbruch_talkum.jpg`
+- `research_talkumpulver.jpg`
+- `research_pulverflasche.jpg`
+- `research_fluonpulver.jpg`
+- `research_ausbruchschutz_pulver.jpg`
+- `research_antirutsch.jpg`
+- `research_ausbruchhemmer.jpg`
+- `research_talkumflasche.jpg`
+- `research_pulverschutz.jpg`
+- `research_schutzpulver.jpg`
+- `research_anti_escape.jpg`
+- `research_flaeschchen.jpg`
+- `research_talcum.jpg`
+- `research_talc.jpg`
+- `research_ausbruch_pulver.jpg`
+- `research_schutzpuder.jpg`
+- `research_ausbruchsperre.jpg`
+- `research_talkum_flasche.jpg`
+- `research_pulver_schutz.jpg`
+
+### Biologie der Ameisen (`bio`) – 18 Dateien
+
+- `research_anatomie_ameise.jpg`
+- `research_ameise_anatomie.jpg`
+- `research_anatomische_zeichnung.jpg`
+- `research_ameisenanatomie.jpg`
+- `research_ant_anatomie.jpg`
+- `research_koerperteile.jpg`
+- `research_morphologie.jpg`
+- `research_morphology.jpg`
+- `research_ameisenkoerper.jpg`
+- `research_ameisen_anatomie.jpg`
+- `research_skizze.jpg`
+- `research_zeichnung_ameise.jpg`
+- `research_ameisenaufbau.jpg`
+- `research_insektenanatomie.jpg`
+- `research_ant_morphology.jpg`
+- `research_schema.jpg`
+- `research_drawing.jpg`
+- `research_aufbau_ameise.jpg`
+
+### Formicarienbau (`form`) – 16 Dateien
+
+- `research_formicarium2.jpg`
+- `research_formicarienbau_bild.jpg`
+- `research_formikarium_bau.jpg`
+- `research_formicarienaufbau.jpg`
+- `research_formicariumaufbau.jpg`
+- `research_formicarienbauen.jpg`
+- `research_formicarienbau_anleitung.jpg`
+- `research_formikarienaufbau.jpg`
+- `research_formicaria_bau.jpg`
+- `research_anleitung.jpg`
+- `research_bauanleitung.jpg`
+- `research_formicarium_aufbau.jpg`
+- `research_formicary_construction.jpg`
+- `research_formicarium_construction.jpg`
+- `research_formicarienbau.png`
+- `research_formicarium_bau.png`
+
+### Nestbau (`nest`) – 17 Dateien
+
+- `research_nestbau_ameisen.jpg`
+- `research_nest_bau_ameisen.jpg`
+- `research_nestbau_bild.jpg`
+- `research_nestaufbau.jpg`
+- `research_nest_aufbau.jpg`
+- `research_nestbau_material.jpg`
+- `research_nestmaterial.jpg`
+- `research_kammer.jpg`
+- `research_kammern.jpg`
+- `research_nestbauten.jpg`
+- `research_nest_kammern.jpg`
+- `research_nest_construction.jpg`
+- `research_nestconstruction.jpg`
+- `research_nester2.jpg`
+- `research_bauen_nest.jpg`
+- `research_nestbau_ytong.jpg`
+- `research_nest_gasbeton.jpg`
+
+### Handwerkliches Geschick, zweites Bild (`ha2`) – 20 Dateien
+
+- `research_werkzeug_2.jpg`
+- `research_werkzeuge.jpg`
+- `research_werkzeug_stufe2.jpg`
+- `research_werkzeuge2.jpg`
+- `research_handwerk_2.jpg`
+- `research_geschick2.jpg`
+- `research_geschick_2.jpg`
+- `research_handwerkzeug.jpg`
+- `research_handwerkzeuge.jpg`
+- `research_werkzeugkasten.jpg`
+- `research_hammer.jpg`
+- `research_zange.jpg`
+- `research_schraubendreher.jpg`
+- `research_bohrer.jpg`
+- `research_saege.jpg`
+- `research_fertigkeit.jpg`
+- `research_geschicklichkeit.jpg`
+- `research_werkstatt.jpg`
+- `research_werkzeug_b.jpg`
+- `research_handwerk_stufe2.jpg`
+
+### Jobverbesserung Kloputz (`jk`) – 26 Dateien
+
+- `research_poempel.jpg`
+- `research_pompel.jpg`
+- `research_p%C3%B6mpel.jpg`
+- `research_poempel.png`
+- `research_klo_poempel.jpg`
+- `research_poempel_kaufen.jpg`
+- `research_pumpel_ausruestung.jpg`
+- `research_kloputzausruestung.jpg`
+- `research_klo_ausruestung.jpg`
+- `research_ausruestung.jpg`
+- `research_schutzkleidung.jpg`
+- `research_gummihandschuhe.jpg`
+- `research_handschuhe.jpg`
+- `research_gummistiefel.jpg`
+- `research_schutzanzug.jpg`
+- `research_overall.jpg`
+- `research_kittel.jpg`
+- `research_latexhandschuhe.jpg`
+- `research_wc.jpg`
+- `research_wc_reiniger.jpg`
+- `research_abfluss.jpg`
+- `research_saugglocke.jpg`
+- `research_gummiglocke.jpg`
+- `research_kloreiniger.jpg`
+- `research_putzausruestung.jpg`
+- `research_handschuh.jpg`
+
+### Jobverbesserung Verhaltensforscher (`jv`) – 20 Dateien
+
+- `research_studie_verhalten.jpg`
+- `research_feldstudie.jpg`
+- `research_beobachtung.jpg`
+- `research_beobachten.jpg`
+- `research_beobachtungsstudie.jpg`
+- `research_ameisenstudie.jpg`
+- `research_studien.jpg`
+- `research_forscher.jpg`
+- `research_forscherin.jpg`
+- `research_wissenschaft.jpg`
+- `research_wissenschaftler.jpg`
+- `research_science.jpg`
+- `research_stift.jpg`
+- `research_klemmbrett.jpg`
+- `research_klemmbrett_notizen.jpg`
+- `research_lupe.jpg`
+- `research_mikroskop.jpg`
+- `research_beobachter.jpg`
+- `research_verhaltensbeobachtung.jpg`
+- `research_verhaltensexperiment.jpg`
 
 ## Ameisen-Stufenbilder
 
