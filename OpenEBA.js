@@ -92,7 +92,8 @@ const configItems = {
   "eba_enable_overview_escape_bar"           : [ebaNoop, "Ausbruchschutz in der &Uuml;bersicht mit Prozentbalken", "Zeigt in der Zeile <i>Ausbruchschutz</i> zus&auml;tzlich einen Prozentbalken vor dem Text. Wirkt nur, wenn die Option <i>Ausbruchschutz in der Formicarien-&Uuml;bersicht anzeigen</i> aktiv ist; ohne diese Option erscheint nur der Text (z.B. <i>97,4 % PTFE</i>)."],
   "eba_enable_overview_escape"               : [showOverviewEscape, "Ausbruchschutz in der Formicarien-&Uuml;bersicht anzeigen", "Unter dem Hunger (Proteine) bzw. dem Pilzstatus jeder Kolonie erscheint eine Zeile <i>Ausbruchschutz</i> mit Balken, Prozentwert (z.B. <i>97,4 %</i>; die Art, z.B. PTFE, steht im Tooltip). Das Spiel zeigt ihn in der &Uuml;bersicht nicht; der Wert stammt aus der zuletzt festgehaltenen Futter-Historie (daf&uuml;r muss die Option <i>Futterbestand und Ausbruchschutz pro Tick festhalten</i> aktiv sein). Stammt der Wert nicht aus dem aktuellen Tick, erscheint er blasser und kursiv, der Tooltip nennt den Zeitpunkt; solange ein Abruf aussteht, erscheint dahinter ein &#9203;. Sobald der Hintergrundabruf den neuen Wert geholt hat, wird die Zeile automatisch normal dargestellt. Den Prozentbalken schaltet die separate Option <i>mit Prozentbalken</i> zu. Unter 20 % orange, unter 10 % rot."],
   "eba_enable_spielhilfe"                    : [enableSpielhilfe, "Spielhilfe im Lexikon anzeigen (Community-Daten)", "F&uuml;gt unter <i>lexikon.php</i> den Men&uuml;punkt <i>openEBA: Spielhilfe</i> ein: Ameisen-Steckbriefe mit Bildern, Artenvergleich (Arten im Shop und nicht im Shop), Wohnungen, Forschungsbaum als Grafik, Forschungsziele und -bonus, Jobs, ASW-Aktionen, Futter. Die Daten stammen aus der Community-Spielhilfe (Excel, hat Vorrang) und erg&auml;nzend aus Lexikon-Tabellen (nur wo die Excel nichts hat) und sind <b>nicht vom Spielbetreiber</b>. Bilder werden vom Spielserver geladen, der Reiter l&auml;dt sie erst beim Anzeigen."],
-  "eba_enable_search_species"               : [ebaSearchSpecies, "Findbare Arten bei den Suchorten anzeigen (Ameisen suchen)", "F&uuml;gt unter <i>nach Drau&szlig;en &rarr; Ameisen suchen</i> bei jedem Suchort zwischen Beschreibung und Dauer eine kleine Zeile <i>Findbare Arten</i> ein. Die Zuordnung stammt aus der Community-Spielhilfe (Excel), ist <b>nicht vom Spielbetreiber</b> und kann unvollst&auml;ndig sein; Arten im Shop sind getrennt aufgef&uuml;hrt. Es werden keine zus&auml;tzlichen Anfragen gestellt."]
+  "eba_enable_search_species"               : [ebaSearchSpecies, "Findbare Arten bei den Suchorten anzeigen (Ameisen suchen)", "F&uuml;gt unter <i>nach Drau&szlig;en &rarr; Ameisen suchen</i> bei jedem Suchort zwischen Beschreibung und Dauer eine kleine Zeile <i>Findbare Arten</i> ein. Die Zuordnung stammt aus der Community-Spielhilfe (Excel), ist <b>nicht vom Spielbetreiber</b> und kann unvollst&auml;ndig sein; Arten im Shop sind getrennt aufgef&uuml;hrt. Es werden keine zus&auml;tzlichen Anfragen gestellt."],
+  "eba_enable_lexikon_food_life"            : [ebaLexikonFoodLife, "Haltbarkeit der Futter im Lexikon anzeigen", "F&uuml;gt unter <i>lexikon.php?cat=4</i> (Futter) in jeder Kachel unter <i>Zersetzungsrate</i> die Zeile <i>Haltbarkeit</i> ein: Zeit, bis die Frische von allein 0,0&nbsp;% erreicht. Je Tick werden die Prozentpunkte der Zersetzungsrate abgezogen, also 100&nbsp;% / Rate Ticks (aufgerundet); angezeigt f&uuml;r den aktuellen Server (Normalserver 1 Tick = 60 min, Speedserver 12 min). Der Tooltip zeigt die Rechnung und den Wert des anderen Servers. Es werden keine zus&auml;tzlichen Anfragen gestellt."]
 }
 const shopPriceLimits = {
   "Camponotus ligniperda": 6.34,
@@ -3496,14 +3497,48 @@ function ebaSearchSpecies() {
     if (!list || !list.length) { return; }
     var dauer = form.contents().filter(function() { return this.nodeType === 3 && /^\s*Dauer/.test(this.nodeValue); }).first();
     if (!dauer.length) { return; }
+    var tip = "versteckte Art. Diese Art wird im Lexikon erst angezeigt, nachdem man sie gefunden hat.";
     var part = function(shop) {
-      return $.map($.grep(list, function(a) { return a.shop === shop; }), function(a) { return a.n + (a.hid ? " (versteckt)" : ""); }).join(", ");
+      return $.map($.grep(list, function(a) { return a.shop === shop; }), function(a) {
+        return $("<span></span>").text(a.n).append(a.hid ? $("<span class='eba-species-hid' style='cursor:help'></span>").attr("title", tip).text("*") : "").prop("outerHTML");
+      }).join(", ");
     };
-    var shopTxt = part(true), otherTxt = part(false), txt = [];
-    if (shopTxt) { txt.push("im Shop: " + shopTxt); }
-    if (otherTxt) { txt.push("nicht im Shop: " + otherTxt); }
-    var el = $("<i class='eba-species' style='font-size:0.85em' title='Quelle: Community-Spielhilfe, nicht vom Spielbetreiber'></i>").text("Findbare Arten \u2013 " + txt.join(" \u00b7 "));
-    dauer.before(el).before("<br><br>");
+    var el = $("<div class='eba-species' style='font-size:0.85em;margin:0 0 0.6em 0' title='Quelle: Community-Spielhilfe, nicht vom Spielbetreiber'><b>Findbare Arten:</b></div>");
+    var line = function(label, html) {
+      if (html) { el.append($("<div style='margin-left:1.2em'></div>").text(label + " ").append(html)); }
+    };
+    line("auch im Shop:", part(true));
+    line("nicht im Shop:", part(false));
+    dauer.before(el);
+  });
+}
+// Lexikon Futter (lexikon.php?cat=4): Zeile "Haltbarkeit" unter "Zersetzungsrate".
+// Je Tick werden die Zersetzungsrate-Prozentpunkte abgezogen: Ticks = aufrunden(100 / Rate).
+function ebaFoodLifeText(ticks, tickMin) {
+  var m = ticks * tickMin, d = Math.floor(m / 1440), h = Math.floor(m % 1440 / 60), mi = Math.round(m % 60), t = [];
+  if (d) { t.push(d + " T"); }
+  if (h) { t.push(h + " h"); }
+  if (mi) { t.push(mi + " min"); }
+  return t.join(" ") || "0 h";
+}
+function ebaLexikonFoodLife() {
+  if (!/lexikon\.php$/.test(location.pathname) || !/(^|[?&])cat=4(&|$)/.test(location.search)) { return; }
+  var speed = isSpeedServer(), tickMin = getTickMinutes();
+  $("div#shopitem table.liste").each(function() {
+    var tbl = $(this);
+    if (tbl.find(".eba-foodlife").length) { return; }
+    var row = tbl.find("tr").filter(function() { return /^\s*Zersetzungsrate/.test($(this).find("td").first().text()); }).first();
+    if (!row.length) { return; }
+    var rate = parseFloat($.trim(row.find("td").last().text()).replace(",", ".").replace("%", ""));
+    if (!(rate > 0)) { return; }
+    var ticks = Math.ceil(Math.round(100 / rate * 1e6) / 1e6);
+    var other = ebaFoodLifeText(ticks, speed ? 60 : 12);
+    var tip = "100 % / " + String(rate).replace(".", ",") + " % je Tick = " + ticks + " Ticks; 1 Tick = " + tickMin + " min (" + (speed ? "Speedserver" : "Normalserver") + "). "
+      + (speed ? "Normalserver" : "Speedserver") + ": " + other;
+    var tr = $("<tr class='eba-foodlife'></tr>").addClass(row.hasClass("color1") ? "color2" : "color1").attr("title", tip);
+    tr.append($("<td class='liste'></td>").text("Haltbarkeit: "))
+      .append($("<td class='liste' style='text-align:right'></td>").text(ebaFoodLifeText(ticks, tickMin)));
+    row.after(tr);
   });
 }
 function processJobOffers() {
