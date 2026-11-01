@@ -10,7 +10,7 @@
 // @exclude        https://forum.eatenbyants.de/*
 // @exclude        http://test.eatenbyants.de/*
 // @exclude        https://test.eatenbyants.de/*
-// @version        33.22
+// @version        33.23
 // @require        http://ajax.googleapis.com/ajax/libs/jquery/1/jquery.min.js
 // @grant          GM_getValue
 // @grant          GM_setValue
@@ -6678,7 +6678,7 @@ function ebaShRegal(name) {
     if (becken ? xnF !== bi : xn !== ni) {
       var exNest = becken ? ebaShFormiSteps[xnF][0] : (xn >= 0 ? ebaShNestSteps[xn][0] : a[1]);
       var t = "Nest: Rechnung " + nest + " (Bedarf " + ebaShN(m.n, 2) + " = " + ebaShN(100 * m.n / nestCap, 0) + " % der Kapazität), Excel " + exNest;
-      if (!becken && xn > ni) { t += " – im Blatt Ameisen von Hand eingetragen, keine Belegungsschwelle erkennbar (z.B. Plagiolepis pygmaea mit 83 % bleibt beim mittleren Ytong)"; }
+      if (!becken && xn > ni) { t += " – das kleinere Nest reicht, ab 75 % Belegung bremst es aber das Wachstum (bei 100 % am Ende stark); die Spielhilfe empfiehlt hier das größere Nest"; }
       dev.push(t);
     }
     if (xf >= 0 && xf !== fi) { dev.push("Formicarium: Rechnung " + form + ", Excel " + ebaShFormiSteps[xf][0]); }

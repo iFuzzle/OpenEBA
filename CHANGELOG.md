@@ -15,6 +15,13 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
 
 > **Hinweis vor dem Update:** Mehrere Versionen (31.1, 31.7, 31.9) wandeln gespeicherte Daten beim ersten Start automatisch um. Empfehlung: vorher in der openEBA-Konfiguration die Daten über *Exportieren* sichern.
 
+## 33.23 (01.11.2026)
+
+- Spielhilfe: neuer Reiter „Sammlung“ – alle 35 Arten zum Abhaken (open → ready → active → done), mit Fortschritt, `*` für versteckte Arten, Shop-Kennzeichen und Vorschlägen aus Lager, aktiven Formicarien und ausgewachsenen Kolonien (nur per Klick übernommen). Liste als Text einfügen und als BBCode exportieren; getrennt je Server, in Export/Import und im WebDAV-Abgleich (Datei `eba_collection_ants.tsv`).
+- Ameisen suchen: „Findbare Arten“ als Block mit „auch im Shop“ / „nicht im Shop“; versteckte Arten mit `*` und Tooltip.
+- Lexikon → Futter: neue Zeile „Haltbarkeit“ unter der Zersetzungsrate (Ticks bis 0 % = 100 ÷ Rate, aufgerundet; für den aktuellen Server, der andere im Tooltip). Eigene Option.
+- Spielhilfe, Regalplätze: Bei Lasius fuliginosus reicht das große Ytong (100 % Belegung), bremst aber am Ende stark; die Spielhilfe empfiehlt das riesige Ytong.
+
 ## 33.22 (01.11.2026)
 
 - Spielhilfe, Regalplätze korrigiert: Bei den Nestbecken-Arten (Acromyrmex spec., A. versicolor, Polyrhachis dives) ist das Nest ein eigenes Formicarium neben dem Formicarium, unabhängig in der Größe, und belegt eigene Regalplätze (jetzt 12 statt 6). Temnothorax nylanderi: Normalfall kleines Nest + kleines Formicarium (1 Regalplatz), Haselnuss-Fund als Sonderfall in der Mini Arena (0,5). Lasius fuliginosus: großes Ytong reicht rechnerisch genau (Spielhilfe-Tabelle: riesiges Ytong), Regalplätze 0 wegen riesiger Anlage.
