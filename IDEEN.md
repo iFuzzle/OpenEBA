@@ -14,7 +14,6 @@ Zusätzlich zum bestehenden Schnee-Effekt (Option *Schnee*) jahreszeitliche Effe
 ## Vor dem Release v34
 
 - Bildersuche (Info → Bildersuche) entfernen – reines Entwickler-Werkzeug (geprüfte Namen: `BILDERSUCHE_GEPRUEFT.md`).
-- Der Ameisen-Stufenbilder-Scan (Info → Bildersuche) wird zusammen mit der Bildersuche entfernt (Ergebnis vorher in `ebaShAntImgs` eintragen).
 - Profil-Blättern (Q/E) prüfen: als Dev-Tool behalten oder entfernen.
 
 ## Daten und Auswertungen
@@ -27,4 +26,4 @@ Zusätzlich zum bestehenden Schnee-Effekt (Option *Schnee*) jahreszeitliche Effe
 
 - Für noch nicht erforschte oder entdeckte Arten nutzt das Spiel `https://www.eatenbyants.de/img/lexikon/notfindable.jpg`.
 - Manche Arten haben keine größeren Stufenbilder (z. B. Pheidologeton diversus: `Pheidologeton_diversus2.jpg` auch bei 8 Königinnen und 275.000 Arbeiterinnen).
-- Die Stufenbilder der Arten ohne bestätigte Liste lädt die Spielhilfe weiterhin per Klick (Nummern 1–12); eine Übernahme in die Bildersuche wäre möglich, ist aber nicht nötig.
+- Die Stufenbilder aller 35 Arten sind vollständig bekannt (Stufen-Scan abgeschlossen, Ergebnis in `ebaShAntImgs` und `BILDERSUCHE_GEPRUEFT.md`).

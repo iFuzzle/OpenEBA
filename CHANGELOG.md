@@ -15,6 +15,14 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
 
 > **Hinweis vor dem Update:** Mehrere Versionen (31.1, 31.7, 31.9) wandeln gespeicherte Daten beim ersten Start automatisch um. Empfehlung: vorher in der openEBA-Konfiguration die Daten über *Exportieren* sichern.
 
+## 33.34 (02.11.2026)
+
+- Spielhilfe, Info: Abzeichen ans Ende verschoben, eingeklappt und in Originalgröße (16×16); Speedserver-Medaillen 1–4. Danksagung an seupai8969 (Peppers Skript nach dem Serverumzug wieder lauffähig gemacht).
+- Spielhilfe, Jobs: Werbeplakate „je 40 Klicks auf die Werbebanner ein Job“; der 12-h-Job heißt „Verhaltensforscher für Studie gesucht“ (wird auch bei der laufenden Aktion erkannt).
+- Spielhilfe, Futter: Abschnitt „Frühere Events“ (Ostern 2009–2013, Weihnachtsaktion mit Weihnachtsmann-Job).
+- Spielhilfe, Ameisen: alle Stufenbild-Listen vollständig (Scan abgeschlossen, Stufen-Scan entfernt).
+- Bildersuche (Entwickler-Werkzeug): neue Kandidaten für Ausbruchschutz, Biologie, Formicarien-/Nestbau, Handwerk Stufe 2 und die Bilder des Verhaltensforscher- und Weihnachtsmann-Jobs.
+
 ## 33.33 (01.11.2026)
 
 - Spielhilfe, Futter: neue Rubrik „Relikte“ mit dem Osterei (nur während der Oster-Events 2009–2013 sammelbar, heute nur noch über Verkauf).
