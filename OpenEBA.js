@@ -5715,7 +5715,7 @@ const ebaShAnts = {"Camponotus herculeanus":["mittlere Anlage","mittleres Ytong"
 const ebaShShop = {"Camponotus ligniperda":[59,4,396.5,423],"Formica fusca":[50,3,160.2,170.3],"Lasius flavus":[75,4,753,800.5],"Lasius niger":[67,4,486,516.5],"Myrmica rubra":[83,4,395,420.5],"Crematogaster scutellaris":[85,6,1290,1370],"Messor barbarus":[76,6,1280,1370],"Pheidole pallidula":[70,6,1540,1640],"Acromyrmex spec.":[102,6,null,2572.22],"Camponotus substitutus":[89,6,1950,2080],"Polyrhachis dives":[108,6,2200,2200]};
 const ebaShWohn = [["Zimmer bei deinen Eltern",2,0,0,"Eltern"],["alter Schuppen",3,100,2000,"Schuppen"],["Dachboden bei Oma Gertrude",4,500,500,"Dachboden"],["Zimmerwohnung in Hochhaus",6,2000,50000,"Hochhaus"],["Haus",8,5000,5000,"Haus"],["Schloss",12,50000,1000000,"Schloss"]];
 const ebaShFood = [["Mehlwürmer",1.49,50,"Protein",1.2,0.3,1],["Maden",1.99,50,"Protein",1.1,null,0],["Grashüpfer",null,null,"Protein",0.95,null,0],["Regenwürmer",null,null,"Protein",0.85,null,0],["Baumwanzen",null,null,"Protein",0.75,null,0],["Käferlarven",null,null,"Protein",0.65,null,0],["Heimchen",5.99,50,"Protein",1.75,0.45,1],["Waldschaben",9.99,50,"Protein",2.5,0.6,1],["Zuckerwasser",0.99,50,"Zuckerhaltig",0.7,null,0],["gemixtes Zuckerwasser",null,null,"Zuckerhaltig",0.6,null,0],["Honig",2.99,200,"Zuckerhaltig",0.3,null,0],["Grassamen",5.99,100,"Körner",0.3,null,0],["Löwenzahnsamen",null,null,"Körner",0.5,null,0],["Brombeerblätter",null,null,"Blätter",2.0,null,0]];
-const ebaShTree = [["allg","Allgemeines über Ameisen","","",[["Erste Schritte",1,0.5,5,"",""],["Körperbau einer Ameise",2,1,13,"",""],["Ameisen als Haustiere",3,2,30,"","Schaltet frei: Einheimische Ameisenarten"],["verschiedene Haltungsmöglichkeiten",4,6,60,"","Schaltet frei: Ausbruchschutz"],["Wachstum einer Ameisenkolonie",6,10,120,"","Schaltet frei: Futtertiere"],["Organisation im Ameisenstaat (1/2)",10,15,240,"",""],["Organisation im Ameisenstaat (2/2)",16,20,600,"","Schaltet frei: Forschungsbonus: Lerne von den Ameisen"],["Aufbau und Systematik der Ameisen",22,25,800,"","Schaltet frei: Biologie der Ameisen und Ameisen finden und bestimmen"],["Ameisen in Europa",27,35,1000,"","Schaltet frei: südeuropäische Ameisenarten"],["Ameisen im Rest der Welt (1/2)",35,45,2000,"",""],["Ameisen im Rest der Welt (2/2)",45,60,3995,"","Schaltet frei: exotische Ameisenarten"]]],["ausb","Ausbruchschutz","Allgemeines über Ameisen Stufe 4","Prozentwerte beziehen sich auf die Grundwerte der Ausbruchschutzmittel.",[["Grundlagen des Ausbruchschutz",3,10,60,"","AS hält 5% länger"],["Talkum (1/2)",7,15,160,"","AS hält 9,75% länger"],["Talkum (2/2)",10,30,300,"","AS hält 14,26% länger; Talkum"],["Verbesserung des Ausbruchschutz",13,45,520,"Kolonie mit min. 50 Arbeiterinnen","AS hält 18,55% länger"],["PTFE (1/3)",16,50,700,"Kolonie mit min. 100 Arbeiterinnen","AS hält 22,62% länger"],["PTFE (2/3)",19,55,955,"Kolonie mit min. 200 Arbeiterinnen","AS hält 26,49% länger"],["PTFE (3/3)",22,65,1605,"Kolonie mit min. 400 Arbeiterinnen","AS hält 30,17% länger; PTFE"],["Verbesserung des Ausbruchschutz",25,75,1700,"Kolonie mit min. 800 Arbeiterinnen","AS hält 33,66% länger"],["Verbesserung des Ausbruchschutz",30,85,2100,"Kolonie mit min. 5000 Arbeiterinnen","AS hält 36,98% länger"]]],["futt","Futtertiere","Allgemeines über Ameisen Stufe 5","Prozentangaben beziehen sich auf die Grundwerte des Futters.",[["Futtertiere Grundlagen",2,7,80,"","Futter hält 5% länger; Futter: Grashüpfer"],["Futtertiere Abbrühen",5,15,180,"","Futter hält 9,75% länger; Futter: Maden; Aktion: Futtertiersuche"],["Inhaltsstoffe der Futtertiere",8,24,335,"","Futter hält 14,26% länger; Futter: Regenwürmer"],["Weiterbildung",15,30,650,"","Futter hält 18,55% länger; Futter: Löwenzahnsamen"],["Weiterbildung",30,46,1200,"","Futter hält 22,62% länger; Futter: Baumwanzen"],["Weiterbildung",50,60,1510,"","Futter hält 26,49% länger; Futter: Honig; Aktion: Samensuche; Zuckerwasserherstellung (Biologie der Ameise Stufe 6)"],["Weiterbildung",75,90,1705,"","Futter hält 30,17% länger; Futter: Käferlarven"],["Weiterbildung",100,130,1910,"","Futter hält 33,66% länger; Futter: Heimchen"],["Weiterbildung",150,190,2180,"","Futter hält 36,98% länger; Futter: Waldschaben"],["Weiterbildung",200,250,2510,"","Futter hält 40,13% länger; Aktion: Futtertierzucht"]]],["einh","Einheimische Ameisenarten","Allgemeines über Ameisen Stufe 3","",[["Lasius flavus",1,1,90,"","Lasius flavus (im Shop)"],["Formica fusca",2,3,150,"","Formica fusca (im Shop), Temnothorax nylanderi (nicht im Shop)"],["Myrmica rubra",3,6,300,"","Myrmica rubra (im Shop)"],["Campontus ligniperda",6,10,600,"","Camponotus ligniperda (im Shop)"],["Arten in freier Wildbahn",10,16,1000,"","Myrmica ruginodis (nicht im Shop)"],["Arten in freier Wildbahn",15,20,1400,"","Camponotus herculeanus (nicht im Shop)"],["Arten in freier Wildbahn",30,30,1600,"","Lasius emarginatus (nicht im Shop)"],["Arten in freier Wildbahn",40,40,1800,"","Solenopsis fugax (nicht im Shop)"],["Arten in freier Wildbahn",45,55,2000,"","Lasius fuliginosus (nicht im Shop), Messor structor (nicht im Shop)"],["Arten in freier Wildbahn",20,30,700,"","Formica sanguinea (nicht im Shop)"]]],["sued","Südeuropäische Ameisenarten","Allgemeines über Ameisen Stufe 9 und einheimische Arten Stufe 2","",[["Messor barbarus",3,20,160,"","Messor barbarus (im Shop), Messor structor (nicht im Shop)"],["Crematogaster scutellaris",7,30,260,"","Crematogaster scutellaris (im Shop)"],["Pheidole pallidula",15,40,400,"min. 40 einheimische Ameisen","Pheidole pallidula (im Shop)"],["Arten in freier Wildbahn",20,50,520,"min. 100 einheimische Ameisen","Aphaenogaster senilis (nicht im Shop); wird benötigt für Exotische Ameisenarten"],["Arten in freier Wildbahn",25,60,700,"min. 200 einheimische Ameisen","Camponotus cruentatus (nicht im Shop)"],["Arten in freier Wildbahn",30,70,900,"min. 500 einheimische Ameisen","Cataglyphis velox (nicht im Shop)"],["Arten in freier Wildbahn",35,80,1100,"min. 1000 einheimische Ameisen","Plagiolepis pygmaea (nicht im Shop)"],["Arten in freier Wildbahn",40,100,1300,"min. 2500 einheimische Ameisen","Lasius grandis (nicht im Shop)"],["Arten in freier Wildbahn",45,120,1550,"min. 5000 einheimische Ameisen","noch keine weiteren Arten"]]],["exot","Exotische Ameisenarten","Allgemeines über Ameisen Stufe 11 und südeuropäische Ameisen Stufe 4","",[["Camponotus substitutus",23,40,190,"","Camponotus substitutus (im Shop)"],["Exotische Ameisenarten",27,45,260,"","Polyrhachis dives (im Shop)"],["Exotische Ameisenarten",35,50,300,"40 südeuropäische Ameisen","Acromyrmex spec. (im Shop); Blättersammeln (mit Futtertiere Stufe 10)"],["Exotische Ameisenarten",50,70,520,"100 südeuropäische Ameisen","Messor alexandri (nicht im Shop), Myrmecia pavida (nicht im Shop)"],["Exotische Ameisenarten",55,90,600,"200 südeuropäische Ameisen","Pheidologeton diversus (nicht im Shop)"],["Exotische Ameisenarten",60,100,900,"500 südeuropäische Ameisen","Acromyrmex versicolor (nicht im Shop)"],["Exotische Ameisenarten",75,110,1300,"1000 südeuropäische Ameisen","Myrmecocystus mexicanus (nicht im Shop)"],["Exotische Ameisenarten",80,130,1500,"2500 südeuropäische Ameisen","Myrmecia chrysogaster (nicht im Shop)"],["Exotische Ameisenarten",95,150,1750,"5000 südeuropäische Ameisen","Camponotus sericeus (nicht im Shop), Marsameise (erst mit Finden und Bestimmen Stufe 16 findbar)"]]],["bio","Biologie der Ameisen","Allgemeines über Ameisen Stufe 8","",[["Körperbau",3,20,200,"",""],["Duftdrüsen",6,25,295,"",""],["Systematik der Ameisen",10,35,350,"Kolonie mit 125 Ameisen",""],["",15,50,560,"Kolonie mit 250 Ameisen","Job (20h 50€ Betreuer bei studentischer Biologie Exkursion)"],["",21,60,855,"Kolonie mit 500 Ameisen","Polygynie"],["",27,70,940,"Kolonie mit 1000 Ameisen","Zuckerwasser selbst herstellen (mit Futtertiere Stufe 6)"],["",35,90,1115,"Kolonie mit 2000 Ameisen","Ameisenwachstum"]]],["find","Ameisen finden und bestimmen","Allgemeines über Ameisen Stufe 8","Die Stufen 4 bis 16 schalten neue Fundorte frei.",[["Grundlagen des Ameisensammelns",3,10,60,"einheimische Ameisen Stufe 3","Stadtsuche"],["Ameisen im Wald",6,15,160,"einheimische Ameisen Stufe 4","Waldsuche"],["Ameisen in der Wiese",10,22,300,"","Wiesensuche"],["Wo sind die besten Chancen?",14,30,520,"einheimische Ameisen Stufe 5","Süddeutschland: Kaiserstuhl; Job ( 3h 8€ Myrmekologe gesucht )"],["Wo sind die besten Chancen?",18,43,1000,"einheimische Ameisen Stufe 6","Bulgarien: Balkangebirge (südeuropäische Ameisen Stufe 3)"],["Wo sind die besten Chancen?",23,55,1200,"einheimische Ameisen Stufe 7","Frankreich: Normandie (wird mit südeuropäische Ameisen Stufe 3 freigeschaltet)"],["Wo sind die besten Chancen?",28,70,1400,"einheimische Ameisen Stufe 8","Spanien: Sierra Morena (wird mit südeuropäische Ameisen Stufe 1 freigeschaltet)"],["Wo sind die besten Chancen?",35,85,1600,"einheimische Ameisen Stufe 9","Orient: Südtürkei und Syrien (wird mit exotische Ameisen Stufe 4 freigeschaltet)"],["Wo sind die besten Chancen?",45,95,1800,"südeuropäische Ameisen Stufe 5","Südamerika: Corcovado National Park, Costa Rica (wird mit exotische Ameisen Stufe 1 freigeschaltet)"],["Wo sind die besten Chancen?",55,110,2000,"südeuropäische Ameisen Stufe 6","Süd-Ost Asien: indonesischer Regenwald ( wird mit exotische Ameisen Stufe 2 freigeschaltet )"],["Wo sind die besten Chancen?",70,125,2200,"südeuropäische Ameisen Stufe 7","Amerika: Wüstentrip durch Arizona (wird mit exotische Ameisen Stufe 4 freigeschaltet)"],["Wo sind die besten Chancen?",90,145,2400,"südeuropäische Ameisen Stufe 8","Australien: down under (wird mit exotische Ameisen Stufe 4 freigeschaltet)"],["Wo sind die besten Chancen?",115,165,2600,"südeuropäische Ameisen Stufe 9",""],["Wo sind die besten Chancen?",140,185,2800,"exotische Ameisen Stufe 6",""],["Wo sind die besten Chancen?",180,205,3000,"exotische Ameisen Stufe 7",""],["Wo sind die besten Chancen?",220,225,3200,"exotische Ameisen Stufe 8","Südamerika: Mars-Plateau in Brasilien (benötigt exotische Ameisen Stufe 9)"]]],["bonus","Forschungsbonus: Lerne von den Ameisen","Allgemeines über Ameisen Stufe 7","",[["Lerne von den Ameisen",3,5,215,"","Forschungen kosten 5% weniger"],["Lerne von den Ameisen",6,9.5,495,"","Forschungen kosten 10% weniger"],["Lerne von den Ameisen",9,18,750,"","Forschungen kosten 15% weniger"],["Lerne von den Ameisen",12,34,960,"","Forschungen kosten 20% weniger"],["Lerne von den Ameisen",50,48,1255,"","Forschungen kosten 25% weniger"],["Lerne von den Ameisen",100,67.5,2540,"","Forschungen kosten 30% weniger"],["Lerne von den Ameisen",150,84,4500,"","Forschungen kosten 35% weniger"],["Lerne von den Ameisen",200,90.99,8000,"","Forschungen kosten 40% weniger"],["Lerne von den Ameisen",250,102,11000,"","Forschungen kosten 45% weniger"],["Lerne von den Ameisen",300,110,16000,"","Forschungen kosten 50% weniger"]]],["poly","Polygynie","Biologie der Ameisen Stufe 5","",[["Grundlagen der Polygynie",3,100,960,"",""],["Adoption neuer Königinnen",6,30,400,"",""],["Adoption neuer Königinnen",10,40,500,"",""],["Adoption neuer Königinnen",14,50,600,"",""],["Adoption neuer Königinnen",18,60,1020,"",""],["Adoption neuer Königinnen",23,80,2040,"",""],["Adoption neuer Königinnen",28,100,3080,"",""],["Adoption neuer Königinnen",35,125,4005,"",""],["Adoption neuer Königinnen",45,140,5050,"",""],["Adoption neuer Königinnen",55,155,5505,"",""],["Adoption neuer Königinnen",55,170,6005,"",""],["Adoption neuer Königinnen",55,190,6505,"",""],["Adoption neuer Königinnen",55,210,7000,"",""],["Adoption neuer Königinnen",55,230,7550,"",""],["Adoption neuer Königinnen",55,250,8000,"",""],["Adoption neuer Königinnen",55,270,8505,"",""]]],["hand","Handwerkliches Geschick","1000 Gesamtpunkte","",[["Werkeug kaufen",20,99.99,45,"",""],["Wie bediene ich mein Werkzeug?",35,40,480,"","Formicarienbau Stufe 1 und Nestbau Stufe 1"]]],["form","Formicarienbau","Handwerkliches Geschick Stufe 2 und Biologie der Ameisen Stufe 3","",[["Miniformicarium bauen",30,30,240,"","Miniarena bauen (0:45:00 1€ bietet 30 Platz und braucht 0,5 Regalplätze)"],["Schlauch-Technik",40,50,340,"","mittlere Anlage bauen (1:30:00 10€ 2 mittlere Formicarien; bietet 15.000 Platz und braucht 4 Regalplätze)"],["Schlauch-Technik",50,80,440,"","große Anlage bauen (2:30:00 20€ 2 große Formicarien; bietet 100.000 Platz und braucht 6 Regalplätze)"]]],["nest","Nestbau","Handwerkliches Geschick Stufe 2 und Biologie der Ameisen Stufe 4","",[["YTong Nester bauen",30,25,280,"",""],["YTong Nester bauen",40,45,400,"","mittleres YTong Nest bauen (3:00:00 30€; bietet 15.000 Platz)"],["YTong Nester bauen",50,65,600,"","großes YTong Nest bauen (4:00:00 50€; bietet 100.000 Platz)"]]],["wachs","Ameisenwachstum","Biologie der Ameisen Stufe 7","Je höher die Stufe, desto schneller entwickeln sich die Ameisen, pro Stufe 2 %.",[["Wie werden die Kleinen schneller groß?",3,50,300,"",""],["Wie werden die Kleinen schneller groß?",6,90,400,"",""],["Wie werden die Kleinen schneller groß?",10,150,500,"",""],["Wie werden die Kleinen schneller groß?",14,190,600,"",""],["Wie werden die Kleinen schneller groß?",18,220,1020,"",""],["Wie werden die Kleinen schneller groß?",23,250,1340,"",""],["Wie werden die Kleinen schneller groß?",28,280,1680,"",""],["Wie werden die Kleinen schneller groß?",35,315,1905,"",""],["Wie werden die Kleinen schneller groß?",45,350,2250,"",""],["Wie werden die Kleinen schneller groß?",55,400,2505,"",""],["Wie werden die Kleinen schneller groß?",70,450,2805,"",""],["Wie werden die Kleinen schneller groß?",90,500,3105,"",""],["Wie werden die Kleinen schneller groß?",110,550,3400,"",""],["Wie werden die Kleinen schneller groß?",140,600,3700,"",""],["Wie werden die Kleinen schneller groß?",180,650,4000,"",""],["Wie werden die Kleinen schneller groß?",220,700,4605,"",""]]],["jk","Jobverbesserung: Kloputz-Ausrüstung","200 Klos geputzt","",[["Pümpel",5,19.99,15,"","Klo Job bringt nun 4€ statt 3€ je Stunde (Bild klo2.jpg)"]]],["jv","Jobverbesserung: Verhaltensforscher für Studie","150-mal den Museumsjob gemacht und Allgemeines über Ameisen Stufe 11","",[["Lehrbücher kaufen",50,29.99,30,"",""],["Lehrbücher auswendig lernen",70,0,720,"",""],["Prüfung ablegen",30,0,120,"","Neuer Job (Dauer: 12:00:00 Verdienst: 30€)"]]],["jf","Jobverbesserung: Online-Fahrschule","75 Regale eingeräumt","",[["Gabelstaplerschein",5,20,300,"","Regale einräumen bringt nun 20 € pro 8 h"]]],["zucht","Futtertierzucht","Futtertiere Stufe 10","",[["Grundlagen der Futtertierzucht",50,100,45,"2000 gefundene Futtertiere",""],["Wie züchte ich Mehlwürmer?",100,150,145,"",""],["Wie züchte ich Heimchen?",150,230,380,"",""],["Wie züchte ich Schaben?",250,300,480,"",""]]],["samen","Samensammeln","5000 gefundene Samen und Futtertiere Stufe 10","",[["Ertrag erhöhen",100,70,120,"",""],["Ertrag erhöhen",200,140,180,"",""],["Ertrag erhöhen",300,210,240,"",""],["Ertrag erhöhen",400,280,300,"",""],["Ertrag erhöhen",500,400,400,"",""]]],["blaetter","Blättersammeln","2000 gefundene Blätter, Exotische Ameisen Stufe 3 und Futtertiere Stufe 10","",[["Werkzeug kaufen",100,99.99,40,"",""],["Ertrag erhöhen",200,50,200,"",""],["Ertrag erhöhen",300,100,300,"",""],["Ertrag erhöhen",400,200,400,"",""]]],["zucker","Zuckerwasser selbst herstellen","Futtertiere Stufe 6 und Biologie der Ameisen Stufe 6","",[["Mixer kaufen",25,49.99,15,"","Zuckerwasser: 0:01:00 (Speed 0:00:12)1 €--> 500 Gramm Zuckerwasser mit 0,6% Zersetzung"],["Massenproduktion",10,10,120,"","Zuckerwasser Massenproduktion: 0:20:00 (Speed 0:04:00) 18€--> 10000 Gramm Zuckerwasser mit 0,6% Zersetzung"]]],["asw","Ameisenschutzwarte (ASW)","Job \"Ameisenschutzwarte sucht Freiwillige\" dreimal annehmen; erscheint nach einem Tick mit 5 % Wahrscheinlichkeit (Biologie der Ameisen Stufe 4)","",[["Aufnahme in die ASW",100,0,120,"Ameisenschutzwarte sucht Freiwillige","Mit der Mitgliedschaft in der ASW sind riesige Ytong-Nester und riesige Anlagen baubar."]]]];
+const ebaShTree = [["allg","Allgemeines über Ameisen","","",[["Erste Schritte",1,0.5,5,"",""],["Körperbau einer Ameise",2,1,13,"",""],["Ameisen als Haustiere",3,2,30,"","Schaltet frei: Einheimische Ameisenarten"],["verschiedene Haltungsmöglichkeiten",4,6,60,"","Schaltet frei: Ausbruchschutz"],["Wachstum einer Ameisenkolonie",6,10,120,"","Schaltet frei: Futtertiere"],["Organisation im Ameisenstaat (1/2)",10,15,240,"",""],["Organisation im Ameisenstaat (2/2)",16,20,600,"","Schaltet frei: Forschungsbonus: Lerne von den Ameisen"],["Aufbau und Systematik der Ameisen",22,25,800,"","Schaltet frei: Biologie der Ameisen und Ameisen finden und bestimmen"],["Ameisen in Europa",27,35,1000,"","Schaltet frei: südeuropäische Ameisenarten"],["Ameisen im Rest der Welt (1/2)",35,45,2000,"",""],["Ameisen im Rest der Welt (2/2)",45,60,3995,"","Schaltet frei: exotische Ameisenarten"]]],["ausb","Ausbruchschutz","Allgemeines über Ameisen Stufe 4","Prozentwerte beziehen sich auf die Grundwerte der Ausbruchschutzmittel.",[["Grundlagen des Ausbruchschutz",3,10,60,"","AS hält 5% länger"],["Talkum (1/2)",7,15,160,"","AS hält 9,75% länger"],["Talkum (2/2)",10,30,300,"","AS hält 14,26% länger; Talkum"],["Verbesserung des Ausbruchschutz",13,45,520,"Kolonie mit min. 50 Arbeiterinnen","AS hält 18,55% länger"],["PTFE (1/3)",16,50,700,"Kolonie mit min. 100 Arbeiterinnen","AS hält 22,62% länger"],["PTFE (2/3)",19,55,955,"Kolonie mit min. 200 Arbeiterinnen","AS hält 26,49% länger"],["PTFE (3/3)",22,65,1605,"Kolonie mit min. 400 Arbeiterinnen","AS hält 30,17% länger; PTFE"],["Verbesserung des Ausbruchschutz",25,75,1700,"Kolonie mit min. 800 Arbeiterinnen","AS hält 33,66% länger"],["Verbesserung des Ausbruchschutz",30,85,2100,"Kolonie mit min. 5000 Arbeiterinnen","AS hält 36,98% länger"]]],["futt","Futtertiere","Allgemeines über Ameisen Stufe 5","Prozentangaben beziehen sich auf die Grundwerte des Futters.",[["Futtertiere Grundlagen",2,7,80,"","Futter hält 5% länger; Futter: Grashüpfer"],["Futtertiere Abbrühen",5,15,180,"","Futter hält 9,75% länger; Futter: Maden; Aktion: Futtertiersuche"],["Inhaltsstoffe der Futtertiere",8,24,335,"","Futter hält 14,26% länger; Futter: Regenwürmer"],["Weiterbildung",15,30,650,"","Futter hält 18,55% länger; Futter: Löwenzahnsamen"],["Weiterbildung",30,46,1200,"","Futter hält 22,62% länger; Futter: Baumwanzen"],["Weiterbildung",50,60,1510,"","Futter hält 26,49% länger; Futter: Honig; Aktion: Samensuche; Zuckerwasserherstellung (Biologie der Ameise Stufe 6)"],["Weiterbildung",75,90,1705,"","Futter hält 30,17% länger; Futter: Käferlarven"],["Weiterbildung",100,130,1910,"","Futter hält 33,66% länger; Futter: Heimchen"],["Weiterbildung",150,190,2180,"","Futter hält 36,98% länger; Futter: Waldschaben"],["Weiterbildung",200,250,2510,"","Futter hält 40,13% länger; Aktion: Futtertierzucht"]]],["einh","Einheimische Ameisenarten","Allgemeines über Ameisen Stufe 3","",[["Lasius flavus",1,1,90,"","Lasius flavus (im Shop)"],["Formica fusca",2,3,150,"","Formica fusca (im Shop), Temnothorax nylanderi (nicht im Shop)"],["Myrmica rubra",3,6,300,"","Myrmica rubra (im Shop)"],["Campontus ligniperda",6,10,600,"","Camponotus ligniperda (im Shop)"],["Arten in freier Wildbahn",10,16,1000,"","Myrmica ruginodis (nicht im Shop)"],["Arten in freier Wildbahn",15,20,1400,"","Camponotus herculeanus (nicht im Shop)"],["Arten in freier Wildbahn",30,30,1600,"","Lasius emarginatus (nicht im Shop)"],["Arten in freier Wildbahn",40,40,1800,"","Solenopsis fugax (nicht im Shop)"],["Arten in freier Wildbahn",45,55,2000,"","Lasius fuliginosus (nicht im Shop), Messor structor (nicht im Shop)"],["Arten in freier Wildbahn",20,30,700,"","Formica sanguinea (nicht im Shop)"]]],["sued","Südeuropäische Ameisenarten","Allgemeines über Ameisen Stufe 9 und einheimische Arten Stufe 2","",[["Messor barbarus",3,20,160,"","Messor barbarus (im Shop), Messor structor (nicht im Shop)"],["Crematogaster scutellaris",7,30,260,"","Crematogaster scutellaris (im Shop)"],["Pheidole pallidula",15,40,400,"min. 40 einheimische Ameisen","Pheidole pallidula (im Shop)"],["Arten in freier Wildbahn",20,50,520,"min. 100 einheimische Ameisen","Aphaenogaster senilis (nicht im Shop); wird benötigt für Exotische Ameisenarten"],["Arten in freier Wildbahn",25,60,700,"min. 200 einheimische Ameisen","Camponotus cruentatus (nicht im Shop)"],["Arten in freier Wildbahn",30,70,900,"min. 500 einheimische Ameisen","Cataglyphis velox (nicht im Shop)"],["Arten in freier Wildbahn",35,80,1100,"min. 1000 einheimische Ameisen","Plagiolepis pygmaea (nicht im Shop)"],["Arten in freier Wildbahn",40,100,1300,"min. 2500 einheimische Ameisen","Lasius grandis (nicht im Shop)"],["Arten in freier Wildbahn",45,120,1550,"min. 5000 einheimische Ameisen","noch keine weiteren Arten"]]],["exot","Exotische Ameisenarten","Allgemeines über Ameisen Stufe 11 und südeuropäische Ameisen Stufe 4","",[["Camponotus substitutus",23,40,190,"","Camponotus substitutus (im Shop)"],["Exotische Ameisenarten",27,45,260,"","Polyrhachis dives (im Shop)"],["Exotische Ameisenarten",35,50,300,"40 südeuropäische Ameisen","Acromyrmex spec. (im Shop); Blättersammeln (mit Futtertiere Stufe 10)"],["Exotische Ameisenarten",50,70,520,"100 südeuropäische Ameisen","Messor alexandri (nicht im Shop), Myrmecia pavida (nicht im Shop)"],["Exotische Ameisenarten",55,90,600,"200 südeuropäische Ameisen","Pheidologeton diversus (nicht im Shop)"],["Exotische Ameisenarten",60,100,900,"500 südeuropäische Ameisen","Acromyrmex versicolor (nicht im Shop)"],["Exotische Ameisenarten",75,110,1300,"1000 südeuropäische Ameisen","Myrmecocystus mexicanus (nicht im Shop)"],["Exotische Ameisenarten",80,130,1500,"2500 südeuropäische Ameisen","Myrmecia chrysogaster (nicht im Shop)"],["Exotische Ameisenarten",95,150,1750,"5000 südeuropäische Ameisen","Camponotus sericeus (nicht im Shop), Marsameise (erst mit Finden und Bestimmen Stufe 16 findbar)"]]],["bio","Biologie der Ameisen","Allgemeines über Ameisen Stufe 8","",[["Körperbau",3,20,200,"",""],["Duftdrüsen",6,25,295,"",""],["Systematik der Ameisen",10,35,350,"Kolonie mit 125 Ameisen",""],["",15,50,560,"Kolonie mit 250 Ameisen","Job (20h 50€ Betreuer bei studentischer Biologie Exkursion)"],["",21,60,855,"Kolonie mit 500 Ameisen","Polygynie"],["",27,70,940,"Kolonie mit 1000 Ameisen","Zuckerwasser selbst herstellen (mit Futtertiere Stufe 6)"],["",35,90,1115,"Kolonie mit 2000 Ameisen","Ameisenwachstum"]]],["find","Ameisen finden und bestimmen","Allgemeines über Ameisen Stufe 8","Die Stufen 4 bis 16 schalten neue Fundorte frei.",[["Grundlagen des Ameisensammelns",3,10,60,"einheimische Ameisen Stufe 3","Stadtsuche"],["Ameisen im Wald",6,15,160,"einheimische Ameisen Stufe 4","Waldsuche"],["Ameisen in der Wiese",10,22,300,"","Wiesensuche"],["Wo sind die besten Chancen?",14,30,520,"einheimische Ameisen Stufe 5","Süddeutschland: Kaiserstuhl; Job ( 3h 8€ Myrmekologe gesucht )"],["Wo sind die besten Chancen?",18,43,1000,"einheimische Ameisen Stufe 6","Bulgarien: Balkangebirge (südeuropäische Ameisen Stufe 3)"],["Wo sind die besten Chancen?",23,55,1200,"einheimische Ameisen Stufe 7","Frankreich: Normandie (wird mit südeuropäische Ameisen Stufe 3 freigeschaltet)"],["Wo sind die besten Chancen?",28,70,1400,"einheimische Ameisen Stufe 8","Spanien: Sierra Morena (wird mit südeuropäische Ameisen Stufe 1 freigeschaltet)"],["Wo sind die besten Chancen?",35,85,1600,"einheimische Ameisen Stufe 9","Orient: Südtürkei und Syrien (wird mit exotische Ameisen Stufe 4 freigeschaltet)"],["Wo sind die besten Chancen?",45,95,1800,"südeuropäische Ameisen Stufe 5","Südamerika: Corcovado National Park, Costa Rica (wird mit exotische Ameisen Stufe 1 freigeschaltet)"],["Wo sind die besten Chancen?",55,110,2000,"südeuropäische Ameisen Stufe 6","Süd-Ost Asien: indonesischer Regenwald ( wird mit exotische Ameisen Stufe 2 freigeschaltet )"],["Wo sind die besten Chancen?",70,125,2200,"südeuropäische Ameisen Stufe 7","Amerika: Wüstentrip durch Arizona (wird mit exotische Ameisen Stufe 4 freigeschaltet)"],["Wo sind die besten Chancen?",90,145,2400,"südeuropäische Ameisen Stufe 8","Australien: down under (wird mit exotische Ameisen Stufe 4 freigeschaltet)"],["Wo sind die besten Chancen?",115,165,2600,"südeuropäische Ameisen Stufe 9",""],["Wo sind die besten Chancen?",140,185,2800,"exotische Ameisen Stufe 6",""],["Wo sind die besten Chancen?",180,205,3000,"exotische Ameisen Stufe 7",""],["Wo sind die besten Chancen?",220,225,3200,"exotische Ameisen Stufe 8","Südamerika: Mars-Plateau in Brasilien (benötigt exotische Ameisen Stufe 9)"]]],["bonus","Forschungsbonus: Lerne von den Ameisen","Allgemeines über Ameisen Stufe 7","",[["Lerne von den Ameisen",3,5,215,"","Forschungen kosten 5% weniger"],["Lerne von den Ameisen",6,9.5,495,"","Forschungen kosten 10% weniger"],["Lerne von den Ameisen",9,18,750,"","Forschungen kosten 15% weniger"],["Lerne von den Ameisen",12,34,960,"","Forschungen kosten 20% weniger"],["Lerne von den Ameisen",50,48,1255,"","Forschungen kosten 25% weniger"],["Lerne von den Ameisen",100,67.5,2540,"","Forschungen kosten 30% weniger"],["Lerne von den Ameisen",150,84,4500,"","Forschungen kosten 35% weniger"],["Lerne von den Ameisen",200,90.99,8000,"","Forschungen kosten 40% weniger"],["Lerne von den Ameisen",250,102,11000,"","Forschungen kosten 45% weniger"],["Lerne von den Ameisen",300,110,16000,"","Forschungen kosten 50% weniger"]]],["poly","Polygynie","Biologie der Ameisen Stufe 5","",[["Grundlagen der Polygynie",3,100,960,"",""],["Adoption neuer Königinnen",6,30,400,"",""],["Adoption neuer Königinnen",10,40,500,"",""],["Adoption neuer Königinnen",14,50,600,"",""],["Adoption neuer Königinnen",18,60,1020,"",""],["Adoption neuer Königinnen",23,80,2040,"",""],["Adoption neuer Königinnen",28,100,3080,"",""],["Adoption neuer Königinnen",35,125,4005,"",""],["Adoption neuer Königinnen",45,140,5050,"",""],["Adoption neuer Königinnen",55,155,5505,"",""],["Adoption neuer Königinnen",55,170,6005,"",""],["Adoption neuer Königinnen",55,190,6505,"",""],["Adoption neuer Königinnen",55,210,7000,"",""],["Adoption neuer Königinnen",55,230,7550,"",""],["Adoption neuer Königinnen",55,250,8000,"",""],["Adoption neuer Königinnen",55,270,8505,"",""]]],["hand","Handwerkliches Geschick","1000 Gesamtpunkte","",[["Werkeug kaufen",20,99.99,45,"",""],["Wie bediene ich mein Werkzeug?",35,40,480,"","Formicarienbau Stufe 1 und Nestbau Stufe 1"]]],["form","Formicarienbau","Handwerkliches Geschick Stufe 2 und Biologie der Ameisen Stufe 3","",[["Miniformicarium bauen",30,30,240,"","Miniarena bauen (0:45:00 1€ bietet 30 Platz und braucht 0,5 Regalplätze)"],["Schlauch-Technik",40,50,340,"","mittlere Anlage bauen (1:30:00 10€ 2 mittlere Formicarien; bietet 15.000 Platz und braucht 4 Regalplätze)"],["Schlauch-Technik",50,80,440,"","große Anlage bauen (2:30:00 20€ 2 große Formicarien; bietet 100.000 Platz und braucht 6 Regalplätze)"]]],["nest","Nestbau","Handwerkliches Geschick Stufe 2 und Biologie der Ameisen Stufe 4","",[["YTong Nester bauen",30,25,280,"",""],["YTong Nester bauen",40,45,400,"","mittleres YTong Nest bauen (3:00:00 30€; bietet 15.000 Platz)"],["YTong Nester bauen",50,65,600,"","großes YTong Nest bauen (4:00:00 50€; bietet 100.000 Platz)"]]],["wachs","Ameisenwachstum","Biologie der Ameisen Stufe 7","Je höher die Stufe, desto schneller entwickeln sich die Ameisen, pro Stufe 2 %.",[["Wie werden die Kleinen schneller groß?",3,50,300,"",""],["Wie werden die Kleinen schneller groß?",6,90,400,"",""],["Wie werden die Kleinen schneller groß?",10,150,500,"",""],["Wie werden die Kleinen schneller groß?",14,190,600,"",""],["Wie werden die Kleinen schneller groß?",18,220,1020,"",""],["Wie werden die Kleinen schneller groß?",23,250,1340,"",""],["Wie werden die Kleinen schneller groß?",28,280,1680,"",""],["Wie werden die Kleinen schneller groß?",35,315,1905,"",""],["Wie werden die Kleinen schneller groß?",45,350,2250,"",""],["Wie werden die Kleinen schneller groß?",55,400,2505,"",""],["Wie werden die Kleinen schneller groß?",70,450,2805,"",""],["Wie werden die Kleinen schneller groß?",90,500,3105,"",""],["Wie werden die Kleinen schneller groß?",110,550,3400,"",""],["Wie werden die Kleinen schneller groß?",140,600,3700,"",""],["Wie werden die Kleinen schneller groß?",180,650,4000,"",""],["Wie werden die Kleinen schneller groß?",220,700,4605,"",""]]],["jk","Jobverbesserung: Kloputz-Ausrüstung","200 Klos geputzt","",[["Pümpel",5,19.99,15,"","Klo Job bringt nun 4€ statt 3€ je Stunde und der Pizzajob bringt 25€ statt 20€ Euro je fünf Stunden"]]],["jv","Jobverbesserung: Verhaltensforscher für Studie","150-mal den Museumsjob gemacht und Allgemeines über Ameisen Stufe 11","",[["Lehrbücher kaufen",50,29.99,30,"",""],["Lehrbücher auswendig lernen",70,0,720,"",""],["Prüfung ablegen",30,0,120,"","Neuer Job (Dauer: 12:00:00 Verdienst: 30€)"]]],["jf","Jobverbesserung: Online-Fahrschule","75 Regale eingeräumt","",[["Gabelstaplerschein",5,20,300,"","Regale einräumen bringt nun 20 € pro 8 h"]]],["zucht","Futtertierzucht","Futtertiere Stufe 10","",[["Grundlagen der Futtertierzucht",50,100,45,"2000 gefundene Futtertiere",""],["Wie züchte ich Mehlwürmer?",100,150,145,"",""],["Wie züchte ich Heimchen?",150,230,380,"",""],["Wie züchte ich Schaben?",250,300,480,"",""]]],["samen","Samensammeln","5000 gefundene Samen und Futtertiere Stufe 10","",[["Ertrag erhöhen",100,70,120,"",""],["Ertrag erhöhen",200,140,180,"",""],["Ertrag erhöhen",300,210,240,"",""],["Ertrag erhöhen",400,280,300,"",""],["Ertrag erhöhen",500,400,400,"",""]]],["blaetter","Blättersammeln","2000 gefundene Blätter, Exotische Ameisen Stufe 3 und Futtertiere Stufe 10","",[["Werkzeug kaufen",100,99.99,40,"",""],["Ertrag erhöhen",200,50,200,"",""],["Ertrag erhöhen",300,100,300,"",""],["Ertrag erhöhen",400,200,400,"",""]]],["zucker","Zuckerwasser selbst herstellen","Futtertiere Stufe 6 und Biologie der Ameisen Stufe 6","",[["Mixer kaufen",25,49.99,15,"","Zuckerwasser: 0:01:00 (Speed 0:00:12)1 €--> 500 Gramm Zuckerwasser mit 0,6% Zersetzung"],["Massenproduktion",10,10,120,"","Zuckerwasser Massenproduktion: 0:20:00 (Speed 0:04:00) 18€--> 10000 Gramm Zuckerwasser mit 0,6% Zersetzung"]]],["asw","Ameisenschutzwarte (ASW)","Job \"Ameisenschutzwarte sucht Freiwillige\" dreimal annehmen; erscheint nach einem Tick mit 5 % Wahrscheinlichkeit (Biologie der Ameisen Stufe 4)","",[["Aufnahme in die ASW",100,0,120,"Ameisenschutzwarte sucht Freiwillige","Mit der Mitgliedschaft in der ASW sind riesige Ytong-Nester und riesige Anlagen baubar."]]]];
 
 // ---------------------------------------------------------------------------
 // openEBA: Spielhilfe (Lexikon)
@@ -5794,7 +5794,14 @@ function ebaShImgError(e) {
   var t = e.target, $t = $(t);
   if (!t || !t.tagName) { return; }
   var tag = t.tagName.toLowerCase();
-  if (tag === "image") { t.setAttribute("opacity", "0"); return; }
+  if (tag === "image") {
+    t.setAttribute("opacity", "0");
+    var nid = $(t).parent().attr("data-nid");
+    if (nid && ebaShImgRes[nid]) { // gecachte Datei ist verschwunden: Cache-Eintrag verwerfen
+      var cc = ebaShImgCacheLoad(); delete cc[nid]; ebaShImgCacheSave(cc); delete ebaShImgRes[nid];
+    }
+    return;
+  }
   if (tag !== "img") { return; }
   if ($t.attr("data-gal")) { $t.remove(); return; }
   var ch = ($t.attr("data-chain") || "").split("|"), i = parseInt($t.attr("data-i"), 10) + 1;
@@ -5919,7 +5926,8 @@ function ebaShAntsTab() {
     h += "<option value='" + o[0] + "'" + (s.sort === o[0] ? " selected" : "") + ">" + o[1] + "</option>";
   });
   return h + "</select> <button type='button' class='sh-chip sh-dir' title='Sortierrichtung umkehren'>"
-    + (ebaShAntDir() === "asc" ? "&#9650; aufsteigend" : "&#9660; absteigend") + "</button></div><div class='sh-grid'>" + ebaShAntBody() + "</div>";
+    + (ebaShAntDir() === "asc" ? "&#9650; aufsteigend" : "&#9660; absteigend") + "</button></div>"
+    + "<p class='sh-note sh-polynote'><b>Polygynie:</b> Die meisten Angaben beziehen sich auf eine K&ouml;nigin; bei polygynen Arten bringt jede K&ouml;nigin denselben Zuwachs an Arbeiterinnen.</p><div class='sh-grid'>" + ebaShAntBody() + "</div>";
 }
 
 // ---- Reiter: Vergleich (alle Arten; Shopameisen mit Verkaufsrechnung) -------
@@ -5997,7 +6005,7 @@ function ebaShShopTab() {
   $.each([[0, "alle Kategorien"], [1, "Einheimisch"], [2, "S&uuml;deurop&auml;isch"], [3, "Exotisch"]], function(i, c) {
     h += "<button type='button' class='sh-chip" + (s.vcat === c[0] ? " on" : "") + "' data-f='vcat' data-v='" + c[0] + "'>" + c[1] + "</button>";
   });
-  h += "</div><p class='sh-note'>Vergleich aller Arten. <b>Kaufbar</b> = im Shop erh&auml;ltlich, <b>findbar</b> = nur in der Natur zu finden. "
+  h += "</div><p class='sh-note sh-polynote'><b>Polygynie:</b> Die meisten Angaben beziehen sich auf eine K&ouml;nigin; bei polygynen Arten bringt jede K&ouml;nigin denselben Zuwachs an Arbeiterinnen.</p><p class='sh-note'>Vergleich aller Arten. <b>Kaufbar</b> = im Shop erh&auml;ltlich, <b>findbar</b> = nur in der Natur zu finden. "
     + "<b>Tage</b> (Auswachszeit bei h&ouml;chster Stufe <i>Ameisenwachstum</i>), <b>Regal</b>, <b>Verkauf</b> und <b>Ankauf</b> gibt es in der Spielhilfe nur f&uuml;r Shopameisen, "
     + "sonst steht &bdquo;&ndash;&ldquo; (beim Sortieren immer am Ende); die davon abh&auml;ngigen Spalten (Pkt/Tag, &euro;/Tag, &hellip;) ebenso. "
     + "<b>&dagger;</b> = f&uuml;r alle Arten aus dem Blatt <i>Ameisen</i> (Pt/A = Punkte je Arbeiterin, gerechnet; ASW-Pt = Punkte f&uuml;r die Ameisenschutzwarte). "
@@ -6057,62 +6065,213 @@ function ebaShWohnTab() {
 
 // ---- Reiter: Forschungsbaum (SVG) ------------------------------------------
 
-// Knoten: id, Spalte, Zeile, Name (\n = Umbruch), Bild, Gruppe, Zweige.
-// Bilder mit "?" am Ende sind GESCHÄTZTE Dateinamen (Schema research_<thema>.jpg), unbestätigt.
+// Knoten: id, Name (\n = Umbruch), Bildkandidaten (Dateien unter /img/tasks/, werden im Browser nacheinander
+// geprobt, das erste ladbare gilt), Gruppe, Zweige. Steht nur ein Name da, ist er vom Nutzer bestätigt;
+// die übrigen sind GESCHÄTZTE Namen (das Namensschema im Spiel ist gemischt deutsch/englisch).
+// Bereits als 404 bestätigt und deshalb nicht mehr dabei: research_allgemein, _ausbruchschutz, _zuckerwasser,
+// _biologie, _handwerk, _formicarium, _nest, _jobs.
 var ebaShNodes = [
-  ["allg", 0, 5.5, "Allgemeines\nüber Ameisen", "research_allgemein.jpg?", "t", ["allg"]],
-  ["einh", 1, 0, "Einheimische\nArten", "research_ameisen_einheimisch.jpg", "a", ["einh"]],
-  ["ausb", 1, 1, "Ausbruchschutz", "research_ausbruchschutz.jpg?", "f", ["ausb"]],
-  ["futt", 1, 3, "Futtertiere", "research_futtertiere.jpg?", "f", ["futt"]],
-  ["bonus", 1, 5, "Forschungs-\nbonus", "research_forschungsbonus.jpg", "b", ["bonus"]],
-  ["bio", 1, 7, "Biologie der\nAmeisen", "research_biologie.jpg?", "b", ["bio"]],
-  ["hand", 1, 9, "Handwerkliches\nGeschick", "research_handwerk.jpg?", "h", ["hand"]],
-  ["find", 1, 11, "Ameisen finden\nund bestimmen", "research_ameisenfinden.jpg", "a", ["find"]],
-  ["jobs", 1, 12.2, "Jobver-\nbesserungen", "research_jobs.jpg?", "j", ["jk", "jv", "jf"]],
-  ["sued", 2, 0, "Südeuropäische\nArten", "research_ameisen_suedeurop.jpg", "a", ["sued"]],
-  ["zucht", 2, 2, "Futtertier-\nzucht", "research_futtertierzucht.jpg?", "f", ["zucht"]],
-  ["samen", 2, 3, "Samen-\nsammeln", "research_seeds.jpg", "f", ["samen"]],
-  ["zucker", 2, 4, "Zuckerwasser\nselbst herstellen", "research_zuckerwasser.jpg?", "f", ["zucker"]],
-  ["poly", 2, 6, "Polygynie", "research_polygyny.jpg", "b", ["poly"]],
-  ["wachs", 2, 7, "Ameisen-\nwachstum", "research_wachstum.jpg", "b", ["wachs"]],
-  ["form", 2, 8, "Formicarien-\nbau", "research_formicarium.jpg?", "h", ["form"]],
-  ["nest", 2, 9, "Nestbau", "research_nest.jpg?", "h", ["nest"]],
-  ["asw", 2, 10.4, "Ameisen-\nschutzwarte", "research_asw.jpg?", "j", ["asw"]],
-  ["exot", 3, 0, "Exotische\nArten", "research_ameisen_exotisch.jpg", "a", ["exot"]],
-  ["blaetter", 4, 0, "Blätter-\nsammeln", "research_blaetter.jpg", "f", ["blaetter"]]
+  ["allg", "Allgemeines\nüber Ameisen", ["research_general.jpg", "research_ameisen.jpg", "research_ants.jpg", "research_basics.jpg", "research_allgemeines.jpg", "research_grundlagen.jpg", "research_allgemein_ameisen.jpg", "research_wissen.jpg"], "t", ["allg"]],
+  ["einh", "Einheimische\nArten", ["research_ameisen_einheimisch.jpg"], "a", ["einh"]],
+  ["ausb", "Ausbruchschutz", ["research_escape.jpg", "research_ausbruch.jpg", "research_breakout.jpg", "research_ausbruchsschutz.jpg", "research_escapeprotection.jpg", "research_talkum.jpg", "research_ptfe.jpg"], "f", ["ausb"]],
+  ["futt", "Futtertiere", ["research_futter.jpg"], "f", ["futt"]],
+  ["bonus", "Forschungs-\nbonus", ["research_forschungsbonus.jpg"], "b", ["bonus"]],
+  ["bio", "Biologie der\nAmeisen", ["research_biology.jpg", "research_bio.jpg", "research_biologie_ameisen.jpg", "research_anatomy.jpg", "research_koerperbau.jpg", "research_systematik.jpg", "research_biologie_der_ameisen.jpg"], "b", ["bio"]],
+  ["hand", "Handwerkliches\nGeschick", ["research_craft.jpg", "research_handwerkliches.jpg", "research_crafting.jpg", "research_werkzeug.jpg", "research_tools.jpg", "research_geschick.jpg", "research_handwerkliches_geschick.jpg"], "h", ["hand"]],
+  ["find", "Ameisen finden\nund bestimmen", ["research_ameisenfinden.jpg"], "a", ["find"]],
+  ["jobs", "Jobver-\nbesserungen", ["research_job.jpg", "research_work.jpg", "research_arbeit.jpg", "research_jobverbesserung.jpg", "research_jobverbesserungen.jpg", "research_career.jpg", "research_pumpel.jpg"], "j", ["jk", "jv", "jf"]],
+  ["sued", "Südeuropäische\nArten", ["research_ameisen_suedeurop.jpg"], "a", ["sued"]],
+  ["zucht", "Futtertier-\nzucht", ["research_futtertierzucht.jpg"], "f", ["zucht"]],
+  ["samen", "Samen-\nsammeln", ["research_seeds.jpg"], "f", ["samen"]],
+  ["zucker", "Zuckerwasser\nselbst\nherstellen", ["research_sugar.jpg", "research_sugarwater.jpg", "research_zucker.jpg", "research_mixer.jpg", "research_zuckerwasser_mixer.jpg", "research_sirup.jpg", "research_sugarmix.jpg", "research_water.jpg"], "f", ["zucker"]],
+  ["poly", "Polygynie", ["research_polygyny.jpg"], "b", ["poly"]],
+  ["wachs", "Ameisen-\nwachstum", ["research_wachstum.jpg"], "b", ["wachs"]],
+  ["form", "Formicarien-\nbau", ["research_formicarien.jpg", "research_formi.jpg", "research_formicaria.jpg", "research_formicarienbau.jpg", "research_arena.jpg", "research_build.jpg", "research_formicary.jpg"], "h", ["form"]],
+  ["nest", "Nestbau", ["research_nests.jpg", "research_nestbau.jpg", "research_nester.jpg", "research_ytong.jpg", "research_ytong_nest.jpg", "research_nestbuilding.jpg", "research_building.jpg"], "h", ["nest"]],
+  ["asw", "Ameisen-\nschutzwarte", ["research_asw.jpg"], "j", ["asw"]],
+  ["exot", "Exotische\nArten", ["research_ameisen_exotisch.jpg"], "a", ["exot"]],
+  ["blaetter", "Blätter-\nsammeln", ["research_blaetter.jpg"], "f", ["blaetter"]]
 ];
-// Kanten: von, nach, benötigte Stufe des Vorgängers, gestrichelt (= nur zusätzliche Voraussetzung)
+// Raster von oben nach unten: id -> [Spalte, Zeile, eingerückt]. Zeile 0 = Zweige unter der Wurzel,
+// darunter hängen deren Folge-Forschungen (eingerückt, Ast links daneben) bzw. stehen bei Ketten direkt darunter;
+// die Zweige ohne Folgeforschung hängen als Spalte direkt unter der Wurzelleiste.
+var ebaShLay = {
+  allg: [0, -1], einh: [0, 0], sued: [0, 1, 1], exot: [0, 2, 1], blaetter: [0, 3, 1], ausb: [1, 0, 1], bonus: [1, 1, 1], find: [1, 2, 1], jobs: [1, 3, 1],
+  futt: [2, 0], zucht: [2, 1, 1], samen: [2, 2, 1], zucker: [2, 3, 1],
+  bio: [3, 0], poly: [3, 1, 1], wachs: [3, 2, 1], form: [3, 3, 1], nest: [3, 4, 1], asw: [3, 5, 1], hand: [4, 0]
+};
+// Kanten: von, nach, benötigte Stufe des Vorgängers, gestrichelt (= nur zusätzliche Voraussetzung),
+// zweite Voraussetzung (Leitung von rechts in die Karte statt Ast von oben)
 var ebaShEdges = [["allg", "einh", 3], ["allg", "ausb", 4], ["allg", "futt", 5], ["allg", "bonus", 7], ["allg", "bio", 8], ["allg", "find", 8],
   ["allg", "jobs", 11], ["einh", "sued", 2], ["sued", "exot", 4], ["exot", "blaetter", 3], ["futt", "zucht", 10], ["futt", "samen", 10],
-  ["futt", "zucker", 6], ["bio", "zucker", 6, 1], ["bio", "poly", 5], ["bio", "wachs", 7], ["bio", "form", 3], ["bio", "nest", 4], ["bio", "asw", 4],
-  ["hand", "form", 2], ["hand", "nest", 2]];
+  ["futt", "zucker", 6], ["bio", "zucker", 6, 1, 1], ["bio", "poly", 5], ["bio", "wachs", 7], ["bio", "form", 3], ["bio", "nest", 4], ["bio", "asw", 4],
+  ["hand", "form", 2, 0, 1], ["hand", "nest", 2, 0, 1]];
+// Wurzel ohne Vorgänger, aber mit Bedingung (statt "St. n")
+var ebaShReq = { hand: "1000 Pkt." };
 var ebaShGroupCol = { t: "#3CAC56", a: "#4fa8d8", f: "#E8963C", b: "#d9c34a", h: "#b08adf", j: "#d96a8a" };
 var ebaShGroupNames = { a: "Ameisenarten &amp; Suchen", f: "Futter &amp; Sammeln", b: "Biologie &amp; Wachstum", h: "Handwerk", j: "Jobs &amp; ASW", t: "Stamm" };
 
-function ebaShTreeSvg() {
-  var NW = 124, NH = 60, PX = 164, PY = 66, speed = ebaShSpeed(), pos = {}, W = 4 * PX + NW, maxR = 0;
-  $.each(ebaShNodes, function(i, n) { pos[n[0]] = { x: n[1] * PX, y: n[2] * PY + 4, n: n }; maxR = Math.max(maxR, n[2]); });
-  var H = Math.ceil(maxR * PY + NH + 12);
-  var svg = "<svg class='sh-tree' viewBox='0 0 " + W + " " + H + "' width='100%' style='min-width:" + W + "px' xmlns='http://www.w3.org/2000/svg'>"
-    + "<defs><clipPath id='shclip'><rect x='6' y='6' width='34' height='34' rx='4'/></clipPath></defs>";
-  $.each(ebaShEdges, function(i, e) {
-    var a = pos[e[0]], b = pos[e[1]], x1 = a.x + NW, y1 = a.y + NH / 2, x2 = b.x, y2 = b.y + NH / 2, mx = (x1 + x2) / 2;
-    svg += "<path d='M" + x1 + " " + y1 + " C" + mx + " " + y1 + " " + mx + " " + y2 + " " + x2 + " " + y2 + "' class='sh-edge" + (e[3] ? " dash" : "")
-      + "' stroke='" + ebaShGroupCol[b.n[5]] + "'/><text x='" + mx + "' y='" + ((y1 + y2) / 2 + 3) + "' class='sh-elab' text-anchor='middle'>St. " + e[2] + "</text>";
-  });
+// ---- Bildersuche: Kandidaten nacheinander per Image-Probe, Ergebnis im Cache ----
+// ebaShImgRes: id -> Dateiname | "" (nicht gefunden); fehlt = noch nicht geprüft.
+// Cache (GM): eba_sh_imgcache = JSON { id: { f: Datei | "none", t: Zeitpunkt, s: Kandidaten } }; "none" gilt 7 Tage.
+var ebaShImgRes = {}, ebaShImgRun = {}, ebaShImgGen = 0, ebaShTitleBase = {};
+var EBA_SH_NONE_MS = 7 * 86400000;
+function ebaShNode(id) {
+  for (var i = 0; i < ebaShNodes.length; i++) { if (ebaShNodes[i][0] === id) { return ebaShNodes[i]; } }
+  return null;
+}
+function ebaShImgCacheLoad() {
+  try { var c = JSON.parse(GM_getValue("eba_sh_imgcache", "")); if (c && typeof c === "object") { return c; } } catch (e) { /* ignorieren */ }
+  return {};
+}
+function ebaShImgCacheSave(c) { try { GM_setValue("eba_sh_imgcache", JSON.stringify(c)); } catch (e) { /* ignorieren */ } }
+function ebaShImgStatus(n) {
+  var r = ebaShImgRes[n[0]];
+  if (r === undefined) { return ebaShImgRun[n[0]] ? "Bild: wird gesucht ..." : "Bild: noch nicht geprüft"; }
+  return r ? "Bild: " + r : "Bild nicht gefunden; geprüft: " + n[2].join(", ");
+}
+function ebaShImgNodeUpdate(id) {
+  var n = ebaShNode(id), g = $("svg.sh-tree g[data-nid='" + id + "']");
+  if (g.length && n) {
+    var r = ebaShImgRes[id], im = g.find("image");
+    if (r) { im.removeAttr("opacity"); im[0].setAttribute("href", "/img/tasks/" + r); }
+    g.find("title").first().text((ebaShTitleBase[id] || n[1].replace(/\n/g, " ")) + " | " + ebaShImgStatus(n));
+  }
+  ebaShImgInfoUpdate();
+}
+function ebaShImgProbeNode(n, gen, done) {
+  var c = n[2], i = 0;
+  var next = function() {
+    if (gen !== ebaShImgGen) { return; }
+    if (i >= c.length) { done(""); return; }
+    var file = c[i++], im = new Image(), fin = false, to;
+    var end = function(ok) {
+      if (fin) { return; }
+      fin = true; window.clearTimeout(to); im.onload = im.onerror = null;
+      if (ok) { done(file); } else { next(); }
+    };
+    im.onload = function() { end(im.naturalWidth > 0); };
+    im.onerror = function() { end(false); };
+    to = window.setTimeout(function() { end(false); }, 10000);
+    im.src = "/img/tasks/" + file;
+  };
+  next();
+}
+// force: Cache verwerfen und alles neu suchen
+function ebaShProbeAll(force) {
+  var now = new Date().getTime(), cache, todo = [];
+  if (force) { ebaShImgGen++; ebaShImgRes = {}; ebaShImgRun = {}; cache = {}; ebaShImgCacheSave({}); } else { cache = ebaShImgCacheLoad(); }
+  var gen = ebaShImgGen;
   $.each(ebaShNodes, function(i, n) {
-    var p = pos[n[0]], c = ebaShGroupCol[n[5]], t = { n: 0, pts: 0, cost: 0, min: 0 }, lines = n[3].split("\n"), img = n[4].replace("?", "");
-    $.each(n[6], function(j, sid) { var q = ebaShSum(sid); t.n += q.n; t.pts += q.pts; t.cost += q.cost; t.min += q.min; });
-    var pr = ebaShSec(n[6][0])[2];
-    svg += "<g transform='translate(" + p.x + " " + p.y + ")'><title>" + ebaShE(lines.join(" ") + " - " + t.n + " Stufen, " + t.pts + " Punkte, " + ebaShN(t.cost, 2)
-      + " €, " + ebaShDur(t.min, speed).replace(/&nbsp;/g, " ") + (pr ? "; Voraussetzung: " + pr : "")) + "</title>"
-      + "<rect class='sh-node' width='" + NW + "' height='" + NH + "' rx='6' stroke='" + c + "'/>"
-      + "<rect x='6' y='6' width='34' height='34' rx='4' class='sh-nph'/><text x='23' y='29' class='sh-nphl' text-anchor='middle'>" + ebaShE(lines[0].charAt(0)) + "</text>"
-      + "<image href='/img/tasks/" + img + "' x='6' y='6' width='34' height='34' preserveAspectRatio='xMidYMid slice' clip-path='url(#shclip)'/>";
-    $.each(lines, function(j, l) { svg += "<text x='46' y='" + (16 + j * 11) + "' class='sh-nname'>" + ebaShE(l) + "</text>"; });
-    svg += "<text x='6' y='" + (NH - 8) + "' class='sh-nstat'>" + t.n + " St. &middot; " + ebaShN(t.cost, 1) + " € &middot; " + ebaShDur(t.min, speed).replace(/&nbsp;/g, " ") + "</text></g>";
+    var id = n[0], c = cache[id], key = n[2].join("|");
+    if (id in ebaShImgRes || ebaShImgRun[id]) { return; }
+    if (c && c.s === key && (c.f === "none" ? now - c.t < EBA_SH_NONE_MS : $.inArray(c.f, n[2]) >= 0)) {
+      ebaShImgRes[id] = c.f === "none" ? "" : c.f;
+      ebaShImgNodeUpdate(id);
+      return;
+    }
+    todo.push(n); ebaShImgRun[id] = true;
   });
-  return svg + "</svg>";
+  var active = 0, step = function() {
+    while (active < 4 && todo.length) {
+      (function(n) {
+        active++;
+        ebaShImgProbeNode(n, gen, function(file) {
+          active--;
+          if (gen !== ebaShImgGen) { return; }
+          delete ebaShImgRun[n[0]];
+          ebaShImgRes[n[0]] = file;
+          var cc = ebaShImgCacheLoad();
+          cc[n[0]] = { f: file || "none", t: new Date().getTime(), s: n[2].join("|") };
+          ebaShImgCacheSave(cc);
+          ebaShImgNodeUpdate(n[0]);
+          step();
+        });
+      })(todo.shift());
+    }
+  };
+  $.each(todo, function(i, n) { ebaShImgNodeUpdate(n[0]); });
+  step();
+}
+
+function ebaShPill(cx, cy, text, col, dash, title) {
+  var w = Math.max(30, Math.round(text.length * 4.6 + 8));
+  return "<g class='sh-pillg'><title>" + ebaShE(title) + "</title><rect x='" + (cx - w / 2) + "' y='" + (cy - 6.5) + "' width='" + w + "' height='13' rx='6.5' class='sh-pill' stroke='" + col + "'"
+    + (dash ? " stroke-dasharray='3 2'" : "") + "/><text x='" + cx + "' y='" + (cy + 3) + "' class='sh-elab' text-anchor='middle'>" + ebaShE(text) + "</text></g>";
+}
+
+function ebaShTreeSvg() {
+  var NW = 120, NH = 60, IND = 16, RP = NH + 24, PADX = 4, ROOTY = 3, BUSY = 70, Y1 = 94, speed = ebaShSpeed(), pos = {}, gut = { 2: 50, 3: 50 }, hasInd = {}, colX = [PADX], ncol = 0;
+  $.each(ebaShLay, function(id, l) { if (l[2]) { hasInd[l[0]] = true; } ncol = Math.max(ncol, l[0] + 1); });
+  for (var c = 0; c < ncol; c++) { colX[c + 1] = colX[c] + NW + (hasInd[c] ? IND : 0) + (gut[c] != null ? gut[c] : 10); }
+  var W = colX[ncol - 1] + NW + PADX, maxR = 0;
+  $.each(ebaShNodes, function(i, n) {
+    var l = ebaShLay[n[0]];
+    pos[n[0]] = { x: colX[l[0]] + (l[2] ? IND : 0), y: l[1] < 0 ? ROOTY : Y1 + l[1] * RP, n: n };
+    maxR = Math.max(maxR, l[1]);
+  });
+  var H = Math.ceil(Y1 + maxR * RP + NH + 6);
+  var ports = [];
+  $.each(ebaShEdges, function(i, e) { if (e[0] === "allg") { ports.push(ebaShLay[e[1]][2] ? pos[e[1]].x - 7 : pos[e[1]].x + 20); } });
+  var cx = (Math.min.apply(null, ports) + Math.max.apply(null, ports)) / 2;
+  pos.allg.x = cx - NW / 2;
+  var paths = "", pills = "", byP = {}, spineY = {};
+  $.each(ebaShEdges, function(i, e) { (byP[e[0]] = byP[e[0]] || []).push(e); });
+  var path = function(d, col, dash) { return "<path d='" + d + "' class='sh-edge" + (dash ? " dash" : "") + "' stroke='" + col + "'/>"; };
+  var ttl = function(e) { return "Voraussetzung: " + ebaShSec(e[0])[1] + ", Stufe " + e[2] + (e[3] ? " (zusätzlich)" : ""); };
+  var A = pos.allg;
+  paths += "<path d='M" + cx + " " + (A.y + NH) + " V" + BUSY + " M" + Math.min.apply(null, ports) + " " + BUSY + " H" + Math.max.apply(null, ports) + "' class='sh-edge sh-bus'/>";
+  $.each(byP, function(pid, list) {
+    var p = pos[pid];
+    list = list.slice().sort(function(a, b) { return pos[a[1]].y - pos[b[1]].y; });
+    var prevY = p.y + NH;
+    $.each(list, function(j, e) {
+      var ch = pos[e[1]], col = ebaShGroupCol[ch.n[3]], py = ch.y - 7.5;
+      if (e[4]) {
+        // zweite Voraussetzung: Leitung von der rechts stehenden Karte, links neben der Spalte nach unten, von rechts in die Zielkarte
+        var tx = p.x - 12, xr = ch.x + NW, yc = ch.y + NH / 2;
+        paths += path("M" + p.x + " " + (p.y + NH / 2) + " H" + tx + " V" + yc + " H" + (xr + 4), col, e[3]);
+        pills += ebaShPill(xr + 20, yc, "St. " + e[2], col, e[3], ttl(e));
+      } else if (pid === "allg" && ebaShLay[e[1]][2]) {
+        // Spalte unter der Wurzelleiste: Ast links neben den Karten
+        var sx = ch.x - 7;
+        spineY[sx] = spineY[sx] || BUSY;
+        paths += path("M" + sx + " " + spineY[sx] + " V" + py + " H" + (ch.x + 6), col, e[3]);
+        pills += ebaShPill(ch.x + 20, py, "St. " + e[2], col, e[3], ttl(e));
+        spineY[sx] = py;
+      } else if (pid === "allg") {
+        paths += path("M" + (ch.x + 20) + " " + BUSY + " V" + py, col, e[3]);
+        pills += ebaShPill(ch.x + 20, py, "St. " + e[2], col, e[3], ttl(e));
+      } else if (ch.x === p.x) {
+        paths += path("M" + (p.x + 20) + " " + (p.y + NH) + " V" + py, col, e[3]);
+        pills += ebaShPill(ch.x + 20, py, "St. " + e[2], col, e[3], ttl(e));
+      } else {
+        paths += path("M" + (p.x + 9) + " " + prevY + " V" + py + " H" + (ch.x + 6), col, e[3]);
+        pills += ebaShPill(ch.x + 20, py, "St. " + e[2], col, e[3], ttl(e));
+        prevY = py;
+      }
+    });
+  });
+  $.each(ebaShReq, function(id, t) {
+    var p = pos[id];
+    pills += ebaShPill(p.x + 28, p.y - 7.5, t, ebaShGroupCol[p.n[3]], 0, "Voraussetzung: " + ebaShSec(id)[2]);
+  });
+  var svg = "<svg class='sh-tree' viewBox='0 0 " + W + " " + H + "' width='100%' style='height:auto;min-width:" + Math.round(W * 0.85) + "px' xmlns='http://www.w3.org/2000/svg'>"
+    + "<defs><clipPath id='shclip'><rect x='5' y='5' width='32' height='32' rx='4'/></clipPath></defs>" + paths;
+  $.each(ebaShNodes, function(i, n) {
+    var p = pos[n[0]], c = ebaShGroupCol[n[3]], t = { n: 0, pts: 0, cost: 0, min: 0 }, lines = n[1].split("\n"), r = ebaShImgRes[n[0]];
+    $.each(n[4], function(j, sid) { var q = ebaShSum(sid); t.n += q.n; t.pts += q.pts; t.cost += q.cost; t.min += q.min; });
+    var pr = ebaShSec(n[4][0])[2], dur = ebaShDur(t.min, speed).replace(/&nbsp;/g, " ");
+    ebaShTitleBase[n[0]] = lines.join(" ") + " - " + t.n + " Stufen, " + t.pts + " Punkte, " + ebaShN(t.cost, 2) + " €, " + dur + (pr ? "; Voraussetzung: " + pr : "");
+    svg += "<g class='sh-nodeg' data-nid='" + n[0] + "' transform='translate(" + p.x + " " + p.y + ")'><title>" + ebaShE(ebaShTitleBase[n[0]] + " | " + ebaShImgStatus(n)) + "</title>"
+      + "<rect class='sh-node' width='" + NW + "' height='" + NH + "' rx='6' stroke='" + c + "'/>"
+      + "<rect x='5' y='5' width='32' height='32' rx='4' class='sh-nph'/><text x='21' y='27' class='sh-nphl' text-anchor='middle'>" + ebaShE(lines[0].charAt(0)) + "</text>"
+      + "<image" + (r ? " href='/img/tasks/" + r + "'" : "") + " x='5' y='5' width='32' height='32' preserveAspectRatio='xMidYMid slice' clip-path='url(#shclip)'/>";
+    $.each(lines, function(j, l) { svg += "<text x='41' y='" + (13 + j * 10) + "' class='sh-nname'>" + ebaShE(l) + "</text>"; });
+    svg += "<text x='5' y='" + (NH - 16) + "' class='sh-nstat'>" + t.n + " St. &middot; " + ebaShN(t.cost, 1) + " €</text>"
+      + "<text x='5' y='" + (NH - 6) + "' class='sh-nstat'>" + dur + "</text></g>";
+  });
+  return "<div class='sh-treewrap'>" + svg + pills + "</svg></div>";
 }
 
 function ebaShLevelTable(s, speed) {
@@ -6129,9 +6288,9 @@ function ebaShTreeTab() {
   var speed = ebaShSpeed(), all = { n: 0, pts: 0, cost: 0, min: 0 }, leg = "";
   $.each(ebaShTree, function(i, s) { var q = ebaShSum(s[0]); all.n += q.n; all.pts += q.pts; all.cost += q.cost; all.min += q.min; });
   $.each(ebaShGroupNames, function(k, v) { leg += "<span><i style='background:" + ebaShGroupCol[k] + "'></i>" + v + "</span>"; });
-  var h = "<p class='sh-note'>Forschungsbaum nach der Spielhilfe (Arthuriel). Zahlen am Pfeil = ben&ouml;tigte Stufe des Vorg&auml;ngers, gestrichelt = zus&auml;tzliche Voraussetzung;"
+  var h = "<p class='sh-note'>Forschungsbaum nach der Spielhilfe (Arthuriel). Die Plakette am Ende jeder Linie (direkt an der Karte) nennt die ben&ouml;tigte Stufe des Vorg&auml;ngers; kommt eine zweite Linie von der Seite, ist das eine weitere Voraussetzung, gestrichelt = nur zus&auml;tzlich;"
     + " weitere Voraussetzungen stehen im Tooltip der Karte. Unter jedem Namen: Stufen &middot; Gesamtkosten &middot; Gesamtdauer (" + (speed ? "Speedserver" : "Normalserver")
-    + "). Ein Buchstabe statt Bild bedeutet: Bild nicht ladbar bzw. Dateiname unbekannt.</p>"
+    + "). Ein Buchstabe statt Bild bedeutet: Bild nicht gefunden (die Dateinamen werden im Browser geprobt; Ergebnis im Tooltip und unter Info &rarr; Bildersuche). Ist der Baum breiter als die Spalte (z.&nbsp;B. am Handy), l&auml;sst er sich seitlich schieben.</p>"
     + "<div class='sh-legend'>" + leg + "</div>" + ebaShTreeSvg()
     + "<p class='sh-note'>Alles erforscht: <b>" + ebaShN(all.pts) + "</b> Punkte, <b>" + ebaShEuro(all.cost) + "</b>, <b>" + ebaShDur(all.min, speed) + "</b> (" + all.n + " Stufen).</p>"
     + "<h4>Stufen je Zweig</h4>";
@@ -6185,36 +6344,39 @@ function ebaShGoalsTab() {
 
 // ---- Reiter: Jobs -----------------------------------------------------------
 
-// Name, Bild (oder null), Beschreibung, Lohn/h vorher, Lohn/h nachher (Angaben aus den Jobverbesserungen/Freischaltungen der Spielhilfe)
-// Jobs: Familie -> Stufen. Stufe: [Name, Bild, Dauer in h, Lohn in EUR (gesamt), Stundenlohn, Freischaltung, Hinweis]
-// null = unbekannt (wird so angezeigt). Quellen: Nutzerangaben (haben Vorrang) und Blatt Forschungsbaum.
+// Jobs: Familie -> Stufen. Stufe: [Name, Bild (oder null), Dauer in h (oder Text), Lohn in EUR (gesamt), Stundenlohn, Freischaltung, Hinweis, takejob-ID (oder null)]
+// null = unbekannt (wird so angezeigt). Quellen: Nutzerangaben und echte Seite des Arbeitsamts (haben Vorrang) und Blatt Forschungsbaum.
 var ebaShJobs = [
-  ["Klos putzen", [
-    ["Klos putzen", "klo.jpg", null, null, 3, "von Anfang an", "Lohn 3 \u20AC je Stunde."],
-    ["Klos putzen mit P\u00FCmpel", "klo2.jpg", null, null, 4, "Forschung P\u00FCmpel (frei nach 200 geputzten Klos)", "Lohn 4 \u20AC je Stunde."]]],
+  ["Kloputzer", [
+    ["Kloputzer", "klo.jpg", "1 Tick", 3, 3, "von Anfang an", "Dauer 1 Tick (Normalserver 1:00:00, Speedserver 12 Minuten). Lohn 3 € je Tick.", 301],
+    ["Kloputzer mit Pümpel", "klo2.jpg", "1 Tick", 4, 4, "Forschung Pümpel (frei nach 200 geputzten Klos)", "Dauer 1 Tick (Normalserver 1:00:00, Speedserver 12 Minuten). Lohn 4 € je Tick.", 301]]],
   ["Pizza ausfahren", [
-    ["Pizza ausfahren", "job_pizza.jpg", 5, 20, 4, "von Anfang an", "Immer 20 \u20AC (4 \u20AC je Stunde), keine Verbesserung. Auf dem Server gibt es den Job einmal je 12 aktive Spieler; er dauert 5 Stunden und wird nach 4 Stunden wieder angeboten (dann kann ihn ein anderer Spieler nehmen)."]]],
-  ["Regale einr\u00E4umen", [
-    ["Regale einr\u00E4umen", "supermarkt.jpg", null, null, null, "von Anfang an", "Dauer und Lohn der Grundstufe sind unbekannt."],
-    ["Regale einr\u00E4umen mit Gabelstaplerschein", "supermarkt2.jpg", 8, 20, 2.5, "Forschung Gabelstaplerschein (Online-Fahrschule, frei nach 75 einger\u00E4umten Regalen)", ""]]],
-  ["Museumsjob", [
-    ["Museumsjob", "job_museum.jpg", null, null, null, "von Anfang an", "Dauer und Lohn sind unbekannt; die Spielhilfe nennt nur 150 Durchg\u00E4nge als Voraussetzung f\u00FCr die n\u00E4chste Stufe. Bild dieser Stufe unbekannt, job_museum.jpg als Platzhalter."],
-    ["Verhaltensforscher f\u00FCr Studie", "job_museum.jpg", 12, 30, 2.5, "150-mal Museumsjob, Allgemeines \u00FCber Ameisen Stufe 11, dann Forschung Verhaltensforscher (Lehrb\u00FCcher kaufen, auswendig lernen, Pr\u00FCfung)", "Bild dieser Stufe unbekannt, job_museum.jpg als Platzhalter."],
-    ["Museum sucht versierten Myrmekologen", "job_museum.jpg", 3, 8, 8 / 3, "laut Spielhilfe Forschung Ameisen finden und bestimmen, Stufe 4 (Job \u201EMyrmekologe gesucht\u201C)", "Letzte Museumsstufe. Die Freischaltung aus dem Excel passt nicht ganz zur Reihenfolge (Stufe 4 liegt vor Allgemeines Stufe 11) und ist unbest\u00E4tigt."]]],
+    ["Pizza ausfahren", "job_pizza.jpg", 5, 20, 4, "von Anfang an", "Auf dem Server gibt es den Job einmal je 12 aktive Spieler; er dauert 5 Stunden und wird nach 4 Stunden wieder angeboten (dann kann ihn ein anderer Spieler nehmen).", null],
+    ["Pizza ausfahren mit Pümpel", "job_pizza.jpg", 5, 25, 5, "Forschung Pümpel (wie beim Kloputzer)", "Laut Spielhilfe bringt der Pizzajob nach dem Pümpel 25 € statt 20 € je fünf Stunden.", null]]],
+  ["Regale einräumen", [
+    ["Regale einräumen", "supermarkt.jpg", null, null, null, "von Anfang an", "Dauer und Lohn der Grundstufe sind unbekannt.", 302],
+    ["Regale einräumen mit Gabelstaplerschein", "supermarkt2.jpg", 8, 20, 2.5, "Forschung Gabelstaplerschein (Online-Fahrschule, frei nach 75 eingeräumten Regalen)", "", 302]]],
+  ["Museum sucht versierten Myrmekologen", [
+    ["Museum sucht versierten Myrmekologen", "job_museum.jpg", 3, 8, 8 / 3, "Forschung Ameisen finden und bestimmen, Stufe 4 („Wo sind die besten Chancen?“; laut Spielhilfe)", "Das ist der Museumsjob; eine frühere Museumsstufe gibt es nicht.", 305]]],
+  ["Job nach der Verhaltensforscher-Studie", [
+    ["Neuer Job (Name unbekannt)", null, 12, 30, 2.5, "150-mal den Museumsjob, Allgemeines über Ameisen Stufe 11, dann Forschung Verhaltensforscher für Studie (Lehrbücher kaufen, auswendig lernen, Prüfung ablegen)", "Name und Bild des neuen Jobs sind unbekannt; ob er den Museumsjob ersetzt, ebenfalls.", null]]],
   ["Werbeplakate kleben", [
-    ["Werbeplakate kleben", "job_plakate.jpg", 10, 25, 2.5, "nach X-maligem Anklicken der Werbebanner (X unbekannt)", "Ob der Job einmalig oder dauerhaft freigeschaltet wird, ist unbekannt."]]],
+    ["Werbeplakate kleben", "job_plakate.jpg", 10, 25, 2.5, "häufiges Abstimmen für EBA (Voting-Links), Anzahl unbekannt", "Spieltext: „Da du immer fleißig für EBA abgestimmt hast …“. Ob der Job einmalig oder dauerhaft freigeschaltet wird, ist unbekannt.", 315]]],
   ["Betreuer bei studentischer Biologie-Exkursion", [
-    ["Betreuer bei studentischer Biologie Exkursion", "job_exkursion.jpg", 20, 50, 2.5, "Forschung Biologie der Ameisen, Stufe 4 (Kolonie mit 250 Ameisen)", "Zuordnung der Freischaltung laut Spielhilfe-Excel."]]]
+    ["Betreuer bei studentischer Biologie Exkursion", "job_exkursion.jpg", 20, 50, 2.5, "Forschung Biologie der Ameisen, Stufe 4 (Kolonie mit 250 Ameisen)", "Zuordnung der Freischaltung laut Spielhilfe-Excel.", 304]]]
 ];
 function ebaShJobsTab() {
   var h = "<p class='sh-note'>Jobs mit Bild je Stufe, Dauer, Lohn und Stundenlohn. Nicht bekannte Werte stehen als &bdquo;unbekannt&ldquo;. "
-    + "Quelle: Angaben aus der Spielerschaft und Spielhilfe (Forschungsbaum); die Liste ist nicht zwingend vollst&auml;ndig.</p><div class='sh-jobs'>";
+    + "Quelle: Angaben aus der Spielerschaft, Arbeitsamt im Spiel und Spielhilfe (Forschungsbaum); die Liste ist nicht zwingend vollst&auml;ndig. "
+    + "Klein neben dem Namen: die Job-ID (<i>takejob</i>) aus dem Formular des Arbeitsamts.</p><div class='sh-jobs'>";
   var u = "<i class='sh-unk'>unbekannt</i>";
   $.each(ebaShJobs, function(i, fam) {
     $.each(fam[1], function(k, j) {
-      h += "<div class='sh-card sh-jcard' data-job='" + ebaShE(fam[0]) + "' data-stage='" + (k + 1) + "'>" + ebaShImg(["/img/tasks/" + j[1]], "sh-jimg", j[0])
+      h += "<div class='sh-card sh-jcard' data-job='" + ebaShE(fam[0]) + "' data-stage='" + (k + 1) + "'>"
+        + (j[1] ? ebaShImg(["/img/tasks/" + j[1]], "sh-jimg", j[0]) : "<span class='sh-ph sh-jimg'>?</span>")
         + "<div><b>" + ebaShE(j[0]) + "</b>" + (fam[1].length > 1 ? " <small>(Stufe " + (k + 1) + " von " + fam[1].length + ")</small>" : "")
-        + "<table class='sh-kv'><tr><td>Dauer</td><td>" + (j[2] != null ? j[2] + "&nbsp;h" : u) + "</td></tr>"
+        + (j[7] ? " <small class='sh-jid' title='takejob-ID im Arbeitsamt'>takejob " + j[7] + "</small>" : "")
+        + "<table class='sh-kv'><tr><td>Dauer</td><td>" + (j[2] == null ? u : (typeof j[2] === "string" ? ebaShE(j[2]) : j[2] + "&nbsp;h")) + "</td></tr>"
         + "<tr><td>Lohn</td><td>" + (j[3] != null ? ebaShEuro(j[3]) : u) + "</td></tr>"
         + "<tr><td>Stundenlohn</td><td>" + (j[4] != null ? "<b>" + ebaShEuro(j[4]) + "</b> je Stunde" : u) + "</td></tr></table>"
         + "<div class='sh-small'><b>" + (k ? "Verbesserung / Freischaltung" : "Freischaltung") + ":</b> " + ebaShE(j[5]) + (j[6] ? "<br>" + ebaShE(j[6]) : "") + "</div></div></div>";
@@ -6297,13 +6459,38 @@ function ebaShFoodTab() {
       + "<td>" + (r.pg != null ? r.pg.toFixed(4).replace(".", ",") + "&nbsp;&euro; <small>(" + (r.pg * 1000).toFixed(2).replace(".", ",") + "&nbsp;&euro;/kg)</small>" : "&ndash;") + "</td>"
       + "<td class='sh-small'>" + (r.unlock ? ebaShE(r.unlock) : "&ndash;") + "</td></tr>";
   });
-  return h + "</table><p class='sh-note'>" + rows.length + " von " + all.length + " Futtersorten.</p>";
+  h += "</table><p class='sh-note'>" + rows.length + " von " + all.length + " Futtersorten.</p>";
+  h += "<h4>Futtersuche (Drau&szlig;en &rarr; Futter suchen)</h4><div class='sh-jobs sh-ffind'>";
+  $.each([["Futtertiere sammeln", "findfood.jpg", "Dauer 15 bis 60 Minuten, Kosten 0 \u20AC. Liefert Futtertiere.", "Forschung Futtertiere, Stufe 2 (Futtertiersuche)"],
+          ["K\u00F6rner und Samen sammeln", "findfood_loewensamen.jpg", "Dauer 15 bis 60 Minuten, Kosten 0 \u20AC. Liefert K\u00F6rner und Samen.", "Forschung Futtertiere, Stufe 6 (Samensuche)"],
+          ["Bl\u00E4tter sammeln", "findfood_brombeere.jpg", "Feste Dauer 15 Minuten, Kosten 0 \u20AC. Liefert Bl\u00E4tter f\u00FCr Blattschneiderameisen.", "Forschung Exotische Arten, Stufe 3 (Bl\u00E4ttersammeln, mit Futtertiere Stufe 10)"]], function(i, f) {
+    h += "<div class='sh-card sh-jcard'>" + ebaShImg(["/img/tasks/" + f[1]], "sh-jimg", f[0]) + "<div><b>" + ebaShE(f[0]) + "</b><div class='sh-small'>" + ebaShE(f[2])
+      + "<br><b>Freischaltung:</b> " + ebaShE(f[3]) + "</div></div></div>";
+  });
+  return h + "</div>";
 }
 
 // ---- Reiter: Info -----------------------------------------------------------
 
+function ebaShImgInfoHtml() {
+  var h = "<table class='liste sh-tab sh-imgtab'><tr><th>Forschung</th><th>Ergebnis</th><th>geprobte Dateien</th></tr>", n = 0, found = 0;
+  $.each(ebaShNodes, function(i, nd) {
+    var r = ebaShImgRes[nd[0]];
+    n++; if (r) { found++; }
+    h += "<tr><td>" + ebaShE(nd[1].replace(/\n/g, " ")) + "</td><td class='" + (r ? "ok" : (r === "" ? "no" : "")) + "'>"
+      + (r === undefined ? (ebaShImgRun[nd[0]] ? "wird gesucht &hellip;" : "noch nicht gepr&uuml;ft") : (r ? "gefunden: " + ebaShE(r) : "nicht gefunden")) + "</td><td class='sh-small'>" + ebaShE(nd[2].join(", ")) + "</td></tr>";
+  });
+  return "<div class='sh-small'>" + found + " von " + n + " Forschungsbildern gefunden. Ergebnisse werden zwischengespeichert (&bdquo;nicht gefunden&ldquo; 7 Tage). "
+    + "Fehlt ein Bild, bitte den richtigen Dateinamen aus dem Spiel melden (Bild im Spiel Rechtsklick &rarr; Adresse).</div>" + h
+    + "</table><button type='button' class='sh-chip sh-imgre'>Bildersuche neu starten</button>";
+}
+function ebaShImgInfoUpdate() {
+  var b = $("#shopitem.ebash .sh-imgbody");
+  if (b.length) { b.html(ebaShImgInfoHtml()); }
+}
 function ebaShInfoTab() {
-  return "<div class='sh-card'><h4>Hinweise zum Wachstum</h4><ul class='sh-list'>"
+  return "<div class='sh-card'><details class='sh-det-img'" + (ebaShState.open.imgs ? " open" : "") + "><summary><b>Bildersuche</b> <small>(Forschungsbilder)</small></summary>"
+    + "<div class='sh-imgbody'>" + ebaShImgInfoHtml() + "</div></details></div><div class='sh-card'><h4>Hinweise zum Wachstum</h4><ul class='sh-list'>"
     + "<li><span class='sh-tag warn'>&gt; 75 %</span> Belegung von Nest oder Formicarium bremst das Wachstum.</li>"
     + "<li>Hauptwachstumsphase: etwa <b>24&ndash;94&nbsp;%</b> der Koloniegr&ouml;&szlig;e.</li>"
     + "<li>Brut verbraucht nur Platz im <b>Nest</b>, nicht im Formicarium.</li>"
@@ -6366,11 +6553,13 @@ var ebaShCss = "#shopitem.ebash{background:#0e2415;color:#e6f5ea;border:1px soli
   + ".ebash .sh-list{margin:4px 0 4px 18px;padding:0}.ebash .sh-det-box{background:#14391f;border:1px solid #2a6a3a;border-radius:4px;padding:4px 8px;margin:3px 0}"
   + ".ebash .sh-det-box summary{cursor:pointer}.ebash .sh-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px}"
   + ".ebash .sh-legend{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px;margin-bottom:4px}.ebash .sh-legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px}"
-  + ".ebash .sh-body{overflow-x:auto}.ebash svg.sh-tree{display:block;background:#0b1c11;border:1px solid #2a6a3a;border-radius:6px}"
+  + ".ebash .sh-body{overflow-x:auto}.ebash .sh-treewrap{display:block;width:0;min-width:100%;overflow-x:auto}.ebash svg.sh-tree{display:block;background:#0b1c11;border:1px solid #2a6a3a;border-radius:6px}"
   + ".ebash .sh-node{fill:#14391f;stroke-width:1.6}.ebash .sh-nph{fill:#0b1c11;stroke:#3CAC56;stroke-dasharray:3 2}.ebash .sh-nphl{fill:#3CAC56;font-size:18px;font-weight:bold}"
-  + ".ebash .sh-nname{fill:#fff;font-size:10px;font-weight:bold}.ebash .sh-nstat{fill:#9cc9a8;font-size:7.4px}"
+  + ".ebash .sh-nname{fill:#fff;font-size:9px;font-weight:bold}.ebash .sh-nstat{fill:#9cc9a8;font-size:7.6px}"
   + ".ebash .sh-edge{fill:none;stroke-width:1.5;opacity:.75}.ebash .sh-edge.dash{stroke-dasharray:4 3}"
-  + ".ebash .sh-elab{fill:#e6f5ea;font-size:8px;paint-order:stroke;stroke:#0b1c11;stroke-width:3px}"
+  + ".ebash .sh-elab{fill:#e6f5ea;font-size:8px}.ebash .sh-pill{fill:#0b1c11;stroke-width:1.3}.ebash .sh-bus{stroke:#3CAC56;opacity:.55}"
+  + ".ebash .sh-imgtab td.ok{color:#8fe3a4}.ebash .sh-imgtab td.no{color:#ff8a7a}.ebash .sh-jid{font-size:10px;color:#6fae80;font-weight:normal}"
+  + ""
   + "@media screen and (max-width:700px){.ebash .sh-grid,.ebash .sh-goals,.ebash .sh-jobs{grid-template-columns:1fr}.ebash .sh-body{overflow-x:auto}}";
 
 function ebaShMain() {
@@ -6406,6 +6595,7 @@ function ebaShRender(tab) {
     + "<div class='sh-tabs'>" + tabs + "</div><div class='sh-body'>" + body() + "</div>"
     + "<p class='sh-thanks'>Danke an Martin f&uuml;r EBA!</p>");
   ebaShOpenCalc();
+  if (s.tab === "baum") { ebaShProbeAll(); }
   try { history.replaceState(null, "", "#eba-spielhilfe:" + s.tab); } catch (e) { /* ignorieren */ }
 }
 function ebaShOpenCalc() {
@@ -6416,6 +6606,7 @@ function ebaShBind(root) {
   var s = ebaShState;
   var refresh = function(sel) { root.find(".sh-grid").html(ebaShAntBody()); ebaShOpenCalc(); };
   root.on("click", ".sh-tabs button", function() { ebaShRender($(this).attr("data-t")); });
+  root.on("click", ".sh-imgre", function() { ebaShProbeAll(true); });
   root.on("click", ".sh-tolinfo", function(e) { e.preventDefault(); ebaShRender("info"); });
   root.on("change", ".sh-speed", function() { s.speed = this.checked; ebaShRender(); });
   root.on("click", ".sh-chip", function() {
@@ -6464,6 +6655,7 @@ function ebaShBind(root) {
   // toggle bubbelt nicht -> Capture
   root[0].addEventListener("toggle", function(e) {
     var d = $(e.target);
+    if (d.is("details.sh-det-img")) { s.open.imgs = d[0].open; if (d[0].open) { ebaShProbeAll(); } return; }
     if (!d.is("details.sh-det-box")) { return; }
     var id = d.attr("data-id");
     s.open["t_" + id] = d[0].open;
