@@ -43,7 +43,7 @@ var EBA_SRV_PREFIXES = [
   "eba_hist_", "eba_statistic_", "eba_food_", "eba_tickdur_",
   "eba_schemaversion_", "eba_points_", "eba_hours_",
   "eba_inventory_", "eba_shop_prices_", "eba_saved_state_",
-  "eba_shop_remember_price_", "eba_formi_active_", "eba_rowdel_", "eba_collection_"
+  "eba_shop_remember_price_", "eba_formi_active_", "eba_rowdel_", "eba_collection_", "eba_profile_"
 ];
 
 const EBA_CONFIG_SUB = { "eba_enable_spielhilfe_everywhere": true };
@@ -7470,11 +7470,109 @@ function ebaCollStockNames() {
   }
   return names;
 }
+// ---- Profil (Abzeichen, Formicarien) -------------------------------------------
+// Zwischenspeicher je Server: JSON {t: Serverzeit ms, id: Spieler-ID, done: [Arten], active: [Arten]}
+function ebaCollProfileKey() { return "eba_profile_" + srvKey(); }
+function ebaCollProfileRead() {
+  try {
+    var o = JSON.parse(GM_getValue(ebaCollProfileKey(), ""));
+    if (o && typeof o === "object" && $.isArray(o.done) && $.isArray(o.active) && typeof o.t === "number") { return o; }
+  } catch (e) { /* kein Zwischenspeicher */ }
+  return null;
+}
+// Eigene Spieler-ID: aus dem Seitenkopf, sonst aus dem Zwischenspeicher; sonst null
+function ebaCollOwnId() {
+  var h = $("#status a[href^='profil.php?id=']").first().attr("href"), m = h && /[?&]id=(\d+)/.exec(h);
+  if (m) { return m[1]; }
+  var c = ebaCollProfileRead();
+  return c && /^\d+$/.test("" + c.id) ? "" + c.id : null;
+}
+// Profilseite lesen: {done: [Art], active: [Art]} (Namen wie in antcat) oder null, wenn es kein Profil ist.
+// done = Abzeichen "ausgewachsene <Art> Kolonie"; active = Arten im Abschnitt "Formicarien von <Name>".
+function ebaCollParseProfile(html) {
+  var doc;
+  try { doc = new DOMParser().parseFromString(html, "text/html"); } catch (e) { return null; }
+  if ($(doc.body).text().indexOf("registriert seit") < 0) { return null; }
+  var clean = function(t) { return $.trim(("" + t).replace(/[\s ]+/g, " ")); };
+  var done = {}, active = {};
+  $(doc).find("td").each(function() {
+    if ($(this).children().length) { return; }
+    var m = /^ausgewachsene (.+) Kolonie$/.exec(clean($(this).text())), n = m && ebaCollCanon(m[1]);
+    if (n) { done[n] = true; }
+  });
+  var inForm = false;
+  $(doc).find("h3, #shopitem").each(function() {
+    if (this.nodeName.toUpperCase() === "H3") { inForm = /^Formicarien von\b/.test(clean($(this).text())); return; }
+    if (!inForm) { return; }
+    var n = ebaCollCanon(clean($(this).find("b").first().text()));
+    if (n) { active[n] = true; }
+  });
+  return { done: $.map(done, function(v, k) { return k; }), active: $.map(active, function(v, k) { return k; }) };
+}
+// Seite im Hintergrund holen (wie die anderen Hintergrundabrufe); cb(html|null)
+function ebaCollGetPage(path, cb) {
+  var fin = false, end = function(h) { if (!fin) { fin = true; cb(h); } };
+  try {
+    GM_xmlhttpRequest({
+      method: "GET", url: location.origin + "/" + path,
+      overrideMimeType: "text/html; charset=windows-1252", timeout: 20000,
+      onload: function(r) { end(r.status && r.status !== 200 ? null : r.responseText); },
+      onerror: function() { end(null); }, ontimeout: function() { end(null); }
+    });
+  } catch (e) { end(null); }
+}
+// Lager frisch genug (höchstens zwei Ticks alt)?
+function ebaCollStockFresh() {
+  var c = null;
+  try { c = ebaStockCacheRead(); } catch (e) { c = null; }
+  return !!c && getServerNow() - c.t * 60000 <= 2 * getTickMinutes() * 60000;
+}
+// Alle Stati einlesen: Profil und (wenn nicht frisch) Lager abrufen, daraus Vorschau ableiten.
+// cb({err} | {pend: {Art: Status}, why: {Art: Grund}, notes: [Text]}). Setzt nichts.
+function ebaCollReadAll(cb) {
+  var id = ebaCollOwnId(), notes = [];
+  if (!id) { cb({ err: "Eigene Spieler-ID nicht gefunden (Link zum Profil im Seitenkopf)." }); return; }
+  ebaCollGetPage("profil.php?id=" + id, function(html) {
+    var prof = html ? ebaCollParseProfile(html) : null;
+    if (!prof) { cb({ err: "Das eigene Profil konnte nicht gelesen werden (nicht angemeldet oder keine Verbindung)." }); return; }
+    GM_setValue(ebaCollProfileKey(), JSON.stringify({ t: getServerNow(), id: id, done: prof.done, active: prof.active }));
+    var finish = function(stockNames) {
+      var sug = ebaCollDerive(prof, stockNames), cur = ebaCollGet(), pend = {}, why = {};
+      $.each(sug, function(n, v) {
+        if (ebaCollRank[v.st] > ebaCollRank[cur[n] || "open"]) { pend[n] = v.st; why[n] = v.why; }
+      });
+      cb({ pend: pend, why: why, notes: notes });
+    };
+    if (ebaCollStockFresh()) { finish(ebaCollStockNames()); return; }
+    ebaCollGetPage("ameisenzimmer.php?cat=2", function(h2) {
+      var st = h2 ? ebaParseStock(h2) : null;
+      if (!st) { notes.push("Lager nicht abrufbar, letzter bekannter Stand verwendet."); finish(ebaCollStockNames()); return; }
+      var names = {};
+      $.each(st.ants, function(n, e) { if ((e.q || 0) + (e.w || 0) > 0) { names[n] = true; } });
+      finish(names);
+    });
+  });
+}
+
+var ebaCollRank = { open: 0, ready: 1, active: 2, done: 3 };
+// Höchster Schritt je Art aus Profil ({done, active} oder null) und Lagerarten ({Name: true}); done gewinnt.
+function ebaCollDerive(prof, stockNames) {
+  var sug = {};
+  var put = function(name, st, why) { if (name && (!sug[name] || ebaCollRank[st] > ebaCollRank[sug[name].st])) { sug[name] = { st: st, why: why }; } };
+  $.each(stockNames || {}, function(n) { put(ebaCollCanon(n), "ready", "im Lager"); });
+  if (prof) {
+    $.each(prof.active, function(i, n) { put(n, "active", "Formicarium laut Profil"); });
+    $.each(prof.done, function(i, n) { put(n, "done", "Abzeichen"); });
+  }
+  return sug;
+}
 // Vorschläge {Art: {st, why}}: höchster Schritt, der aus den Daten folgt. Setzt nichts.
+// Das Profil aus dem Zwischenspeicher zählt für Abzeichen immer, für Formicarien nur bis 24 h Alter.
 function ebaCollSuggest() {
-  var sug = {}, rank = { open: 0, ready: 1, active: 2, done: 3 };
-  var put = function(name, st, why) { if (name && (!sug[name] || rank[st] > rank[sug[name].st])) { sug[name] = { st: st, why: why }; } };
-  $.each(ebaCollStockNames(), function(n) { put(ebaCollCanon(n), "ready", "im Lager"); });
+  var cp = ebaCollProfileRead(), prof = null;
+  if (cp) { prof = { done: cp.done, active: getServerNow() - cp.t <= 86400000 ? cp.active : [] }; }
+  var sug = ebaCollDerive(prof, ebaCollStockNames());
+  var put = function(name, st, why) { if (name && (!sug[name] || ebaCollRank[st] > ebaCollRank[sug[name].st])) { sug[name] = { st: st, why: why }; } };
   var act = ebaFormiActiveIds(), speed = isSpeedServer();
   $.each(ebaFormiIds(), function(i, id) {
     if (act && $.inArray(id, act) < 0) { return; } // ehemalige Kolonie
@@ -7490,47 +7588,64 @@ function ebaCollSuggest() {
   return sug;
 }
 
-// Text im Format der handgeführten Liste (BBCode für Foren/Discord)
+// Spalten im Profil-Text: Die Profilschrift ist proportional, und normale Leerzeichen werden dort
+// zusammengefasst. Deshalb wird die Lücke hinter dem Artnamen pixelgenau mit breiten Leerzeichen
+// (U+2002, bleibt im Profil erhalten) und schmalen zum Feinabgleich (U+2009, U+200A) aufgefüllt;
+// die Breiten misst ein Canvas mit der Schrift der Seite. Ohne Canvas: U+2007 nach Zeichenzahl.
+var EBA_COLL_FILL_FALLBACK = "\u2007";
+var EBA_COLL_FILLS = ["\u2002", "\u2009", "\u200a"]; // breit -> schmal
+// Messfunktion Text -> Pixel (Schrift des Spiels), oder null
+function ebaCollMeasurer() {
+  try {
+    var c = document.createElement("canvas").getContext("2d");
+    if (!c || typeof c.measureText !== "function") { return null; }
+    var el = $("#text").first(); if (!el.length) { el = $("body"); }
+    var cs = window.getComputedStyle(el[0]);
+    c.font = cs.fontStyle + " " + cs.fontWeight + " " + cs.fontSize + " " + cs.fontFamily;
+    return function(t) { return c.measureText(t).width; };
+  } catch (e) { return null; }
+}
+// Lücke von px Pixeln: greedy erst breite, dann schmale Zeichen; Rest auf das schmalste gerundet
+function ebaCollFillPx(px, m) {
+  var out = "", i, w;
+  for (i = 0; i < EBA_COLL_FILLS.length; i++) {
+    w = m(EBA_COLL_FILLS[i]);
+    if (!(w > 0)) { continue; }
+    var n = i === EBA_COLL_FILLS.length - 1 ? Math.round(px / w) : Math.floor(px / w);
+    if (n > 0) { out += new Array(n + 1).join(EBA_COLL_FILLS[i]); px -= n * w; }
+  }
+  return out;
+}
+// Text für das Spielerprofil (BBCode, nur [b] [i] [center]; eine Zeile je Art, keine Tabs)
 function ebaCollExport() {
-  var cur = ebaCollGet(), groups = { 1: [], 2: [], 3: [] };
-  $.each(antcat, function(name, c) {
-    var st = cur[name] || "open", t = name + " " + st;
-    if ($.inArray(name, ebaShHidden) >= 0) { t += " (HIDDEN)"; }
-    if (shopPriceLimits[name] != null && st !== "done") { t += " (Shop)"; }
-    groups[c].push(t);
-  });
+  var cur = ebaCollGet(), groups = { 1: [], 2: [], 3: [] }, m = ebaCollMeasurer();
+  $.each(antcat, function(name, c) { groups[c].push(name); });
   var out = [];
   $.each([1, 2, 3], function(i, c) {
-    out.push((c === 1 ? "[center]" : "") + "[b]= " + ebaShCollGroupNames[c] + " =[/b]");
-    out.push(groups[c].join("; "));
+    var w = 0;
+    $.each(groups[c], function(j, n) { w = Math.max(w, m ? m(n) : n.length); });
+    out.push("== " + ebaShCollGroupNames[c] + " ==");
+    $.each(groups[c], function(j, n) {
+      var st = cur[n] || "open", pad = "";
+      if (m) { pad = ebaCollFillPx(w - m(n), m); }
+      else { for (var k = n.length; k < w; k++) { pad += EBA_COLL_FILL_FALLBACK; } }
+      var line = n + pad + " | " + (st === "ready" || st === "active" ? "[b]" + st + "[/b]" : st);
+      if ($.inArray(n, ebaShHidden) >= 0) { line += " [i]HIDDEN[/i]"; }
+      if (shopPriceLimits[n] != null && st !== "done") { line += " [i]Shop[/i]"; }
+      out.push(line);
+    });
+    out.push("");
   });
-  out.push("[i]Legende: " + ebaShCollLegend);
-  out.push("Hidden: muss selbst gefangen werden (versteckte Art). Shop: kann im Shop gekauft werden (nur anzeigen, wenn nicht done).[/i][/center]");
+  out.push("[center][b]open[/b] --[i](Ameise im Lager)[/i]--> [b]ready[/b] --[i](Kolonie aufgestellt)[/i]--> [b]active[/b] --[i](Kolonie ausgewachsen)[/i]--> [b]done[/b][/center]");
+  out.push("");
+  out.push("Hidden: Muss selbst gefangen werden");
+  out.push("Shop: Kann im Shop gekauft werden (nur bei nicht done)");
   return out.join("\n");
-}
-// Liste einlesen. Rückgabe {changes: {Art: Status}, known: n, unknown: n}.
-// Erkannt wird "<Art> <Status>" je Eintrag (getrennt durch ; oder Zeilenumbruch), Zusätze
-// in Klammern ((HIDDEN), (Shop)) und BBCode-Tags werden ignoriert; alles andere (Überschriften,
-// Legende) überspringt der Parser.
-function ebaCollParseList(text) {
-  var res = { changes: {}, known: 0, unknown: 0 };
-  var t = ("" + text).replace(/\[\/?[a-z]+(=[^\]]*)?\]/gi, "");
-  $.each(t.split(/[\n\r;]+/), function(i, seg) {
-    seg = $.trim(seg);
-    if (!seg || seg.charAt(0) === "=" || /^(legende|hidden|shop)\s*:/i.test(seg)) { return; }
-    var m = /^(.+?)\s+(open|ready|active|done)(\s*\([^)]*\))*\s*$/i.exec(seg);
-    if (!m) { return; }
-    var name = ebaCollCanon(m[1]);
-    if (!name) { res.unknown++; return; }
-    res.changes[name] = m[2].toLowerCase();
-    res.known++;
-  });
-  return res;
 }
 
 function ebaShCollTab() {
   var s = ebaShState, cur = ebaCollGet(), sug = ebaCollSuggest();
-  var rank = { open: 0, ready: 1, active: 2, done: 3 };
+  var rank = ebaCollRank;
   var cnt = { open: 0, ready: 0, active: 0, done: 0 }, groups = { 1: [], 2: [], 3: [] }, total = 0;
   $.each(antcat, function(name, c) {
     cnt[cur[name] || "open"]++; total++;
@@ -7542,10 +7657,12 @@ function ebaShCollTab() {
     + "<div class='sh-bar'><span style='width:" + Math.round(100 * cnt.done / total) + "%'></span></div>"
     + "<p class='sh-note'><span class='sh-cl-st st-open'>open</span> &ndash;(Ameise im Lager)&rarr; <span class='sh-cl-st st-ready'>ready</span> &ndash;(Kolonie aufgestellt)&rarr; "
     + "<span class='sh-cl-st st-active'>active</span> &ndash;(Kolonie ausgewachsen)&rarr; <span class='sh-cl-st st-done'>&#10003; done</span>"
-    + "<br><span class='sh-cl-star'>*</span> " + ebaShE(ebaShCollHidTip) + " <span class='sh-tag shop'>Shop</span> im Shop kaufbar (nur bei nicht done). "
+    + "<br>" + ebaShTip("*", ebaShCollHidTip) + " versteckte Art (Erkl&auml;rung per Klick). <span class='sh-tag shop'>Shop</span> im Shop kaufbar (nur bei nicht done). "
     + "Klick auf den Status schaltet weiter; gestrichelte Vorschl&auml;ge aus Lager, Kolonien und Statistik werden erst mit einem Klick &uuml;bernommen. "
     + "Gespeichert wird getrennt f&uuml;r " + (isSpeedServer() ? "den Speedserver" : "den Normalserver") + ".</p>"
-    + "<button type='button' class='sh-chip" + (s.cdone ? " on" : "") + "' data-f='cdone'>done ausblenden</button></div>";
+    + "<button type='button' class='sh-chip" + (s.cdone ? " on" : "") + "' data-f='cdone'>done ausblenden</button> "
+    + "<button type='button' class='sh-chip sh-cl-read'>Alle Stati einlesen</button> <span class='sh-cl-msg sh-note'>" + ebaShE(s.collMsg || "") + "</span>"
+    + ebaShCollPending() + "</div>";
   $.each([1, 2, 3], function(i, c) {
     var d = 0;
     $.each(groups[c], function(j, n) { if (cur[n] === "done") { d++; } });
@@ -7557,19 +7674,30 @@ function ebaShCollTab() {
       h += "<div class='sh-cl-row st-" + st + "' data-name='" + ebaShE(n) + "'>"
         + "<button type='button' class='sh-cl-st st-" + st + "' title='" + ebaShE(ebaShCollTips[st]) + " - Klick: n&auml;chster Status'>" + (st === "done" ? "&#10003; " : "") + st + "</button> "
         + "<span class='sh-cl-n'>" + ebaShE(n) + "</span>"
-        + (hid ? "<span class='sh-cl-star' title='" + ebaShE(ebaShCollHidTip) + "'>*</span>" : "")
+        + (hid ? ebaShTip("*", ebaShCollHidTip) : "")
         + (shopPriceLimits[n] != null && st !== "done" ? " <span class='sh-tag shop'>Shop</span>" : "")
         + (sg && rank[sg.st] > rank[st] ? " <button type='button' class='sh-cl-sug' data-st='" + sg.st + "' title='Vorschlag &uuml;bernehmen: " + ebaShE(ebaShCollTips[sg.st]) + "'>&rarr; " + sg.st + " (" + ebaShE(sg.why) + ")</button>" : "")
         + "</div>";
     });
     h += "</div>";
   });
-  h += "<h4>Liste einf&uuml;gen / ausgeben</h4><div class='sh-card'><p class='sh-note'>Format: <code>Art status; Art status; ...</code> (open, ready, active, done; Zus&auml;tze in Klammern und BBCode werden ignoriert, "
-    + "Zeilen mit <code>= &Uuml;berschrift =</code> und die Legende werden &uuml;bersprungen). Eingelesen werden nur die genannten Arten.</p>"
-    + "<textarea class='sh-cl-txt' rows='8' style='width:98%' placeholder='Liste hier einf&uuml;gen'>" + ebaShE(s.collTxt || "") + "</textarea><br>"
-    + "<button type='button' class='sh-chip sh-cl-imp'>Liste einlesen</button> <button type='button' class='sh-chip sh-cl-exp'>Als Text ausgeben (BBCode)</button> "
-    + "<span class='sh-cl-msg sh-note'>" + ebaShE(s.collMsg || "") + "</span></div>";
+  h += "<h4>F&uuml;rs Spielerprofil ausgeben</h4><div class='sh-card'><p class='sh-note'>Text mit BBCode f&uuml;r das Profil (erlaubt sind dort nur <code>[b]</code>, <code>[i]</code> und <code>[center]</code>); eine Zeile je Art. Ausrichtung f&uuml;r die Spielschrift berechnet; in anderen Schriften leicht versetzt.</p>"
+    + "<textarea class='sh-cl-txt' rows='10' style='width:98%' readonly placeholder='Hier erscheint der Text'>" + ebaShE(s.collTxt || "") + "</textarea><br>"
+    + "<button type='button' class='sh-chip sh-cl-exp'>Als Text ausgeben (BBCode)</button></div>";
   return h;
+}
+// Aufklappbarer Hinweis im Stil der Einstellungsseite (a.tooltip mit span), per Hover oder Klick
+function ebaShTip(label, text) { return "<a class='tooltip sh-tip' href='#'>" + label + "<span>" + ebaShE(text) + "</span></a>"; }
+// Vorschau der eingelesenen Änderungen (s.collPend = {pend, why}) mit Übernehmen/Verwerfen
+function ebaShCollPending() {
+  var p = ebaShState.collPend;
+  if (!p) { return ""; }
+  var n = 0, items = [];
+  $.each(p.pend, function(name, st) { n++; items.push(ebaShE(name) + " &rarr; <b>" + st + "</b> <small>(" + ebaShE(p.why[name]) + ")</small>"); });
+  if (!n) { return "<div class='sh-cl-pend'>Keine &Auml;nderungen: Der Stand ist schon aktuell.</div>"; }
+  return "<div class='sh-cl-pend'><b>" + n + " &Auml;nderung" + (n === 1 ? "" : "en") + " &uuml;bernehmen?</b> <button type='button' class='sh-chip sh-cl-apply'>&Uuml;bernehmen</button> "
+    + "<button type='button' class='sh-chip sh-cl-drop'>Verwerfen</button><ul class='sh-list'><li>" + items.join("</li><li>") + "</li></ul>"
+    + "<span class='sh-note'>H&ouml;here Stati, die du selbst gesetzt hast, werden nie herabgestuft.</span></div>";
 }
 function ebaShCollRefresh(root) { root.find(".sh-body").html(ebaShCollTab()); }
 
@@ -7629,7 +7757,7 @@ var ebaShCss = "#shopitem.ebash{background:#0e2415;color:#e6f5ea;border:1px soli
   + ".ebash .sh-cl-st.st-ready{background:#6b5200;color:#ffd75e;border-color:#c9a800}.ebash .sh-cl-st.st-active{background:#1c6a35;color:#b6f5c6;border-color:#3CAC56}"
   + ".ebash .sh-cl-st.st-done{background:#3CAC56;color:#06200d;border-color:#3CAC56;font-weight:bold}"
   + ".ebash .sh-cl-c.ready{color:#ffd75e}.ebash .sh-cl-c.active{color:#b6f5c6}.ebash .sh-cl-c.open{color:#9cc9a8}"
-  + ".ebash .sh-cl-star{color:#ffd75e;font-weight:bold;cursor:help}.ebash .sh-cl-sug{background:none;border:1px dashed #c9a800;border-radius:10px;color:#ffd75e;padding:0 7px;cursor:pointer;font-size:11px}"
+  + ".ebash a.sh-tip{position:relative;color:#ffd75e;font-weight:bold;cursor:help;text-decoration:none;margin:0 2px}.ebash a.sh-tip span{display:none;position:absolute;left:0;top:1.5em;z-index:20;width:240px;padding:6px 8px;background:#0b1c11;color:#e6f5ea;border:1px solid #3CAC56;border-radius:4px;font-weight:normal;font-size:12px;line-height:1.35;text-align:left}.ebash a.sh-tip:hover span,.ebash a.sh-tip.open span{display:block}.ebash .sh-cl-pend{margin-top:6px;padding:6px 8px;border:1px dashed #c9a800;border-radius:6px}.ebash .sh-cl-pend ul{margin:4px 0}.ebash .sh-cl-sug{background:none;border:1px dashed #c9a800;border-radius:10px;color:#ffd75e;padding:0 7px;cursor:pointer;font-size:11px}"
   + ".ebash textarea.sh-cl-txt{background:#0b1c11;color:#e6f5ea;border:1px solid #2a6a3a;border-radius:3px;font-size:12px}.ebash .sh-note .sh-cl-st{cursor:default;min-width:0}"
   + ".ebash .sh-cl-top{margin-bottom:6px}.ebash .sh-cl-prog{font-size:15px;color:#fff}"
   + ".ebash .sh-imgtab td.ok{color:#8fe3a4}.ebash .sh-imgtab td.no{color:#ff8a7a}.ebash .sh-qm{display:inline-block;font-size:10px;line-height:12px;width:12px;text-align:center;border:1px solid #8fb39a;border-radius:50%;color:#8fb39a;cursor:help;margin-left:3px}.ebash .sh-jid{font-size:10px;color:#6fae80;font-weight:normal}"
@@ -7700,20 +7828,31 @@ function ebaShBind(root) {
     var ch = {}; ch[$(this).closest(".sh-cl-row").attr("data-name")] = $(this).attr("data-st");
     ebaCollSet(ch); ebaShCollRefresh(root);
   });
-  root.on("input", ".sh-cl-txt", function() { s.collTxt = $(this).val(); });
-  root.on("click", ".sh-cl-imp", function() {
-    var txt = root.find(".sh-cl-txt").val(), r = ebaCollParseList(txt), n = ebaCollSet(r.changes);
-    s.collMsg = r.known ? n + " von " + r.known + " erkannten Arten geändert" + (r.unknown ? ", " + r.unknown + " unbekannt" : "") + "."
-                        : "Keine Arten erkannt" + (r.unknown ? " (" + r.unknown + " unbekannt)" : "") + ".";
-    s.collTxt = txt;
+  root.on("click", ".sh-cl-read", function() {
+    s.collMsg = "Lese Profil und Lager ..."; s.collPend = null; ebaShCollRefresh(root);
+    ebaCollReadAll(function(r) {
+      if (r.err) { s.collMsg = r.err; } else { s.collPend = r; s.collMsg = r.notes.join(" "); }
+      if (s.tab === "samm") { ebaShCollRefresh(root); }
+    });
+  });
+  root.on("click", ".sh-cl-apply", function() {
+    var n = s.collPend ? ebaCollSet(s.collPend.pend) : 0;
+    s.collPend = null; s.collMsg = n + " Änderung" + (n === 1 ? "" : "en") + " übernommen.";
     ebaShCollRefresh(root);
   });
+  root.on("click", ".sh-cl-drop", function() { s.collPend = null; s.collMsg = ""; ebaShCollRefresh(root); });
   root.on("click", ".sh-cl-exp", function() {
     s.collTxt = ebaCollExport(); s.collMsg = "Ausgegeben - zum Kopieren ins Textfeld klicken.";
     ebaShCollRefresh(root);
     root.find(".sh-cl-txt").first().select();
   });
-  root.on("click", ".sh-cl-txt", function() { if (/^\[center\]/.test(this.value)) { this.select(); } });
+  root.on("click", ".sh-cl-txt", function() { this.select(); });
+  root.on("click", "a.sh-tip", function(e) {
+    e.preventDefault();
+    var o = $(this).hasClass("open");
+    root.find("a.sh-tip.open").removeClass("open");
+    if (!o) { $(this).addClass("open"); }
+  });
   root.on("click", ".sh-tolinfo", function(e) { e.preventDefault(); ebaShRender("info"); });
   root.on("change", ".sh-speed", function() { s.speed = this.checked; ebaShRender(); });
   root.on("click", ".sh-chip", function() {
