@@ -46,6 +46,7 @@ var EBA_SRV_PREFIXES = [
   "eba_shop_remember_price_", "eba_formi_active_", "eba_rowdel_", "eba_collection_"
 ];
 
+const EBA_CONFIG_SUB = { "eba_enable_spielhilfe_everywhere": true };
 const configItems = {
   "eba_disable_reload"                       : [disableReloadOnFinish, "Auto-Reload ausschalten", "Nach Ende eines Jobs, einer Forschung usw. wird die Seite nicht mehr neu geladen."],
   "eba_enable_sound_on_job_end"              : [enableSoundOnJobEnd, "Am Ende des Countdowns einen Sound abspielen"],
@@ -92,6 +93,7 @@ const configItems = {
   "eba_enable_overview_escape_bar"           : [ebaNoop, "Ausbruchschutz in der &Uuml;bersicht mit Prozentbalken", "Zeigt in der Zeile <i>Ausbruchschutz</i> zus&auml;tzlich einen Prozentbalken vor dem Text. Wirkt nur, wenn die Option <i>Ausbruchschutz in der Formicarien-&Uuml;bersicht anzeigen</i> aktiv ist; ohne diese Option erscheint nur der Text (z.B. <i>97,4 % PTFE</i>)."],
   "eba_enable_overview_escape"               : [showOverviewEscape, "Ausbruchschutz in der Formicarien-&Uuml;bersicht anzeigen", "Unter dem Hunger (Proteine) bzw. dem Pilzstatus jeder Kolonie erscheint eine Zeile <i>Ausbruchschutz</i> mit Balken, Prozentwert (z.B. <i>97,4 %</i>; die Art, z.B. PTFE, steht im Tooltip). Das Spiel zeigt ihn in der &Uuml;bersicht nicht; der Wert stammt aus der zuletzt festgehaltenen Futter-Historie (daf&uuml;r muss die Option <i>Futterbestand und Ausbruchschutz pro Tick festhalten</i> aktiv sein). Stammt der Wert nicht aus dem aktuellen Tick, erscheint er blasser und kursiv, der Tooltip nennt den Zeitpunkt; solange ein Abruf aussteht, erscheint dahinter ein &#9203;. Sobald der Hintergrundabruf den neuen Wert geholt hat, wird die Zeile automatisch normal dargestellt. Den Prozentbalken schaltet die separate Option <i>mit Prozentbalken</i> zu. Unter 20 % orange, unter 10 % rot."],
   "eba_enable_spielhilfe"                    : [enableSpielhilfe, "Spielhilfe im Lexikon anzeigen (Community-Daten)", "F&uuml;gt unter <i>lexikon.php</i> den Men&uuml;punkt <i>openEBA: Spielhilfe</i> ein: Ameisen-Steckbriefe mit Bildern, Artenvergleich (Arten im Shop und nicht im Shop), Wohnungen, Forschungsbaum als Grafik, Forschungsziele und -bonus, Jobs, ASW-Aktionen, Futter. Die Daten stammen aus der Community-Spielhilfe (Excel, hat Vorrang) und erg&auml;nzend aus Lexikon-Tabellen (nur wo die Excel nichts hat) und sind <b>nicht vom Spielbetreiber</b>. Bilder werden vom Spielserver geladen, der Reiter l&auml;dt sie erst beim Anzeigen."],
+  "eba_enable_spielhilfe_everywhere"         : [ebaSpielhilfeEverywhere, "Spielhilfe &uuml;berall zug&auml;nglich", "F&uuml;gt auf jeder Seite mit Men&uuml;leiste links ganz unten, unter den Bookmarks, den Link <i>openEBA: Spielhilfe</i> ein (Ziel: <i>lexikon.php#eba-spielhilfe</i>). Setzt <i>Spielhilfe im Lexikon anzeigen</i> voraus: Wird diese Option eingeschaltet, schaltet sich jene mit ein; wird jene ausgeschaltet, schaltet sich diese mit aus."],
   "eba_enable_search_species"               : [ebaSearchSpecies, "Findbare Arten bei den Suchorten anzeigen (Ameisen suchen)", "F&uuml;gt unter <i>nach Drau&szlig;en &rarr; Ameisen suchen</i> bei jedem Suchort zwischen Beschreibung und Dauer eine kleine Zeile <i>Findbare Arten</i> ein. Die Zuordnung stammt aus der Community-Spielhilfe (Excel), ist <b>nicht vom Spielbetreiber</b> und kann unvollst&auml;ndig sein; Arten im Shop sind getrennt aufgef&uuml;hrt. Es werden keine zus&auml;tzlichen Anfragen gestellt."],
   "eba_enable_lexikon_food_life"            : [ebaLexikonFoodLife, "Haltbarkeit der Futter im Lexikon anzeigen", "F&uuml;gt unter <i>lexikon.php?cat=4</i> (Futter) in jeder Kachel unter <i>Zersetzungsrate</i> die Zeile <i>Haltbarkeit</i> ein: Zeit, bis die Frische von allein 0,0&nbsp;% erreicht. Je Tick werden die Prozentpunkte der Zersetzungsrate abgezogen, also 100&nbsp;% / Rate Ticks (aufgerundet); angezeigt f&uuml;r den aktuellen Server (Normalserver 1 Tick = 60 min, Speedserver 12 min). Der Tooltip zeigt die Rechnung und den Wert des anderen Servers. Es werden keine zus&auml;tzlichen Anfragen gestellt."]
 }
@@ -3552,6 +3554,15 @@ function ebaSearchSpeciesMap() {
   });
   return map;
 }
+// Gemeinsamer Tooltip im Stil der openEBA-Einstellungsseite (Spiel-CSS "a.tooltip"): Auslöser mit aufklappendem <span>.
+// ebaTip(label, html, asHtml): label = Text des Auslösers, html = Inhalt (Text; mit asHtml=true HTML-String).
+// Rückgabe: jQuery-Element (asHtml=true: HTML-String zum Einbetten, ohne Klick-Handler). Klick springt nicht nach oben.
+function ebaTip(label, html, asHtml) {
+  var a = $("<a class='tooltip' href='#'></a>").text(label).append($("<span></span>")[asHtml === true ? "html" : "text"](html));
+  if (asHtml === true) { return a.prop("outerHTML"); }
+  a.on("click", function(e) { e.preventDefault(); });
+  return a;
+}
 // "Ameisen suchen": je Suchort eine Zeile "Findbare Arten: ..." zwischen Beschreibung und "Dauer:"
 function ebaSearchSpecies() {
   if (location.pathname !== "/draussen.php") { return; }
@@ -3565,13 +3576,15 @@ function ebaSearchSpecies() {
     if (!dauer.length) { return; }
     var tip = "versteckte Art. Diese Art wird im Lexikon erst angezeigt, nachdem man sie gefunden hat.";
     var part = function(shop) {
-      return $.map($.grep(list, function(a) { return a.shop === shop; }), function(a) {
-        return $("<span></span>").text(a.n).append(a.hid ? $("<span class='eba-species-hid' style='cursor:help'></span>").attr("title", tip).text("*") : "").prop("outerHTML");
-      }).join(", ");
+      var out = $("<span></span>");
+      $.each($.grep(list, function(a) { return a.shop === shop; }), function(i, a) {
+        out.append(i ? ", " : "", $("<span></span>").text(a.n).append(a.hid ? ebaTip("*", tip).addClass("eba-species-hid") : ""));
+      });
+      return out.contents().length ? out.contents() : null;
     };
     var el = $("<div class='eba-species' style='font-size:0.85em;margin:0 0 0.6em 0' title='Quelle: Community-Spielhilfe, nicht vom Spielbetreiber'><b>Findbare Arten:</b></div>");
-    var line = function(label, html) {
-      if (html) { el.append($("<div style='margin-left:1.2em'></div>").text(label + " ").append(html)); }
+    var line = function(label, nodes) {
+      if (nodes) { el.append($("<div style='margin-left:1.2em'></div>").append($("<b></b>").text(label), " ", nodes)); }
     };
     line("auch im Shop:", part(true));
     line("nicht im Shop:", part(false));
@@ -3605,7 +3618,19 @@ function ebaLexikonFoodLife() {
     tr.append($("<td class='liste'></td>").text("Haltbarkeit: "))
       .append($("<td class='liste' style='text-align:right'></td>").text(ebaFoodLifeText(ticks, tickMin)));
     row.after(tr);
+    // Zebra neu durchnummerieren (im Spiel sind mehrere Zeilen color1), Bezeichnung vereinheitlichen
+    tbl.find("tr").each(function(i) { $(this).removeClass("color1 color2").addClass(i % 2 ? "color2" : "color1"); });
+    tbl.find("td").filter(function() { return /^schon züchtbar/.test($(this).text()); }).each(function() {
+      $(this).text($(this).text().replace(/^schon/, "Schon"));
+    });
   });
+}
+// Spielhilfe-Link in der Seitenleiste jeder Seite (nicht auf lexikon.php, dort fügt enableSpielhilfe ihn ein)
+function ebaSpielhilfeEverywhere() {
+  if (/lexikon\.php$/.test(location.pathname) || !GM_getValue("eba_enable_spielhilfe", false)) { return; }
+  var host = $("#shopmenucats").first();
+  if (!host.length || $("#eba_sh_start").length) { return; }
+  host.append("<hr style='margin:6px 0'>").append("<a id='eba_sh_start' href='/lexikon.php#eba-spielhilfe'>openEBA: Spielhilfe</a>");
 }
 function processJobOffers() {
   ebaSearchEndTimes();
@@ -3888,9 +3913,9 @@ function enableConfig() {
     mainArea.empty();
     var configHTML = "<div id='shopitem'>";
     $.each(configItems, function(k, v) {
-      configHTML += "<input type='checkbox' id='"+k+"'>"+v[1];
+      configHTML += (EBA_CONFIG_SUB[k] ? "<span style='display:inline-block;width:1.6em'></span>" : "") + "<input type='checkbox' id='"+k+"'>"+v[1];
       if (v[2]) {
-        configHTML+= " (<a class='tooltip' href='#'>Mehr Info<span>"+v[2]+"</span></a>)";
+        configHTML+= " (" + ebaTip("Mehr Info", v[2], true) + ")";
       }
       configHTML+="<br>";
     });
@@ -3915,6 +3940,10 @@ function enableConfig() {
     $.each(configItems, function(k) {
       $("#"+k).prop("checked", GM_getValue(k, false)).change(function() {
         GM_setValue(k, $("#"+k).prop("checked"));
+        // Abhängigkeit: "überall" setzt "im Lexikon" voraus
+        var on = $("#"+k).prop("checked"), a = "eba_enable_spielhilfe", b = "eba_enable_spielhilfe_everywhere";
+        if (k === b && on && !$("#"+a).prop("checked")) { $("#"+a).prop("checked", true); GM_setValue(a, true); }
+        if (k === a && !on && $("#"+b).prop("checked")) { $("#"+b).prop("checked", false); GM_setValue(b, false); }
       });
     });
     $("#eba_shopfilter").val(GM_getValue("eba_shopfilter", "")).on("blur", function() {
