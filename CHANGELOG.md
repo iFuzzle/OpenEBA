@@ -15,6 +15,12 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
 
 > **Hinweis vor dem Update:** Mehrere Versionen (31.1, 31.7, 31.9) wandeln gespeicherte Daten beim ersten Start automatisch um. Empfehlung: vorher in der openEBA-Konfiguration die Daten über *Exportieren* sichern.
 
+## 33.25 (01.11.2026)
+
+- Spielhilfe, Sammlung: Button „Alle Stati einlesen“ – liest das eigene Profil (Abzeichen „ausgewachsene … Kolonie“ → done, Formicarien → active) und das Lager (→ ready) und zeigt eine Vorschau; übernommen wird per Klick, nichts wird herabgestuft. Die Einzelvorschläge nutzen die Profildaten mit.
+- Sammlung: Text-Import entfernt. Neuer Export fürs Spielerprofil (nur [b], [i], [center]; eine Zeile je Art), Spalten pixelgenau für die Spielschrift ausgerichtet (gemessen im Browser, aufgefüllt mit Sonder-Leerzeichen, die das Profil nicht zusammenfasst).
+- Sammlung: Tooltips im openEBA-Stil (klickbar).
+
 ## 33.24 (01.11.2026)
 
 - Spielhilfe, Ameisen: Steckbrief neu geordnet – vorne Max. Punkte, Max. Kolonie, ASW-Punkte, Verkaufspreis, Max. Nest, Max. Formi, Platzbedarf (bei Nestbecken „N + M (Nestbecken) Regalplätze“); in den Details „Polygyn“ (z. B. „20.000 A je K“), Freischaltung kurz („Exotische Arten 3“), Fundorte.
