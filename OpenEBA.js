@@ -2667,6 +2667,35 @@ function ebaPointsPerTickSeries() {
   return out;
 }
 
+// Punktezuwachs je Tick eines Formicariums, gleiche Rechnung wie
+// ebaPointsPerTickSeries(): je Zeile (Punkte - vorherige Punkte) / Ticks seit der
+// vorherigen Zeile (Lücke = Durchschnitt), mehrere Zeilen im selben Tick: die letzte zählt.
+// Rückgabe: {series: [[tMs, wert, ticks], ...], stagnant: Ticks seit dem letzten Zuwachs
+// (null = weniger als zwei Messwerte), lastT, points, queens}
+function ebaFormiPointsPerTick(id) {
+  var tickMs = getTickMinutes() * 60000;
+  var keys = [], byTick = {}, queens = null;
+  $.each(ebaFormiRows(id), function(i, r) {
+    if (r.queens != null) { queens = r.queens; }
+    if (r.points == null) { return; }
+    var k = Math.floor(r.t / tickMs);
+    if (byTick[k] === undefined) { keys.push(k); }
+    byTick[k] = r;
+  });
+  keys.sort(function(a, b) { return a - b; });
+  var out = [], lastGrow = null;
+  for (var i = 1; i < keys.length; i++) {
+    var n = keys[i] - keys[i - 1];
+    var cur = byTick[keys[i]], prev = byTick[keys[i - 1]];
+    out.push([cur.t, (cur.points - prev.points) / n, n]);
+    if (cur.points > prev.points) { lastGrow = keys[i]; }
+  }
+  if (keys.length < 2) { return {series: out, stagnant: null, queens: queens}; }
+  var last = byTick[keys[keys.length - 1]];
+  return {series: out, queens: queens, points: last.points, lastT: last.t,
+          stagnant: keys[keys.length - 1] - (lastGrow != null ? lastGrow : keys[0]), neverGrew: lastGrow == null};
+}
+
 // IDs aller Formicarien mit Historie auf dem aktuellen Server
 function ebaFormiIds() {
   var pre = "eba_statistic_" + srvKey();
@@ -5383,7 +5412,9 @@ function ebaNiceScale(min, max, n) {
 //              tooltip (bool), unit, extra: [{points, color, name}] weitere Linien,
 //              yMin/yMax (feste Achsengrenzen), multiTip (Tooltip zeigt alle Linien
 //              zum Zeitpunkt; exactTip: nur exakt gleicher Zeitpunkt, sonst Strich), tipText(punkt)->Text (Zusatz im Tooltip),
-//              markFn(punkt)->bool (Punkt als Ring markieren)
+//              markFn(punkt)->bool (Punkt als Ring markieren), zeroLine (Nulllinie hervorheben),
+//              Linien in extra mit axis2: true laufen auf einer eigenen rechten y-Achse (Beschriftung
+//              in Linienfarbe, Format l.fmt), die Hauptlinie bleibt links
 // Rückgabe: {min, max, last, first, count, from, to} oder null bei <2 Punkten.
 function ebaDrawLineChart(container, points, opts) {
   opts = opts || {};
@@ -5393,22 +5424,32 @@ function ebaDrawLineChart(container, points, opts) {
   var fmt = opts.fmt || function(v) { return ebaFmtNum(v, 0); };
   var lines = [{ points: points, color: opts.color || "#3CAC56", name: opts.name || "" }];
   $.each(opts.extra || [], function(i, e) { lines.push(e); });
-  var tMin = Infinity, tMax = -Infinity, vMin = Infinity, vMax = -Infinity;
+  var tMin = Infinity, tMax = -Infinity, vMin = Infinity, vMax = -Infinity, v2Min = Infinity, v2Max = -Infinity;
+  var has2 = false;
   $.each(lines, function(li, l) {
     $.each(l.points || [], function(j, p) {
       if (p[0] < tMin) { tMin = p[0]; } if (p[0] > tMax) { tMax = p[0]; }
-      if (p[1] < vMin) { vMin = p[1]; } if (p[1] > vMax) { vMax = p[1]; }
+      if (l.axis2) {
+        has2 = true;
+        if (p[1] < v2Min) { v2Min = p[1]; } if (p[1] > v2Max) { v2Max = p[1]; }
+      } else {
+        if (p[1] < vMin) { vMin = p[1]; } if (p[1] > vMax) { vMax = p[1]; }
+      }
     });
   });
   if (opts.yMin != null) { vMin = opts.yMin; }
   if (opts.yMax != null) { vMax = opts.yMax; }
   var compact = !!opts.compact;
-  var ml = compact ? 6 : 64, mr = compact ? 6 : 14, mt = compact ? 6 : 12, mb = compact ? 6 : 26;
+  var ml = compact ? 6 : 64, mr = compact ? 6 : (has2 ? 64 : 14), mt = compact ? 6 : 12, mb = compact ? 6 : 26;
   var scale = compact ? (vMax > vMin ? [vMin, vMax, 0] : [vMin - 1, vMax + 1, 0]) : ebaNiceScale(vMin, vMax, 5);
   var y0 = scale[0], y1 = scale[1];
   var tSpan = (tMax > tMin) ? (tMax - tMin) : 1;
   var X = function(t) { return ml + (t - tMin) / tSpan * (W - ml - mr); };
   var Y = function(v) { return mt + (1 - (v - y0) / (y1 - y0)) * (H - mt - mb); };
+  var sc2 = has2 ? ebaNiceScale(v2Min, v2Max, 5) : null;
+  var Y2 = function(v) { return mt + (1 - (v - sc2[0]) / (sc2[1] - sc2[0])) * (H - mt - mb); };
+  var c2 = "#E8963C";
+  $.each(lines, function(li, l) { if (l.axis2) { c2 = l.color; } });
   var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H
     + '" style="display:block;background:#0f2a17;border-radius:3px;max-width:100%">';
   if (!compact) {
@@ -5417,6 +5458,16 @@ function ebaDrawLineChart(container, points, opts) {
       svg += '<line x1="' + ml + '" x2="' + (W - mr) + '" y1="' + yy.toFixed(1) + '" y2="' + yy.toFixed(1) + '" stroke="#2a5a36" stroke-width="1"/>';
       svg += '<text x="' + (ml - 6) + '" y="' + (yy + 4).toFixed(1) + '" text-anchor="end" font-size="11" fill="#a8d5b3">'
         + fmt(v) + '</text>';
+    }
+    if (has2 && sc2[2] > 0) {
+      for (var v2 = sc2[0]; v2 <= sc2[1] + sc2[2] / 2; v2 += sc2[2]) {
+        svg += '<text x="' + (W - mr + 6) + '" y="' + (Y2(v2) + 4).toFixed(1) + '" text-anchor="start" font-size="11" fill="' + c2 + '">'
+          + (opts.fmt2 || fmt)(v2) + '</text>';
+      }
+    }
+    if (opts.zeroLine && y0 < 0 && y1 > 0) {
+      svg += '<line x1="' + ml + '" x2="' + (W - mr) + '" y1="' + Y(0).toFixed(1) + '" y2="' + Y(0).toFixed(1)
+        + '" stroke="#e6f5ea" stroke-width="1.5" stroke-dasharray="4 3"/>';
     }
     var longRange = tSpan > 2 * 86400000;
     for (var i = 0; i <= 4; i++) {
@@ -5429,7 +5480,8 @@ function ebaDrawLineChart(container, points, opts) {
   $.each(lines, function(li, l) {
     if (!l.points || l.points.length < 2) { return; }
     var d = "";
-    $.each(l.points, function(i, p) { d += (i ? "L" : "M") + X(p[0]).toFixed(1) + " " + Y(p[1]).toFixed(1); });
+    var YY = l.axis2 ? Y2 : Y;
+    $.each(l.points, function(i, p) { d += (i ? "L" : "M") + X(p[0]).toFixed(1) + " " + YY(p[1]).toFixed(1); });
     svg += '<path d="' + d + '" fill="none" stroke="' + l.color + '" stroke-width="' + (compact ? 1.5 : 2) + '" stroke-linejoin="round"/>';
   });
   if (opts.markFn) {
@@ -5477,7 +5529,7 @@ function ebaDrawLineChart(container, points, opts) {
               + $("<div></div>").text((l.name ? l.name + ": " : "") + "\u2013").html();
           } else if (q) {
             h += '<br><span style="color:' + l.color + '">&#9632;</span> '
-              + $("<div></div>").text((l.name ? l.name + ": " : "") + fmt(q[1]) + u).html();
+              + $("<div></div>").text((l.name ? l.name + ": " : "") + (l.fmt || fmt)(q[1]) + (l.fmt ? "" : u)).html();
           }
         });
         tip.html(h).show();
@@ -5495,6 +5547,9 @@ function ebaDrawLineChart(container, points, opts) {
            last: points[points.length - 1][1], first: points[0][1], count: points.length,
            from: points[0][0], to: points[points.length - 1][0] };
 }
+
+function ebaMinOf(series) { var m = Infinity; $.each(series, function(i, p) { if (p[1] < m) { m = p[1]; } }); return m; }
+function ebaMaxOf(series) { var m = -Infinity; $.each(series, function(i, p) { if (p[1] > m) { m = p[1]; } }); return m; }
 
 // Nur Punkte ab tFrom (inklusive)
 function ebaSeriesSince(series, tFrom) {
@@ -5690,7 +5745,7 @@ function renderHistoryPage(rangeKey) {
     box.append(holder);
     target.append(box);
     var ex = [];
-    $.each(extra || [], function(i, e) { ex.push({ points: ebaSeriesSince(e.points, since), color: e.color, name: e.name }); });
+    $.each(extra || [], function(i, e) { ex.push({ points: ebaSeriesSince(e.points, since), color: e.color, name: e.name, axis2: e.axis2, fmt: e.fmt }); });
     var fmt = o.fmt || ebaMetricFmt(metric), unit = o.unit != null ? o.unit : ebaMetricUnit(metric);
     if (o.emptyHint && !series.length) {
       holder.text(o.emptyHint);
@@ -5705,6 +5760,7 @@ function renderHistoryPage(rangeKey) {
       box.append("<div style='font-size:0.9em'>Min " + fmt(info.min) + u + " &middot; Max " + fmt(info.max) + u
         + " &middot; Aktuell " + fmt(info.last) + u + " (" + info.count + " Messwerte)</div>");
     }
+    if (o.sub) { box.append("<div style='font-size:0.9em'>" + o.sub + "</div>"); }
   };
   add(page, "Geld (&euro;)", ebaGlobalSeries("money"), "money");
   add(page, "Punkte", ebaGlobalSeries("points"), "points");
@@ -5739,8 +5795,30 @@ function renderHistoryPage(rangeKey) {
   var drawGroup = function(g) {
     var id = g.attr("data-id"), body = g.find(".eba_formi_body");
     body.empty();
-    add(body, "Arbeiterinnen", ebaFormiSeries(id, "ants"), "count");
-    add(body, "Punkte", ebaFormiSeries(id, "points"), "points");
+    // Punktezuwachs je Tick: zeigt, ob eine noch nicht ausgewachsene Kolonie stagniert
+    var pt = ebaFormiPointsPerTick(id), subs = [];
+    var mx = ebaMaxPoints(ebaFormiKind(id), pt.queens, isSpeedServer());
+    if (pt.points != null && mx && !mx.unknown && mx.points != null) {
+      var rest = mx.points - pt.points;
+      subs.push(rest > 0 ? "Bis zum Maximum fehlen " + ebaFmtInt(rest) + " Punkte (Maximum " + ebaFmtInt(mx.points) + ")."
+                         : "Maximum von " + ebaFmtInt(mx.points) + " Punkten erreicht.");
+    }
+    if (pt.stagnant != null && pt.stagnant >= 2) {
+      var hrs = pt.stagnant * getTickMinutes() / 60;
+      subs.push((pt.neverGrew ? "Im gesamten Verlauf" : "Seit " + ebaFmtNum(hrs, hrs < 10 && hrs % 1 ? 1 : 0) + " h")
+        + " ohne Zuwachs (" + pt.stagnant + " Ticks).");
+    }
+    add(body, "Punktezuwachs je Tick", pt.series, "points", null, { color: "#E8963C", sub: subs.join(" "),
+      fmt: function(v) { return ebaFmtNum(v, 1); },
+      chart: { zeroLine: true, yMin: Math.min(0, ebaMinOf(pt.series)), yMax: Math.max(0, ebaMaxOf(pt.series)),
+               markFn: function(p) { return p[2] > 1; },
+               tipText: function(p) { return p[2] > 1 ? "\u00D8 \u00FCber " + p[2] + " Ticks:" : ""; } } });
+    // Arbeiterinnen und Punkte wachsen proportional: eine Grafik, Punkte auf eigener rechter Achse
+    var ptsS = ebaFormiSeries(id, "points");
+    add(body, "Arbeiterinnen (gr&uuml;n, links) und Punkte (orange, rechts)", ebaFormiSeries(id, "ants"), "count",
+      [{ points: ptsS, color: "#E8963C", name: "Punkte", axis2: true, fmt: ebaMetricFmt("points") }],
+      { chart: { multiTip: true, name: "Arbeiterinnen" },
+        legend: [["Arbeiterinnen", "#3CAC56"], ["Punkte", "#E8963C"]] });
     var bc = ebaBroodColors();
     add(body, "Brut", ebaFormiBroodSeries(id), "count", [
       { points: ebaFormiSeries(id, "eggs"), color: bc.eggs, name: "Eier" },
