@@ -27,7 +27,14 @@ Weitere bestätigte Bilder (nicht Forschung):
 
 - `/img/winter/winter01.png` bis `winter27.png` (Winter-Titelbilder)
 - `/img/awards/osterei.png` (Abzeichen)
-- `/img/items/food_osterei.jpg` (Futter Osterei; kommt in der Spielhilfe nicht vor, nur dokumentiert)
+- `/img/items/food_osterei.jpg` (Futter Osterei; steht in der Spielhilfe unter Futter → Relikte)
+- `/img/awards/Sponsor_gold.png` (Abzeichen für frühere finanzielle Unterstützung des Spiels)
+- `/img/awards/speed4.png` (Medaille für Teilnahme an einem Speedserver-Event; weitere Stufen unbekannt)
+- Weitere in der Spielhilfe (Info → Abzeichen) verwendete Abzeichen: `award_star_gold_1.png`, `award_star_bronze_3.png`, `house_gold.png`, `forklift.png`, `osterei.png`
+
+## Noch ungeprüft (Gruppen „Marsameise“ und „Abzeichen“ der Bildersuche)
+
+Nur Kandidaten, die noch nie geprüft wurden: `img/ants/Martialis_heureka0.jpg` bis `15.jpg`, `Martialis_heureka_shop.jpg`, `Martialis0.jpg` bis `3.jpg`, `Martialis_shop.jpg`, `Martialis_heureka.jpg`, `img/lexikon/martialis.jpg`, `martialis_heureka.jpg`, `Martialis_heureka.jpg`, `img/awards/speed0.png` bis `speed10.png` (ohne speed4), `speed_gold.png`, `speed_silver.png`, `speed_bronze.png`, `speed.png`. Ergebnis nach dem Prüfen hier eintragen.
 
 ## Geprüft, nicht gefunden
 

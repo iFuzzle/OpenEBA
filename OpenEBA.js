@@ -7061,7 +7061,13 @@ var ebaShImgExtra = [
   ["jf", "Jobverbesserung:\nGabelstaplerschein", ["research_gabelstapler.jpg"], "j", []],
   // Saisonbilder (Gruppe "s", nur Bildersuche): bestätigt sind img/winter/winter01.png ... winter27.png und img/awards/osterei.png (nicht prüfen)
   ["sat", "Saison Ostern:\nTitelbild", ["img/easter/easter1.png", "img/ostern/ostern1.png", "img/easter/easter01.jpg", "img/ostern/ostern01.jpg", "img/easter/easter_01.png"], "s", []],
-  ["saa", "Saison Ostern:\nAbzeichen", ["img/awards/oster.png", "img/awards/osterfest.png", "img/awards/easter_egg.png", "img/awards/eier.png", "img/awards/ei.png"], "s", []]
+  ["saa", "Saison Ostern:\nAbzeichen", ["img/awards/oster.png", "img/awards/osterfest.png", "img/awards/easter_egg.png", "img/awards/eier.png", "img/awards/ei.png"], "s", []],
+  // Gruppen "m" (Marsameise, wissenschaftliche Bezeichnung vermutlich Martialis heureka) und "w" (Abzeichen): nur Bildersuche, es werden
+  // ALLE Kandidaten geprüft (nicht nur der erste Treffer); nur bisher nie geprüfte Namen
+  ["mah", "Marsameise:\nMartialis_heureka", ["img/ants/Martialis_heureka0.jpg","img/ants/Martialis_heureka1.jpg","img/ants/Martialis_heureka2.jpg","img/ants/Martialis_heureka3.jpg","img/ants/Martialis_heureka4.jpg","img/ants/Martialis_heureka5.jpg","img/ants/Martialis_heureka6.jpg","img/ants/Martialis_heureka7.jpg","img/ants/Martialis_heureka8.jpg","img/ants/Martialis_heureka9.jpg","img/ants/Martialis_heureka10.jpg","img/ants/Martialis_heureka11.jpg","img/ants/Martialis_heureka12.jpg","img/ants/Martialis_heureka13.jpg","img/ants/Martialis_heureka14.jpg","img/ants/Martialis_heureka15.jpg","img/ants/Martialis_heureka_shop.jpg"], "m", []],
+  ["mam", "Marsameise:\nMartialis", ["img/ants/Martialis0.jpg", "img/ants/Martialis1.jpg", "img/ants/Martialis2.jpg", "img/ants/Martialis3.jpg", "img/ants/Martialis_shop.jpg", "img/ants/Martialis_heureka.jpg"], "m", []],
+  ["mal", "Marsameise:\nLexikon", ["img/lexikon/martialis.jpg", "img/lexikon/martialis_heureka.jpg", "img/lexikon/Martialis_heureka.jpg"], "m", []],
+  ["wsp", "Abzeichen:\nSpeedserver-Medaillen", ["img/awards/speed0.png","img/awards/speed1.png","img/awards/speed2.png","img/awards/speed3.png","img/awards/speed5.png","img/awards/speed6.png","img/awards/speed7.png","img/awards/speed8.png","img/awards/speed9.png","img/awards/speed10.png","img/awards/speed_gold.png","img/awards/speed_silver.png","img/awards/speed_bronze.png","img/awards/speed.png"], "w", []]
 ];
 // Raster von oben nach unten: id -> [Spalte, Zeile, eingerückt]. Zeile 0 = Zweige unter der Wurzel,
 // darunter hängen deren Folge-Forschungen (eingerückt, Ast links daneben) bzw. stehen bei Ketten direkt darunter;
@@ -7132,7 +7138,7 @@ function ebaShImgInit() {
     if (ebaShImgRun[id]) { return; }
     ebaShImgKnown[id] = n[2].length === 1;
     if (ebaShImgKnown[id]) { ebaShImgRes[id] = n[2][0]; return; }
-    if (c && c.s === n[2].join("|") && (c.f === "none" || $.inArray(c.f, n[2]) >= 0)) {
+    if (c && c.s === n[2].join("|") && (c.f === "none" || $.grep(c.f.split(","), function(x) { return $.inArray(x, n[2]) < 0; }).length === 0)) {
       ebaShImgRes[id] = c.f === "none" ? "" : c.f;
     } else {
       delete ebaShImgRes[id];
@@ -7161,15 +7167,15 @@ function ebaShImgNodeUpdate(id) {
   ebaShImgInfoUpdate();
 }
 function ebaShImgProbeNode(n, gen, done) {
-  var c = n[2], i = 0;
+  var c = n[2], i = 0, multi = n[3] === "m" || n[3] === "w", hits = [];
   var next = function() {
     if (gen !== ebaShImgGen) { return; }
-    if (i >= c.length) { done(""); return; }
+    if (i >= c.length) { done(hits.join(",")); return; }
     var file = c[i++], im = new Image(), fin = false, to;
     var end = function(ok) {
       if (fin) { return; }
       fin = true; window.clearTimeout(to); im.onload = im.onerror = null;
-      if (ok) { done(file); } else { next(); }
+      if (ok && multi) { hits.push(file); next(); } else if (ok) { done(file); } else { next(); }
     };
     im.onload = function() { end(im.naturalWidth > 0); };
     im.onerror = function() { end(false); };
@@ -7632,6 +7638,11 @@ function ebaShFoodTab() {
       + "<td class='sh-small'>" + (r.unlock ? ebaShE(r.unlock) : "&ndash;") + "</td></tr>";
   });
   h += "</table><p class='sh-note'>" + rows.length + " von " + all.length + " Futtersorten.</p>";
+  h += "<h4>Relikte</h4><div class='sh-jobs'><div class='sh-card sh-jcard sh-relikt'>" + ebaShImg(["/img/items/food_osterei.jpg"], "sh-jimg", "Osterei")
+    + ebaShImg(["/img/awards/osterei.png"], "sh-jimg", "Osterei-Abzeichen")
+    + "<div><b>Osterei</b> <span class='sh-tag'>Relikt</span> <span class='sh-small'>(Futterart Protein)</span><div class='sh-small'>"
+    + "Waren w&auml;hrend der Oster-Events 2009, 2010, 2011, 2012 und 2013 sammelbar und sind nicht mehr im Spiel erh&auml;ltlich (au&szlig;er &uuml;ber Verkauf). "
+    + "Zersetzungsrate: die geringste aller Protein-Futter, genauer Wert unbekannt.</div></div></div></div>";
   h += "<h4>Futtersuche (Drau&szlig;en &rarr; Futter suchen)</h4><div class='sh-jobs sh-ffind'>";
   $.each([["Futtertiere sammeln", "findfood.jpg", "Dauer 15, 30, 45 oder 60 Minuten. L\u00E4ngere Suchen geben weniger Ertrag pro Minute. Kosten 0 \u20AC. Liefert Futtertiere.", "Forschung Futtertiere, Stufe 2 (Futtertiersuche)"],
           ["K\u00F6rner und Samen sammeln", "findfood_loewensamen.jpg", "Dauer 15, 30, 45 oder 60 Minuten. L\u00E4ngere Suchen geben weniger Ertrag pro Minute. Kosten 0 \u20AC. Liefert K\u00F6rner und Samen.", "Forschung Futtertiere, Stufe 6 (Samensuche)", "nach 5000 gefundenen Samen und mit Futtertiere Stufe 10, Forschung Samensammeln, erh\u00F6ht den Ertrag."],
@@ -7645,14 +7656,15 @@ function ebaShFoodTab() {
 // ---- Reiter: Info -----------------------------------------------------------
 
 function ebaShImgInfoHtml() {
-  var h = "<table class='liste sh-tab sh-imgtab'><tr><th>Forschung</th><th>Ergebnis</th><th>geprobte Dateien</th></tr>", n = 0, found = 0, report = [], running = false, seasonHead = false, cache = ebaShImgCacheLoad();
+  var h = "<table class='liste sh-tab sh-imgtab'><tr><th>Forschung</th><th>Ergebnis</th><th>geprobte Dateien</th></tr>", n = 0, found = 0, report = [], running = false, seenGrp = {}, cache = ebaShImgCacheLoad();
   $.each(ebaShImgList(), function(i, nd) {
     var r = ebaShImgRes[nd[0]], known = ebaShImgKnown[nd[0]];
-    if (nd[3] === "s" && !seasonHead) {
-      seasonHead = true;
-      h += "<tr><th colspan='3'>Saisonbilder (Ostern; nur Entwickler-Suche, " + ebaShImgProbeCount("s") + " Anfragen)</th></tr>";
+    if ({ s: 1, m: 1, w: 1 }[nd[3]] && !seenGrp[nd[3]]) {
+      seenGrp[nd[3]] = true;
+      h += "<tr><th colspan='3'>" + { s: "Saisonbilder (Ostern", m: "Marsameise (wissenschaftliche Bezeichnung", w: "Abzeichen (Speedserver-Medaillen" }[nd[3]]
+        + "; nur Entwickler-Suche, " + ebaShImgProbeCount(nd[3]) + " Anfragen)</th></tr>";
     }
-    if (nd[3] !== "s") { n++; if (r) { found++; } }
+    if (!{ s: 1, m: 1, w: 1 }[nd[3]]) { n++; if (r) { found++; } }
     if (ebaShImgRun[nd[0]]) { running = true; }
     var c = cache[nd[0]];
     if (c && c.s === nd[2].join("|")) { report.push(nd[0] + "=" + (c.f === "none" ? "\u2013" : c.f)); } // geprüft (manuell)
@@ -7665,7 +7677,7 @@ function ebaShImgInfoHtml() {
     + "bei den &uuml;brigen steht ein Buchstabe. Der Knopf pr&uuml;ft einmal die Dateinamen der noch unbekannten Bilder im Browser (die bekannten werden nicht angefragt); gefundene Bilder merkt sich der Browser danach f&uuml;r dich. "
     + "Die Jobverbesserungen werden einzeln gesucht; der Baumknoten zeigt das erste gefundene der drei.</div>"
     + "<p><button type='button' class='sh-chip sh-imgre'" + (running ? " disabled" : "") + ">Bildnamen jetzt einmal pr&uuml;fen</button> "
-    + "<span class='sh-small'>Macht ca. " + ebaShImgProbeCount() + " Anfragen an den Spielserver (davon " + ebaShImgProbeCount("s") + " f&uuml;r die Saisonbilder).</span></p>" + h + "</table>";
+    + "<span class='sh-small'>Macht ca. " + ebaShImgProbeCount() + " Anfragen an den Spielserver (davon " + ebaShImgProbeCount("s") + " f&uuml;r die Saisonbilder, " + ebaShImgProbeCount("m") + " f&uuml;r die Marsameise, " + ebaShImgProbeCount("w") + " f&uuml;r Abzeichen).</span></p>" + h + "</table>";
   if (report.length && !running) {
     out += "<p class='sh-small'>Ergebnis zum Kopieren (bitte dem Entwickler schicken; &ndash; = nicht gefunden):<br>"
       + "<textarea class='sh-imgreport' readonly rows='" + Math.min(report.length + 1, 12) + "' style='width:100%;font-family:monospace'>"
@@ -7678,7 +7690,8 @@ function ebaShImgInfoUpdate() {
   if (b.length) { b.html(ebaShImgInfoHtml()); }
 }
 function ebaShInfoTab() {
-  return "<div class='sh-card'><details class='sh-det-img'" + (ebaShState.open.imgs ? " open" : "") + "><summary><b>Bildersuche</b> <small>(Forschungsbilder)</small></summary>"
+  var abz = "<div class='sh-card'><h4>Abzeichen</h4><p class='sh-small'>Abzeichen im Profil (Bilder vom Spielserver, nur bekannte Dateien).</p><div class='sh-jobs'>" + "<div class='sh-card sh-jcard'>" + ebaShImg(["/img/awards/award_star_gold_1.png"], "sh-jimg", "ausgewachsene <Art> Kolonie") + "<div><b>ausgewachsene &lt;Art&gt; Kolonie</b><div class='sh-small'>Je Art einmal; z&auml;hlt f&uuml;r die Sammlung als erledigt.</div></div></div>" + "<div class='sh-card sh-jcard'>" + ebaShImg(["/img/awards/award_star_bronze_3.png"], "sh-jimg", "<Art> Kolonie mit N Arbeiterinnen") + "<div><b>&lt;Art&gt; Kolonie mit N Arbeiterinnen</b><div class='sh-small'>Gr&ouml;&szlig;enrekord.</div></div></div>" + "<div class='sh-card sh-jcard'>" + ebaShImg(["/img/awards/house_gold.png"], "sh-jimg", "bei den Eltern ausgezogen") + "<div><b>bei den Eltern ausgezogen</b><div class='sh-small'></div></div></div>" + "<div class='sh-card sh-jcard'>" + ebaShImg(["/img/awards/forklift.png"], "sh-jimg", "Gabelstaplerschein bestanden") + "<div><b>Gabelstaplerschein bestanden</b><div class='sh-small'></div></div></div>" + "<div class='sh-card sh-jcard'>" + ebaShImg(["/img/awards/osterei.png"], "sh-jimg", "Platzierung bei der Ostereiersuche") + "<div><b>Platzierung bei der Ostereiersuche</b><div class='sh-small'>Events 2009&ndash;2013.</div></div></div>" + "<div class='sh-card sh-jcard'>" + ebaShImg(["/img/awards/Sponsor_gold.png"], "sh-jimg", "Sponsor") + "<div><b>Sponsor</b><div class='sh-small'>Es gab fr&uuml;her die M&ouml;glichkeit, das Spiel finanziell zu unterst&uuml;tzen. Daf&uuml;r gab es nur dieses Abzeichen.</div></div></div>" + "<div class='sh-card sh-jcard'>" + ebaShImg(["/img/awards/speed4.png"], "sh-jimg", "Speedserver-Event") + "<div><b>Speedserver-Event</b><div class='sh-small'>Medaillen f&uuml;r Teilnahmen an Speedserver-Events; Nummerierung und weitere Stufen unbekannt.</div></div></div>" + "</div></div>";
+  return abz + "<div class='sh-card'><details class='sh-det-img'" + (ebaShState.open.imgs ? " open" : "") + "><summary><b>Bildersuche</b> <small>(Forschungsbilder)</small></summary>"
     + "<div class='sh-imgbody'>" + ebaShImgInfoHtml() + "</div><div class='sh-antscanbody'>" + ebaShAntScanHtml() + "</div></details></div><div class='sh-card'><h4>Hinweise zum Wachstum</h4><ul class='sh-list'>"
     + "<li><span class='sh-tag warn'>&gt; 75 %</span> Belegung von Nest oder Formicarium bremst das Wachstum.</li>"
     + "<li>Hauptwachstumsphase: etwa <b>24&ndash;94&nbsp;%</b> der Koloniegr&ouml;&szlig;e.</li>"
