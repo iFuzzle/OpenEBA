@@ -43,7 +43,7 @@ var EBA_SRV_PREFIXES = [
   "eba_hist_", "eba_statistic_", "eba_food_", "eba_tickdur_",
   "eba_schemaversion_", "eba_points_", "eba_hours_",
   "eba_inventory_", "eba_shop_prices_", "eba_saved_state_",
-  "eba_shop_remember_price_", "eba_formi_active_", "eba_rowdel_"
+  "eba_shop_remember_price_", "eba_formi_active_", "eba_rowdel_", "eba_collection_"
 ];
 
 const configItems = {
@@ -2096,6 +2096,68 @@ function migrateMisfiledSearches() {
 }
 
 // ---------------------------------------------------------------------------
+// Sammlung (Spielhilfe, Reiter "Sammlung"): Status je Ameisenart zum Abhaken
+//
+// Schlüssel eba_collection_<srv>ants (Normal- und Speedserver getrennt), Text:
+//   Kopfzeile "eba_collection<TAB>1", dann je Art "<Art><TAB><Status><TAB><Zeit>".
+//   Status: open | ready | active | done; Zeit = Serverzeit in ms beim Setzen.
+// Je Art gewinnt der spätere Zeitstempel (last-write-wins), bei Gleichstand der
+// größere Statusname. Das ist idempotent, kommutativ und assoziativ, die Ausgabe
+// ist kanonisch (nach Art sortiert) - Grundlage für Import und WebDAV-Abgleich.
+// Arten ohne Zeile gelten als "open".
+// ---------------------------------------------------------------------------
+
+var EBA_COLL_STATES = ["open", "ready", "active", "done"];
+var EBA_COLL_MAX = 2000;
+function ebaCollKey() { return "eba_collection_" + srvKey() + "ants"; }
+function ebaIsCollKey(k) { return typeof k === "string" && /^eba_collection_(speed_)?ants$/.test(k); }
+
+// Zeilen aus text in die Map dict ("k"+Art -> {name, st, ts}) einarbeiten
+function ebaCollParseInto(dict, text) {
+  if (typeof text !== "string") { return dict; }
+  var ls = text.replace(/\r/g, "").split("\n");
+  for (var i = 0; i < ls.length && i <= EBA_COLL_MAX; i++) {
+    var f = ls[i].split("\t");
+    if (f.length !== 3 || !f[0] || f[0].length > 80 || $.inArray(f[1], EBA_COLL_STATES) < 0 || !/^\d{1,15}$/.test(f[2])) { continue; }
+    var ts = parseInt(f[2], 10), cur = dict["k" + f[0]];
+    if (!cur || ts > cur.ts || (ts === cur.ts && f[1] > cur.st)) { dict["k" + f[0]] = { name: f[0], st: f[1], ts: ts }; }
+  }
+  return dict;
+}
+function ebaCollText(dict) {
+  var list = [];
+  for (var k in dict) { if (Object.prototype.hasOwnProperty.call(dict, k)) { list.push(dict[k]); } }
+  if (!list.length) { return ""; }
+  list.sort(function(a, b) { return a.name < b.name ? -1 : (a.name > b.name ? 1 : 0); });
+  var out = ["eba_collection\t1"];
+  for (var i = 0; i < list.length; i++) { out.push(list[i].name + "\t" + list[i].st + "\t" + list[i].ts); }
+  return out.join("\n");
+}
+function ebaCollMerge(a, b) { return ebaCollText(ebaCollParseInto(ebaCollParseInto({}, a), b)); }
+// Gespeicherter Stand dieses Servers als Map "k"+Art -> {name, st, ts}
+function ebaCollLoad() { return ebaCollParseInto({}, GM_getValue(ebaCollKey(), "")); }
+// Status je Art: {Art: "open"|...}; fehlende Arten fehlen auch hier
+function ebaCollGet() {
+  var d = ebaCollLoad(), out = {};
+  for (var k in d) { if (Object.prototype.hasOwnProperty.call(d, k)) { out[d[k].name] = d[k].st; } }
+  return out;
+}
+// Status setzen. changes = {Art: Status}; geschrieben wird nur, was sich ändert.
+// Rückgabe: Anzahl geänderter Arten.
+function ebaCollSet(changes) {
+  var d = ebaCollLoad(), now = getServerNow(), n = 0;
+  for (var name in changes) {
+    if (!Object.prototype.hasOwnProperty.call(changes, name) || $.inArray(changes[name], EBA_COLL_STATES) < 0) { continue; }
+    var cur = d["k" + name];
+    if ((cur ? cur.st : "open") === changes[name]) { continue; } // unverändert (fehlende Art = open)
+    d["k" + name] = { name: name, st: changes[name], ts: Math.max(now, cur ? cur.ts + 1 : 0) };
+    n++;
+  }
+  if (n) { GM_setValue(ebaCollKey(), ebaCollText(d)); }
+  return n;
+}
+
+// ---------------------------------------------------------------------------
 // Export und Import (JSON)
 // ---------------------------------------------------------------------------
 
@@ -2576,7 +2638,11 @@ function importHistoryJSON(text) {
     // WebDAV-Abgleichs setzen - sonst ließen sich die Historien umleiten.
     if (davIsOwnKey(k)) { return; }
     if (k.indexOf("eba_formi_active_") === 0) { return; } // Zustand der Übersicht dieses Geräts
-    if (isHistoryKey(k) && typeof v === "string") {
+    if (ebaIsCollKey(k) && typeof v === "string") {
+      // Sammlung: je Art gewinnt der spätere Zeitstempel; unplausible Zeitstempel fliegen raus
+      GM_setValue(k, ebaCollMerge(GM_getValue(k, ""), ebaCollClean(v).text));
+      merged++;
+    } else if (isHistoryKey(k) && typeof v === "string") {
       var mine = GM_getValue(k, "");
       var res;
       if (k.indexOf("eba_rowdel_") === 0) {
@@ -4587,6 +4653,7 @@ function davRequest(method, url, body, headers, cb) {
 
 // Welche Merge-Funktion gehört zu einem Schlüssel? Gleiche Zuordnung wie im Import.
 function davKind(key) {
+  if (ebaIsCollKey(key)) { return "coll"; }
   if (key.indexOf("eba_rowdel_") === 0) { return "rowdel"; }
   if (key.indexOf("eba_statistic_") === 0) { return "formi"; }
   if (key.indexOf("eba_food_") === 0) { return "food"; }
@@ -4594,9 +4661,19 @@ function davKind(key) {
   if (/^eba_hist_(speed_)?stock_(food|acc|nest|furn|ants)$/.test(key)) { return "stock"; }
   return "hist";
 }
+// Sammlung bereinigen: Zeilen mit unplausiblem Zeitstempel fliegen raus (Rückgabe kanonischer Text)
+function ebaCollClean(text) {
+  var d = ebaCollParseInto({}, text), good = {}, dropped = 0;
+  for (var k in d) {
+    if (!Object.prototype.hasOwnProperty.call(d, k)) { continue; }
+    if (ebaTimePlausible(d[k].ts)) { good[k] = d[k]; } else { dropped++; }
+  }
+  return { text: ebaCollText(good), dropped: dropped };
+}
 function davMerge(key, a, b) {
   var r;
   switch (davKind(key)) {
+    case "coll": return ebaCollMerge(a, b);
     case "rowdel": return ebaRowDelMerge(a, b);
     case "formi": r = mergeFormiHistory(a, b); break;
     case "food": r = mergeFoodHistory(a, b); break;
@@ -4618,6 +4695,17 @@ function davValidate(key, text) {
   if (text === "") { res.ok = true; return res; }
   if (/^\s*</.test(text)) { res.reason = "HTML statt Daten (Login-Seite oder Fehlerseite?)"; return res; }
   var kind = davKind(key);
+  if (kind === "coll") {
+    var hd = text.split("\n")[0];
+    if (hd !== "eba_collection\t1") {
+      res.newer = /^eba_collection\t\d+$/.test(hd) && parseInt(hd.split("\t")[1], 10) > 1;
+      res.reason = res.newer ? "Sammlung in neuerem Format - bitte openEBA aktualisieren" : "keine Sammlung (Kopfzeile)";
+      return res;
+    }
+    var cl = ebaCollClean(text);
+    res.ok = true; res.dropped = cl.dropped; res.text = cl.text;
+    return res;
+  }
   if (kind === "rowdel") {
     if (text.split("\n")[0] !== "eba_rowdel\t1") { res.reason = "keine L\u00F6schliste oder neueres Format"; return res; }
     var pr = ebaRowDelParse(text);
@@ -4667,7 +4755,7 @@ function davValidate(key, text) {
 function davLocalReadable(key, text) {
   if (!text) { return true; }
   var kind = davKind(key);
-  if (kind === "rowdel") { return true; }
+  if (kind === "rowdel" || kind === "coll") { return true; }
   if (kind === "formi") { return !isNaN(parseInt(text, 10)); }
   if (kind === "food") { return true; }
   return !isNaN(parseInt(text, 10));
@@ -4714,9 +4802,18 @@ function davState(key) {
   return { etag: "", len: -1 };
 }
 function davSetState(key, etag, len) { GM_setValue(davStateKey(key), JSON.stringify({ etag: etag || "", len: len })); }
+// Merkzahl des lokalen Stands. Zeitreihen wachsen nur, da genügt die Länge. In der
+// Sammlung ändert sich beim Statuswechsel oft nur der Inhalt (open -> done), daher
+// dort Länge plus Prüfsumme.
+function davSig(key, v) {
+  if (typeof v !== "string") { return -1; }
+  if (!ebaIsCollKey(key)) { return v.length; }
+  var h = 5381;
+  for (var i = 0; i < v.length; i++) { h = ((h * 33) ^ v.charCodeAt(i)) >>> 0; }
+  return v.length * 4294967296 + h;
+}
 function davDirty(key) {
-  var v = GM_getValue(key, "");
-  return (typeof v === "string" ? v.length : -1) !== davState(key).len;
+  return davSig(key, GM_getValue(key, "")) !== davState(key).len;
 }
 
 // Liste der Reihen mit ungültiger Remote-Datei (für "Remote-Dateien überschreiben")
@@ -4732,7 +4829,7 @@ function davSetBad(key, bad) {
 // Schlüssel, der als Datei im Ordner liegen darf: Zeitreihe des aktuellen Servers.
 // (Präfix-Falle: eba_hist_ ist auch Präfix von eba_hist_speed_; der Name wird Dateiname.)
 function davKeyValid(k) {
-  return typeof k === "string" && isHistoryKey(k) && keyServer(k) === srvKey() && /^[a-z0-9_]+$/.test(k);
+  return typeof k === "string" && (isHistoryKey(k) || ebaIsCollKey(k)) && keyServer(k) === srvKey() && /^[a-z0-9_]+$/.test(k);
 }
 
 // ---------------------------------------------------------------------------
@@ -5057,12 +5154,12 @@ function davSyncKey(key, stats, cb, attempt, trail) {
     if (r.changed) { stats.pulled++; }
     if (r.body.length > EBA_DAV_WARN_CHARS) { stats.big.push(key); }
     if (remote === null && r.body === "") { // nichts anzulegen; als abgeglichen merken
-      davSetState(key, "", r.local.length);
+      davSetState(key, "", davSig(key, r.local));
       stats.equal++;
       return cb(null);
     }
     if (remote !== null && r.body === remote.replace(/\r/g, "")) {
-      davSetState(key, g.etag, r.local.length);
+      davSetState(key, g.etag, davSig(key, r.local));
       stats.equal++;
       return cb(null);
     }
@@ -5080,7 +5177,7 @@ function davSyncKey(key, stats, cb, attempt, trail) {
         if (uncond) { stats.uncond.push(key); }
         // ETag der neuen Fassung, falls der Server ihn mitliefert. Sonst holt
         // der nächste Lauf die Datei einmal vollständig.
-        davSetState(key, p.etag, r.local.length);
+        davSetState(key, p.etag, davSig(key, r.local));
         stats.pushed++;
         if (remote !== null && davSameLines(r.body, remote.replace(/\r/g, ""))) {
           stats.noChange++;
@@ -5347,7 +5444,7 @@ function davOverwriteBad(cb) {
     var body = davBody(key, local);
     if (body === null) { msgs.push(key + ": lokale Reihe ungültig"); return setTimeout(step, 300); }
     davRequest("PUT", davFileUrl(key), body, {}, function(p) {
-      if (p.ok) { okN++; davSetBad(key, false); davSetState(key, p.etag, local.length); }
+      if (p.ok) { okN++; davSetBad(key, false); davSetState(key, p.etag, davSig(key, local)); }
       else { msgs.push(key + ": HTTP " + p.status); }
       setTimeout(step, 300);
     });
@@ -6334,7 +6431,7 @@ const ebaShTree = [["allg","Allgemeines über Ameisen","","",[["Erste Schritte",
 
 var ebaShState = { tab: "ameisen", speed: null, cat: 0, shop: false, poly: false, hid: false, q: "", sort: "name", shopSort: "gpd", shopDir: "desc", vmode: "all", vcat: 0, sortDir: null, open: {}, wsort: "spiel", fsort: "def", fdir: "asc", fart: "", fshop: "all" };
 var ebaShTabs = [["ameisen", "Ameisen"], ["shop", "Vergleich"], ["wohn", "Wohnungen"], ["baum", "Forschungsbaum"],
-                 ["ziele", "Ziele &amp; Bonus"], ["jobs", "Jobs"], ["asw", "ASW"], ["futter", "Futter"], ["info", "Info"]];
+                 ["ziele", "Ziele &amp; Bonus"], ["jobs", "Jobs"], ["asw", "ASW"], ["futter", "Futter"], ["samm", "Sammlung"], ["info", "Info"]];
 var ebaShCatNames = { 1: "Einheimisch", 2: "Südeuropäisch", 3: "Exotisch" };
 // Arten, die laut Spielhilfe "versteckt" (gelb markiert) sind.
 var ebaShHidden = ["Ponera coarctata", "Anochetus ghilianii", "Camponotus lateralis"];
@@ -7312,6 +7409,137 @@ function ebaShInfoTab() {
     + "<li><a href='https://pastebin.com/raw/MZkjZPUW#.user.js' target='_blank' rel='noopener noreferrer'>openEBA-Userscript von Pepper</a> (Pepper ist nicht mehr aktiv)</li></ul></div>";
 }
 
+// ---- Reiter: Sammlung (Arten abhaken) ---------------------------------------
+
+var ebaShCollHidTip = "versteckte Art. Diese Art wird im Lexikon erst angezeigt, nachdem man sie gefunden hat.";
+var ebaShCollLegend = "open --(Ameise im Lager)--> ready --(Kolonie aufgestellt)--> active --(Kolonie ausgewachsen)--> done";
+var ebaShCollTips = { open: "noch nichts", ready: "Ameise im Lager", active: "Kolonie aufgestellt", done: "Kolonie ausgewachsen" };
+var ebaShCollGroupNames = { 1: "Einheimische Arten", 2: "Südeuropäische Arten", 3: "Exotische Arten" };
+
+// Artname (auch in anderer Schreibweise) -> Name wie in antcat, sonst null
+function ebaCollCanon(kind) {
+  if (typeof kind !== "string") { return null; }
+  var n = ebaAntmaxNorm(kind);
+  for (var name in antcat) { if (Object.prototype.hasOwnProperty.call(antcat, name) && ebaAntmaxNorm(name) === n) { return name; } }
+  return null;
+}
+// Arten im Lager laut zuletzt erfasster Lager-Ameisentabelle: Zwischenspeicher der
+// Seitenleiste (eba_inventory_) oder Lager-Historie (stock_ants), je nachdem, was jünger ist.
+function ebaCollStockNames() {
+  var names = {}, tCache = -1, cache = null, row = null;
+  try { cache = ebaStockCacheRead(); } catch (e) { cache = null; }
+  if (cache) { tCache = cache.t * 60000; }
+  try { var ser = ebaStockSeries("ants"); row = ser.length ? ser[ser.length - 1] : null; } catch (e2) { row = null; }
+  if (row && row.t > tCache) {
+    $.each(row.values, function(n, v) { if (v > 0) { names[n] = true; } });
+  } else if (cache && cache.stock && cache.stock.ants) {
+    $.each(cache.stock.ants, function(n, e) { if (e && (e.q || 0) + (e.w || 0) > 0) { names[n] = true; } });
+  }
+  return names;
+}
+// Vorschläge {Art: {st, why}}: höchster Schritt, der aus den Daten folgt. Setzt nichts.
+function ebaCollSuggest() {
+  var sug = {}, rank = { open: 0, ready: 1, active: 2, done: 3 };
+  var put = function(name, st, why) { if (name && (!sug[name] || rank[st] > rank[sug[name].st])) { sug[name] = { st: st, why: why }; } };
+  $.each(ebaCollStockNames(), function(n) { put(ebaCollCanon(n), "ready", "im Lager"); });
+  var act = ebaFormiActiveIds(), speed = isSpeedServer();
+  $.each(ebaFormiIds(), function(i, id) {
+    if (act && $.inArray(id, act) < 0) { return; } // ehemalige Kolonie
+    var kind = ebaFormiKind(id), name = ebaCollCanon(kind);
+    if (!name) { return; }
+    put(name, "active", "Kolonie aktiv");
+    var rows = ebaFormiRows(id), last = null;
+    for (var j = rows.length - 1; j >= 0; j--) { if (rows[j].ants != null) { last = rows[j]; break; } }
+    if (!last) { return; }
+    var mx = ebaMaxPoints(kind, last.queens, speed);
+    if (mx && !mx.unknown && mx.ants && last.ants >= mx.ants) { put(name, "done", "ausgewachsen"); }
+  });
+  return sug;
+}
+
+// Text im Format der handgeführten Liste (BBCode für Foren/Discord)
+function ebaCollExport() {
+  var cur = ebaCollGet(), groups = { 1: [], 2: [], 3: [] };
+  $.each(antcat, function(name, c) {
+    var st = cur[name] || "open", t = name + " " + st;
+    if ($.inArray(name, ebaShHidden) >= 0) { t += " (HIDDEN)"; }
+    if (shopPriceLimits[name] != null && st !== "done") { t += " (Shop)"; }
+    groups[c].push(t);
+  });
+  var out = [];
+  $.each([1, 2, 3], function(i, c) {
+    out.push((c === 1 ? "[center]" : "") + "[b]= " + ebaShCollGroupNames[c] + " =[/b]");
+    out.push(groups[c].join("; "));
+  });
+  out.push("[i]Legende: " + ebaShCollLegend);
+  out.push("Hidden: muss selbst gefangen werden (versteckte Art). Shop: kann im Shop gekauft werden (nur anzeigen, wenn nicht done).[/i][/center]");
+  return out.join("\n");
+}
+// Liste einlesen. Rückgabe {changes: {Art: Status}, known: n, unknown: n}.
+// Erkannt wird "<Art> <Status>" je Eintrag (getrennt durch ; oder Zeilenumbruch), Zusätze
+// in Klammern ((HIDDEN), (Shop)) und BBCode-Tags werden ignoriert; alles andere (Überschriften,
+// Legende) überspringt der Parser.
+function ebaCollParseList(text) {
+  var res = { changes: {}, known: 0, unknown: 0 };
+  var t = ("" + text).replace(/\[\/?[a-z]+(=[^\]]*)?\]/gi, "");
+  $.each(t.split(/[\n\r;]+/), function(i, seg) {
+    seg = $.trim(seg);
+    if (!seg || seg.charAt(0) === "=" || /^(legende|hidden|shop)\s*:/i.test(seg)) { return; }
+    var m = /^(.+?)\s+(open|ready|active|done)(\s*\([^)]*\))*\s*$/i.exec(seg);
+    if (!m) { return; }
+    var name = ebaCollCanon(m[1]);
+    if (!name) { res.unknown++; return; }
+    res.changes[name] = m[2].toLowerCase();
+    res.known++;
+  });
+  return res;
+}
+
+function ebaShCollTab() {
+  var s = ebaShState, cur = ebaCollGet(), sug = ebaCollSuggest();
+  var rank = { open: 0, ready: 1, active: 2, done: 3 };
+  var cnt = { open: 0, ready: 0, active: 0, done: 0 }, groups = { 1: [], 2: [], 3: [] }, total = 0;
+  $.each(antcat, function(name, c) {
+    cnt[cur[name] || "open"]++; total++;
+    groups[c].push(name);
+  });
+  var h = "<div class='sh-card sh-cl-top'><b class='sh-cl-prog'>" + cnt.done + " / " + total + " done</b>"
+    + " &middot; <span class='sh-cl-c active'>" + cnt.active + " active</span> &middot; <span class='sh-cl-c ready'>" + cnt.ready + " ready</span>"
+    + " &middot; <span class='sh-cl-c open'>" + cnt.open + " open</span>"
+    + "<div class='sh-bar'><span style='width:" + Math.round(100 * cnt.done / total) + "%'></span></div>"
+    + "<p class='sh-note'><span class='sh-cl-st st-open'>open</span> &ndash;(Ameise im Lager)&rarr; <span class='sh-cl-st st-ready'>ready</span> &ndash;(Kolonie aufgestellt)&rarr; "
+    + "<span class='sh-cl-st st-active'>active</span> &ndash;(Kolonie ausgewachsen)&rarr; <span class='sh-cl-st st-done'>&#10003; done</span>"
+    + "<br><span class='sh-cl-star'>*</span> " + ebaShE(ebaShCollHidTip) + " <span class='sh-tag shop'>Shop</span> im Shop kaufbar (nur bei nicht done). "
+    + "Klick auf den Status schaltet weiter; gestrichelte Vorschl&auml;ge aus Lager, Kolonien und Statistik werden erst mit einem Klick &uuml;bernommen. "
+    + "Gespeichert wird getrennt f&uuml;r " + (isSpeedServer() ? "den Speedserver" : "den Normalserver") + ".</p>"
+    + "<button type='button' class='sh-chip" + (s.cdone ? " on" : "") + "' data-f='cdone'>done ausblenden</button></div>";
+  $.each([1, 2, 3], function(i, c) {
+    var d = 0;
+    $.each(groups[c], function(j, n) { if (cur[n] === "done") { d++; } });
+    h += "<h4>" + ebaShCatNames[c] + " <small>(" + d + " / " + groups[c].length + ")</small></h4><div class='sh-cl-grid'>";
+    $.each(groups[c], function(j, n) {
+      var st = cur[n] || "open";
+      if (s.cdone && st === "done") { return; }
+      var sg = sug[n], hid = $.inArray(n, ebaShHidden) >= 0;
+      h += "<div class='sh-cl-row st-" + st + "' data-name='" + ebaShE(n) + "'>"
+        + "<button type='button' class='sh-cl-st st-" + st + "' title='" + ebaShE(ebaShCollTips[st]) + " - Klick: n&auml;chster Status'>" + (st === "done" ? "&#10003; " : "") + st + "</button> "
+        + "<span class='sh-cl-n'>" + ebaShE(n) + "</span>"
+        + (hid ? "<span class='sh-cl-star' title='" + ebaShE(ebaShCollHidTip) + "'>*</span>" : "")
+        + (shopPriceLimits[n] != null && st !== "done" ? " <span class='sh-tag shop'>Shop</span>" : "")
+        + (sg && rank[sg.st] > rank[st] ? " <button type='button' class='sh-cl-sug' data-st='" + sg.st + "' title='Vorschlag &uuml;bernehmen: " + ebaShE(ebaShCollTips[sg.st]) + "'>&rarr; " + sg.st + " (" + ebaShE(sg.why) + ")</button>" : "")
+        + "</div>";
+    });
+    h += "</div>";
+  });
+  h += "<h4>Liste einf&uuml;gen / ausgeben</h4><div class='sh-card'><p class='sh-note'>Format: <code>Art status; Art status; ...</code> (open, ready, active, done; Zus&auml;tze in Klammern und BBCode werden ignoriert, "
+    + "Zeilen mit <code>= &Uuml;berschrift =</code> und die Legende werden &uuml;bersprungen). Eingelesen werden nur die genannten Arten.</p>"
+    + "<textarea class='sh-cl-txt' rows='8' style='width:98%' placeholder='Liste hier einf&uuml;gen'>" + ebaShE(s.collTxt || "") + "</textarea><br>"
+    + "<button type='button' class='sh-chip sh-cl-imp'>Liste einlesen</button> <button type='button' class='sh-chip sh-cl-exp'>Als Text ausgeben (BBCode)</button> "
+    + "<span class='sh-cl-msg sh-note'>" + ebaShE(s.collMsg || "") + "</span></div>";
+  return h;
+}
+function ebaShCollRefresh(root) { root.find(".sh-body").html(ebaShCollTab()); }
+
 // ---- Rahmen -----------------------------------------------------------------
 
 var ebaShCss = "#shopitem.ebash{background:#0e2415;color:#e6f5ea;border:1px solid #3CAC56;border-radius:6px;padding:10px 12px;text-align:left;font-size:13px;line-height:1.35}"
@@ -7362,6 +7590,15 @@ var ebaShCss = "#shopitem.ebash{background:#0e2415;color:#e6f5ea;border:1px soli
   + ".ebash .sh-nname{fill:#fff;font-size:10.5px;font-weight:bold}.ebash .sh-nstat{fill:#9cc9a8;font-size:8.8px}"
   + ".ebash .sh-edge{fill:none;stroke-width:1.5;opacity:.75}.ebash .sh-edge.dash{stroke-dasharray:4 3}"
   + ".ebash .sh-elab{fill:#e6f5ea;font-size:9.5px}.ebash .sh-pill{fill:#0b1c11;stroke-width:1.3}.ebash .sh-bus{stroke:#3CAC56;opacity:.55}"
+  + ".ebash .sh-cl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:3px 10px}"
+  + ".ebash .sh-cl-row{display:flex;align-items:center;flex-wrap:wrap;gap:2px 6px;padding:2px 4px;border-radius:4px;border:1px solid transparent}.ebash .sh-cl-row.st-done .sh-cl-n{color:#9cc9a8}"
+  + ".ebash .sh-cl-st{min-width:64px;border-radius:10px;border:1px solid #2a6a3a;padding:1px 8px;cursor:pointer;font-size:12px;background:#0b1c11;color:#9cc9a8}"
+  + ".ebash .sh-cl-st.st-ready{background:#6b5200;color:#ffd75e;border-color:#c9a800}.ebash .sh-cl-st.st-active{background:#1c6a35;color:#b6f5c6;border-color:#3CAC56}"
+  + ".ebash .sh-cl-st.st-done{background:#3CAC56;color:#06200d;border-color:#3CAC56;font-weight:bold}"
+  + ".ebash .sh-cl-c.ready{color:#ffd75e}.ebash .sh-cl-c.active{color:#b6f5c6}.ebash .sh-cl-c.open{color:#9cc9a8}"
+  + ".ebash .sh-cl-star{color:#ffd75e;font-weight:bold;cursor:help}.ebash .sh-cl-sug{background:none;border:1px dashed #c9a800;border-radius:10px;color:#ffd75e;padding:0 7px;cursor:pointer;font-size:11px}"
+  + ".ebash textarea.sh-cl-txt{background:#0b1c11;color:#e6f5ea;border:1px solid #2a6a3a;border-radius:3px;font-size:12px}.ebash .sh-note .sh-cl-st{cursor:default;min-width:0}"
+  + ".ebash .sh-cl-top{margin-bottom:6px}.ebash .sh-cl-prog{font-size:15px;color:#fff}"
   + ".ebash .sh-imgtab td.ok{color:#8fe3a4}.ebash .sh-imgtab td.no{color:#ff8a7a}.ebash .sh-jid{font-size:10px;color:#6fae80;font-weight:normal}"
   + ""
   + "@media screen and (max-width:700px){.ebash .sh-grid,.ebash .sh-goals,.ebash .sh-jobs{grid-template-columns:1fr}.ebash .sh-body{overflow-x:auto}}";
@@ -7393,7 +7630,7 @@ function ebaShRender(tab) {
   $.each(ebaShTabs, function(i, t) { tabs += "<button type='button' data-t='" + t[0] + "'" + (s.tab === t[0] ? " class='on'" : "") + ">" + t[1] + "</button>"; });
   ebaShImgInit(); // nur Cache und feste Namen, keine Anfragen
   var body = { ameisen: ebaShAntsTab, shop: ebaShShopTab, wohn: ebaShWohnTab, baum: ebaShTreeTab, ziele: ebaShGoalsTab,
-               jobs: ebaShJobsTab, asw: ebaShAswTab, futter: ebaShFoodTab, info: ebaShInfoTab }[s.tab] || ebaShAntsTab;
+               jobs: ebaShJobsTab, asw: ebaShAswTab, futter: ebaShFoodTab, samm: ebaShCollTab, info: ebaShInfoTab }[s.tab] || ebaShAntsTab;
   root.html("<h3>openEBA: Spielhilfe</h3>"
     + "<div class='sh-banner'><b>Community-Daten, nicht vom Spielbetreiber.</b> Zusammengetragen von Spielern (Spielhilfe-Tabelle vorrangig, Lexikon-Auszug als Erg&auml;nzung), ohne Gew&auml;hr; Quellen unter <a href='#' class='sh-tolinfo'>Info</a>. "
     + "<label style='white-space:nowrap'><input type='checkbox' class='sh-speed'" + (ebaShSpeed() ? " checked" : "") + "> Speedserver-Werte</label></div>"
@@ -7421,6 +7658,29 @@ function ebaShBind(root) {
     card.css("outline", "2px solid #E8963C");
     window.setTimeout(function() { card.css("outline", ""); }, 1800);
   });
+  root.on("click", ".sh-cl-st", function() {
+    var n = $(this).closest(".sh-cl-row").attr("data-name"), cur = ebaCollGet()[n] || "open";
+    var ch = {}; ch[n] = EBA_COLL_STATES[($.inArray(cur, EBA_COLL_STATES) + 1) % EBA_COLL_STATES.length];
+    ebaCollSet(ch); ebaShCollRefresh(root);
+  });
+  root.on("click", ".sh-cl-sug", function() {
+    var ch = {}; ch[$(this).closest(".sh-cl-row").attr("data-name")] = $(this).attr("data-st");
+    ebaCollSet(ch); ebaShCollRefresh(root);
+  });
+  root.on("input", ".sh-cl-txt", function() { s.collTxt = $(this).val(); });
+  root.on("click", ".sh-cl-imp", function() {
+    var txt = root.find(".sh-cl-txt").val(), r = ebaCollParseList(txt), n = ebaCollSet(r.changes);
+    s.collMsg = r.known ? n + " von " + r.known + " erkannten Arten geändert" + (r.unknown ? ", " + r.unknown + " unbekannt" : "") + "."
+                        : "Keine Arten erkannt" + (r.unknown ? " (" + r.unknown + " unbekannt)" : "") + ".";
+    s.collTxt = txt;
+    ebaShCollRefresh(root);
+  });
+  root.on("click", ".sh-cl-exp", function() {
+    s.collTxt = ebaCollExport(); s.collMsg = "Ausgegeben - zum Kopieren ins Textfeld klicken.";
+    ebaShCollRefresh(root);
+    root.find(".sh-cl-txt").first().select();
+  });
+  root.on("click", ".sh-cl-txt", function() { if (/^\[center\]/.test(this.value)) { this.select(); } });
   root.on("click", ".sh-tolinfo", function(e) { e.preventDefault(); ebaShRender("info"); });
   root.on("change", ".sh-speed", function() { s.speed = this.checked; ebaShRender(); });
   root.on("click", ".sh-chip", function() {
