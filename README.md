@@ -46,6 +46,7 @@ Die Konfiguration steht auf der Statistik-Seite des Spiels unter *openEBA*. Die 
 - *Kleinanzeigen-Einträge trennen*: Optische Trennung der Zeilen.
 - *Preise im Shop wiederverwenden*: Merkt Preise für den nächsten Besuch.
 - *Ameisenshop-Preise immer zeigen* und *Ameisenshop-Preise färben*: Preise im Menü, eingefärbt nach Nähe zum Höchstpreis.
+- *Ankaufspreise des Ameisenshops festhalten und als Diagramme zeigen*: Hält die Preise von *Ameisenshop → Ankauf* je Tick fest (beim stündlichen Preisabruf der Menüanzeige und bei jedem Besuch der Seite, ohne zusätzliche Abrufe). Unter der Kurstabelle erscheint je Art ein Diagramm, zwei nebeneinander (auf dem Handy untereinander), darunter gemessenes Minimum, Maximum und Spanne, z.B. `min. 1,00 € · max. 5,00 € · Spanne: 4,00 €`; Zeitraum wählbar. Die Reihe wird wie die anderen Verläufe exportiert und per WebDAV abgeglichen.
 - *Alle Auswahllisten sortieren und zusammenfassen*: Alphabetisch sortiert, gleiche Einträge mit Anzahl.
 
 ### Draußen und Suchen

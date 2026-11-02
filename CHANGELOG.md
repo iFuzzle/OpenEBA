@@ -17,11 +17,7 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
 
 ## 33.38 (02.11.2026)
 
-- Spielhilfe: Der Weihnachtsmann-Job steht jetzt als eigene Karte im Reiter Jobs (nicht mehr im Futter-Reiter), mit Freischaltung über das Kostüm aus dem Adventskalender.
-- Spielhilfe: Neuer Reiter *Abzeichen* mit allen bekannten Abzeichen, nach Gruppen sortiert (Kolonien, Top 3 der Statistik, ASW, Sonstige).
-- Spielhilfe: Texte zur Quelle (Info, Banner, Option) überarbeitet.
-- Formicarium-Ansicht: Statt des grünen Hakens zeigt „höchstens nötig“ jetzt ein Symbol: ↑ = dein Formicarium/Nest ist zu klein, ⚠ = größer als nötig, ? = bei mehreren Königinnen unklar. Bei Temnothorax kürzerer Text; mit Haselnuss-Nest passt die Mini Arena.
-- Formicarium-Ansicht: Unter den Hungerleisten stehen jetzt auch die Links *Verlauf | CSV | Tabelle* (bei aktiver Formicarien-Statistik).
+- Ameisenshop-Ankauf: Neue Option. Die Ankaufspreise werden je Tick festgehalten (beim stündlichen Preisabruf der Menüanzeige und bei jedem Besuch von „Ankauf“, ohne zusätzliche Abrufe). Unter der Kurstabelle steht je Art ein Diagramm (zwei nebeneinander, auf dem Handy untereinander) mit gemessenem Minimum, Maximum und der Spanne, z.B. „min. 1,00 € · max. 5,00 € · Spanne: 4,00 €“. Die Werte werden wie die anderen Verläufe exportiert und per WebDAV abgeglichen.
 
 ## 33.37 (02.11.2026)
 
