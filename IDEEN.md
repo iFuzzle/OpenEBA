@@ -15,7 +15,7 @@ Zusätzlich zum bestehenden Schnee-Effekt (Option *Schnee*) jahreszeitliche Effe
 ## Release v34 (erledigt)
 
 - Bildersuche ist versteckt (nur per Konsole einblendbar, siehe README); Kandidatenliste leer.
-- Profil-Blättern (Links und Q/E) bleibt (Entscheidung des Nutzers); die Q/E-Option trägt noch den Zusatz „Entwickler-Werkzeug“, den ggf. streichen.
+- Profil-Blättern (Links und Q/E) bleibt (Entscheidung des Nutzers).
 
 ## Daten und Auswertungen
 

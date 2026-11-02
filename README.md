@@ -80,7 +80,7 @@ Die Konfiguration steht auf der Statistik-Seite des Spiels unter *openEBA*. Die 
 - *Am Ende des Countdowns einen Sound abspielen*
 - *Jobs/Forschungen mit Informationen anreichern*: Stundenlohn und Dauer; bei den Suchen die Endzeit in der Auswahl der Dauer. Die laufende Aktion (Startseite „Momentane Aktion“, Arbeitsamt, Forschung) zeigt ihre Endzeit, laufende Jobs zusätzlich den Stundenlohn.
 - *Forschungsstufe um 1 verringern*: Korrigiert die angezeigte Stufe.
-- *Auf Spielerprofilen zur vorherigen/nächsten ID blättern (Links)*: Links *vorherige ID* / *nächste ID* neben dem Spielernamen, ohne automatische Abrufe. Die Tasten Q / E für dasselbe sind eine eigene Option (Entwickler-Werkzeug).
+- *Auf Spielerprofilen zur vorherigen/nächsten ID blättern (Links)*: Links *vorherige ID* / *nächste ID* neben dem Spielernamen, ohne automatische Abrufe. Die Tasten Q / E für dasselbe sind eine eigene Option.
 - *Notizblock*: Lokaler Notizblock.
 - *Bookmarks einblenden*: Eigene Links im Navigationsmenü.
 - *GUI anpassen*: Breiten, kein Zeilenumbruch in den Kleinanzeigen, Meldungen im Kopf.

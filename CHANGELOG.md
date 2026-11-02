@@ -102,7 +102,7 @@ Release-Zusammenfassung der wichtigsten Neuerungen seit 33.0 (Einzelheiten in de
 ## 33.30 (01.11.2026)
 
 - Einstellungsseite: oben „openEBA Version X“, damit man im Spiel sieht, welche Version geladen ist.
-- Neue Option (Entwickler-Werkzeug): Auf Spielerprofilen mit Q / E zum vorherigen / nächsten Spieler blättern (ID −1 / +1), keine automatischen Abrufe.
+- Neue Option: Auf Spielerprofilen mit Q / E zum vorherigen / nächsten Spieler blättern (ID −1 / +1), keine automatischen Abrufe.
 - Bildersuche: bereits erfolglos geprüfte Namen entfernt (dokumentiert in `BILDERSUCHE_GEPRUEFT.md`), neue Kandidaten für die sieben unbekannten Forschungsbilder, neue Gruppe für Saisonbilder (Ostern, Halloween).
 - `IDEEN.md`: Abschnitt „Vor dem Release v34“ (Bildersuche entfernen) und Winter-Skin-Idee.
 
