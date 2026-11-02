@@ -15,6 +15,10 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
 
 > **Hinweis vor dem Update:** Mehrere Versionen (31.1, 31.7, 31.9) wandeln gespeicherte Daten beim ersten Start automatisch um. Empfehlung: vorher in der openEBA-Konfiguration die Daten über *Exportieren* sichern.
 
+## 33.38 (02.11.2026)
+
+- Ameisenshop-Ankauf: Neue Option. Die Ankaufspreise werden je Tick festgehalten (beim stündlichen Preisabruf der Menüanzeige und bei jedem Besuch von „Ankauf“, ohne zusätzliche Abrufe). Unter der Kurstabelle steht je Art ein Diagramm (zwei nebeneinander, auf dem Handy untereinander) mit gemessenem Minimum, Maximum und der Spanne, z.B. „min. 1,00 € · max. 5,00 € · Spanne: 4,00 €“. Die Werte werden wie die anderen Verläufe exportiert und per WebDAV abgeglichen.
+
 ## 33.37 (02.11.2026)
 
 - Formicarium-Ansicht: Unter „Formicarium wechseln“ und „Nest wechseln“ steht jetzt, welches Formicarium bzw. Nest die Art höchstens braucht (✓, wenn deins schon reicht). Neue Option, der Tooltip zeigt die Rechnung; bei Arten mit mehreren Königinnen zählt deine Königinnenzahl.

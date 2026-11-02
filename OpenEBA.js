@@ -8,7 +8,7 @@
 // @include        https://*.eatenbyants.de/*
 // @exclude        http://forum.eatenbyants.de/*
 // @exclude        https://forum.eatenbyants.de/*
-// @version        33.37
+// @version        33.38
 // @require        http://ajax.googleapis.com/ajax/libs/jquery/1/jquery.min.js
 // @grant          GM_getValue
 // @grant          GM_setValue
@@ -18,7 +18,7 @@
 // ==/UserScript==
 
 // Fallback für die angezeigte Skriptversion, falls GM_info fehlt (bei Versionserhöhung mit @version angleichen).
-const EBA_VERSION_FALLBACK = "33.37";
+const EBA_VERSION_FALLBACK = "33.38";
 function ebaScriptVersion() {
   try { if (typeof GM_info !== "undefined" && GM_info && GM_info.script && GM_info.script.version) { return String(GM_info.script.version); } } catch (e) { /* ignorieren */ }
   return EBA_VERSION_FALLBACK;
@@ -73,6 +73,7 @@ const configItems = {
   "eba_enable_profile_hotkeys"               : [ebaProfileHotkeys, "Profil-Bl&auml;ttern mit Q / E (Entwickler-Werkzeug)", "Auf Spielerprofilen mit Q / E zum vorherigen / n&auml;chsten Spieler (ID &minus;1 / +1) bl&auml;ttern. Nur Navigation per Tastendruck, es gibt keine automatischen Abrufe. Wirkt nicht in Eingabefeldern und nicht mit Strg/Alt/Meta."],
   "eba_enable_always_show_shop_prices"       : [alwaysShowShopPrices, "Ameisenshop-Preise immer zeigen", "Links neben dem Ameisenshop-Men&uuml;eintrag. Kann sein, dass nicht jeder Browser das richtig (verkleinert) darstellt."],
   "eba_enable_highlight_shop_prices"         : [highlightShopPrices, "Ameisenshop-Preise f&auml;rben", "Preise ab 95 % des H&ouml;chstpreises gelb, ab 98 % sanft rot, bei 100 % dunkelrot mit wei&szlig;er Schrift."],
+  "eba_enable_shop_price_history"            : [ebaShopPriceHistory, "Ankaufspreise des Ameisenshops festhalten und als Diagramme zeigen", "Die Ankaufspreise (<i>shop.php?cat=99</i>) werden je Tick einmal pro Art festgehalten: bei der st&uuml;ndlichen Preisabfrage der Men&uuml;anzeige und bei jedem Besuch der Seite. Es gibt keine zus&auml;tzlichen Abrufe. Unter der Kurstabelle erscheint je Art ein Diagramm (zwei nebeneinander, auf dem Handy untereinander) mit gemessenem Minimum, Maximum und der Spanne. Die Werte stammen aus den eigenen Messungen, nicht aus der Spielhilfe; sie werden wie die anderen Historien exportiert und per WebDAV abgeglichen."],
   "eba_enable_stat_beautify"                 : [statBeautify, "Statistik verbessern", "Einf&uuml;gen von 1.000er-Trennzeichen und Tooltips, die die Differenz zu den eigenen Punkten anzeigen. Das Avatar-Bild oben rechts bekommt als Tooltip die eigene Punkte-Entwicklung pro Stunde."],
   "eba_enable_process_jobs"                  : [processJobOffers, "Jobs/Forschungen mit Informationen anreichern", "Stundenlohn und Dauer (nach Abschluss der aktuellen Aktion) anzeigen und bei den Suchen die Endzeit in der Auswahl der Dauer. Die laufende Aktion (Internet-Startseite, Arbeitsamt, Forschung) bekommt ebenfalls die Endzeit, ein laufender Job zus&auml;tzlich den Stundenlohn (sobald die Jobdauer bekannt ist)."],
   "eba_enable_formi_statistic"               : [updateFormiStatistic, "Formicarien-Statistik", "Wird aktualisiert bei jedem Aufruf der Formicarien-&Uuml;bersicht. Aufzurufen dort mit dem Link <i>Statistik</i> bei jedem Formicarium. Optimiert zum Kopieren und Einf&uuml;gen in Excel und Co. Die Werte werden auch genutzt, um die Entwicklung von Eiern, Larven, Puppen, Ameisen und Punkten pro Stunde als jeweiligen Tooltip anzuzeigen."],
@@ -447,6 +448,7 @@ function alwaysShowShopPrices() {
         var regexp = /<table class=liste>(.*?)<\/table>/g;
         var rows = regexp.exec(response.responseText)[1];
         doInsert(rows);
+        try { ebaShopPriceRecord(response.responseText); } catch (err) { /* Erfassung darf die Anzeige nicht stören */ }
         GM_setValue(priceKey, ""+hours+"\n"+rows);
       }
     });
@@ -1375,9 +1377,10 @@ function ebaStockFields(cat, stock) {
 
 // Gibt es in dieser Reihe schon eine Zeile für den Tick? Die Reihe wird von hinten
 // durchsucht (nach dem Abgleich muss die letzte Zeile nicht die jüngste sein).
-function ebaStockHasTick(cat, tickMin) {
-  if (ebaRowDelHas(histKey("stock_" + cat), "" + tickMin)) { return true; } // gelöscht: nicht erneut schreiben
-  var saved = GM_getValue(histKey("stock_" + cat), "");
+function ebaStockHasTick(cat, tickMin) { return ebaSeriesHasTick("stock_" + cat, tickMin); }
+function ebaSeriesHasTick(name, tickMin) {
+  if (ebaRowDelHas(histKey(name), "" + tickMin)) { return true; } // gelöscht: nicht erneut schreiben
+  var saved = GM_getValue(histKey(name), "");
   if (!saved) { return false; }
   var ls = saved.split("\n");
   for (var i = ls.length - 1; i >= 1; i--) {
@@ -1414,7 +1417,7 @@ function mergeStockHistory(a, b) {
     for (var i = 0; i < ls.length; i++) {
       var l = ls[i];
       if (!l) { continue; }
-      if (/^\d+\tstock_[a-z]+(\t|$)/.test(l)) { head = head ? mergeHeadLine(head, l) : l; continue; }
+      if (/^\d+\t(stock_[a-z]+|shopprice)(\t|$)/.test(l)) { head = head ? mergeHeadLine(head, l) : l; continue; }
       var t = parseFloat(l);
       if (isNaN(t)) { continue; }
       var tab = l.indexOf("\t");
@@ -1471,6 +1474,162 @@ function ebaStockSeries(cat) {
     out.push(row);
   }
   return out;
+}
+
+// ---------------------------------------------------------------------------
+// Ankaufspreise des Ameisenshops (shop.php?cat=99)
+//
+// Eine Reihe je Server, Schlüssel histKey("shopprice"), Kopfzeile wie bei den
+// anderen eba_hist_*-Reihen (Format 2): 2<TAB>shopprice<TAB>cent<TAB><Ticklänge min>
+// Datenzeile, wie bei den Lager-Reihen (gleiche Merge-Funktion, Art "stock"):
+//   <Tick in Minuten seit Epoch>TAB Art=Cent TAB Art=Cent ...   (Art alphabetisch)
+// Eine Zeile je Tick mit ALLEN Arten: die Preise ändern sich nur zum Tick, und
+// eine vollständige Zeile je Tick lässt sich beim Verschmelzen eindeutig
+// auswählen; "nur bei Änderung" ließe offen, ob ein fehlender Tick unverändert
+// oder nicht gemessen war. Erfasst wird bei dem vorhandenen stündlichen Abruf der
+// Menüanzeige und bei jedem Besuch der Seite, nie durch einen eigenen Abruf.
+// Wird in den ersten Sekunden nach dem Tick gelesen (Preise evtl. noch alt), zählt
+// der Wert für den vorigen Tick.
+// ---------------------------------------------------------------------------
+
+// Preise aus der Kurstabelle lesen. Argument: Document, Element, jQuery-Objekt oder
+// HTML-Text. Rückgabe {order: [Art, ...], prices: {Art: Cent}} oder null.
+function ebaParseShopPrices(docOrHtml) {
+  var root;
+  try {
+    root = (typeof docOrHtml === "string")
+      ? $(new DOMParser().parseFromString(docOrHtml, "text/html"))
+      : $(docOrHtml);
+  } catch (err) { return null; }
+  var res = null;
+  root.filter("table.liste").add(root.find("table.liste")).each(function() {
+    if (res || $(this).parents("table.liste").length) { return; }
+    var order = [], prices = {}, bad = false;
+    $(this).find("tr").each(function() {
+      var tds = $(this).children("td");
+      if (tds.length < 2) { return; }
+      var name = $.trim(tds.eq(0).text().replace(/[\s ]+/g, " "));
+      var m = /^([\d.]+,\d{1,2})\s*€$/.exec($.trim(tds.eq(1).text().replace(/[\s ]+/g, " ")));
+      var v = m ? parseDeNumber(m[1]) : null;
+      if (!name || v === null) { bad = true; return; }
+      name = ebaStockName(name);
+      if (!prices.hasOwnProperty(name)) { order.push(name); }
+      prices[name] = Math.round(v * 100);
+    });
+    if (order.length && !bad) { res = { order: order, prices: prices }; }
+  });
+  return res;
+}
+
+// Preise (HTML-Text oder Document/Element) für den aktuellen Tick speichern, höchstens
+// eine Zeile je Tick. true, wenn geschrieben wurde.
+function ebaShopPriceRecord(docOrHtml) {
+  if (!GM_getValue("eba_enable_shop_price_history", false)) { return false; }
+  var parsed = ebaParseShopPrices(docOrHtml);
+  if (!parsed) { return false; }
+  var tk = getTickInfo();
+  var tickMin = (tk.done ? tk.nowTick : tk.nowTick - getTickMinutes() * 60000) / 60000;
+  if (ebaSeriesHasTick("shopprice", tickMin)) { return false; }
+  var names = parsed.order.slice().sort();
+  var f = $.map(names, function(n) { return n + "=" + parsed.prices[n]; }).join("\t");
+  var key = histKey("shopprice");
+  var saved = GM_getValue(key, "") || histHead("shopprice", "cent");
+  GM_setValue(key, compactHistory(saved + "\n" + tickMin + "\t" + f));
+  return true;
+}
+
+// Lesen: {Art: [[tMs, Cent], ...]} chronologisch aufsteigend
+function ebaShopPriceSeries() {
+  var out = {}, saved = GM_getValue(histKey("shopprice"), "");
+  if (typeof saved !== "string" || !saved) { return out; }
+  var ls = saved.split("\n"), rows = [];
+  for (var i = 1; i < ls.length; i++) {
+    var f = ls[i].split("\t"), t = parseFloat(f[0]);
+    if (isNaN(t)) { continue; }
+    rows.push([t * 60000, f]);
+  }
+  rows.sort(function(a, b) { return a[0] - b[0]; });
+  $.each(rows, function(i, r) {
+    for (var j = 1; j < r[1].length; j++) {
+      var p = r[1][j].lastIndexOf("=");
+      if (p < 1) { continue; }
+      var v = parseFloat(r[1][j].substr(p + 1));
+      if (isNaN(v)) { continue; }
+      var n = r[1][j].substr(0, p);
+      (out[n] || (out[n] = [])).push([r[0], v]);
+    }
+  });
+  return out;
+}
+
+// Kennzahlen einer Reihe [[t, Cent]]: {min, max, span (Cent), n}, null ohne Werte
+function ebaShopPriceStats(points) {
+  if (!points || !points.length) { return null; }
+  var mn = Infinity, mx = -Infinity;
+  $.each(points, function(i, p) { if (p[1] < mn) { mn = p[1]; } if (p[1] > mx) { mx = p[1]; } });
+  return { min: mn, max: mx, span: mx - mn, n: points.length };
+}
+function ebaShopEuro(cent) { return ebaFmtNum(cent / 100, 2) + " €"; }
+
+var EBA_SHOPPRICE_RANGE = "all";
+function ebaShopPriceRender(table) {
+  var ranges = [["24h", "24 Stunden", 86400000], ["7d", "7 Tage", 7 * 86400000],
+                ["30d", "30 Tage", 30 * 86400000], ["all", "Alles", 0]];
+  var span = 0, btns = "";
+  $.each(ranges, function(i, r) {
+    if (r[0] === EBA_SHOPPRICE_RANGE) { span = r[2]; }
+    btns += "<button type='button' class='eba_spr' data-range='" + r[0] + "'"
+      + (r[0] === EBA_SHOPPRICE_RANGE ? " disabled" : "") + ">" + r[1] + "</button> ";
+  });
+  var box = $("#eba_shopprice_box");
+  if (!box.length) { box = $("<div id='eba_shopprice_box' style='margin:12px 0;text-align:left'></div>"); table.after(box); }
+  box.empty().off("click");
+  box.append("<style>.eba_spg{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px}"
+    + ".eba_spg>div{min-width:0}.eba_spg svg{height:auto}"
+    + "@media (max-width:959px){.eba_spg{grid-template-columns:1fr}}</style>");
+  box.append("<b>Preisverlauf (eigene Messungen)</b><div style='margin:4px 0'>Zeitraum: " + btns + "</div>");
+  box.on("click", ".eba_spr", function() { EBA_SHOPPRICE_RANGE = $(this).attr("data-range"); ebaShopPriceRender(table); });
+  var parsed = ebaParseShopPrices(table);
+  var series = ebaShopPriceSeries();
+  var names = parsed ? parsed.order.slice() : [];
+  var since = span ? getServerNow() - span : 0;
+  var grid = $("<div class='eba_spg'></div>");
+  box.append(grid);
+  $.each(names, function(i, n) {
+    var pts = ebaSeriesSince(series[n] || [], since);
+    var cell = $("<div class='eba_spc'></div>");
+    cell.append($("<b></b>").text(n));
+    var holder = $("<div></div>");
+    cell.append(holder);
+    grid.append(cell);
+    var st = ebaShopPriceStats(pts);
+    if (!st) {
+      holder.text("Im gewählten Zeitraum noch keine Messwerte.");
+      return;
+    }
+    var eur = $.map(pts, function(p) { return [[p[0], p[1] / 100]]; });
+    var info = ebaDrawLineChart(holder, eur, { width: 336, height: 170, tooltip: true, unit: "€",
+      fmt: function(v) { return ebaFmtNum(v, 2); } });
+    if (!info) {
+      // ein einzelner Messwert: Punkt statt Linie
+      holder.append('<svg xmlns="http://www.w3.org/2000/svg" width="336" height="60" viewBox="0 0 336 60" '
+        + 'style="display:block;background:#0f2a17;border-radius:3px;max-width:100%"><circle cx="168" cy="30" r="4" fill="#3CAC56"/></svg>');
+      holder.append($("<div class='eba_spone' style='font-size:0.9em;color:#a8d5b3'></div>")
+        .text("noch zu wenige Messwerte (" + ebaFmtDate(pts[0][0]) + ")"));
+    }
+    cell.append($("<div class='eba_spstat' style='font-size:0.9em'></div>").text(
+      "min. " + ebaShopEuro(st.min) + " · max. " + ebaShopEuro(st.max) + " · Spanne: " + ebaShopEuro(st.span)));
+  });
+}
+
+// Option: auf shop.php?cat=99 erfassen und unter der Kurstabelle anzeigen. Die
+// Erfassung beim stündlichen Abruf der Menüanzeige hängt in alwaysShowShopPrices().
+function ebaShopPriceHistory() {
+  if (!/shop\.php$/.test(location.pathname) || !/(^|[?&])cat=99(&|$)/.test(location.search)) { return; }
+  var table = $("table.liste").filter(function() { return !!ebaParseShopPrices(this); }).first();
+  if (!table.length) { return; }
+  try { ebaShopPriceRecord(table); } catch (err) { /* Anzeige trotzdem versuchen */ }
+  ebaShopPriceRender(table);
 }
 
 // Zwischenspeicher für die Seitenleiste: "<Marke in Tick-Minuten>\n<JSON>".
@@ -2386,7 +2545,7 @@ function ebaRowDelLabel(key) {
   var rest = key.replace(/^eba_(hist|statistic|food)_(testspeed_|speed_|test_)?/, "");
   if (key.indexOf("eba_hist_") === 0) {
     var names = { money: "Geld", points: "Punkte", tickdur: "Ticklänge", foodsearch: "Futtersuchen", antsearch: "Ameisensuchen",
-      stock_food: "Lager Futter", stock_acc: "Lager Zubehör", stock_nest: "Lager Nester", stock_furn: "Lager Möbel", stock_ants: "Lager Ameisen" };
+      stock_food: "Lager Futter", stock_acc: "Lager Zubehör", stock_nest: "Lager Nester", stock_furn: "Lager Möbel", stock_ants: "Lager Ameisen", shopprice: "Ankaufspreise" };
     return names[rest] || rest;
   }
   if (/^\d+$/.test(rest)) { return (key.indexOf("eba_food_") === 0 ? "Futter " : "") + "Kolonie " + rest; }
@@ -4874,7 +5033,7 @@ function davKind(key) {
   if (key.indexOf("eba_statistic_") === 0) { return "formi"; }
   if (key.indexOf("eba_food_") === 0) { return "food"; }
   if (/_(foodsearch|antsearch)$/.test(key)) { return "search"; }
-  if (/^eba_hist_(speed_|test_|testspeed_)?stock_(food|acc|nest|furn|ants)$/.test(key)) { return "stock"; }
+  if (/^eba_hist_(speed_|test_|testspeed_)?(stock_(food|acc|nest|furn|ants)|shopprice)$/.test(key)) { return "stock"; }
   return "hist";
 }
 // Sammlung bereinigen: Zeilen mit unplausiblem Zeitstempel fliegen raus (Rückgabe kanonischer Text)
@@ -6476,7 +6635,8 @@ var EBA_ROWS_STATE = { sel: null, all: true, n: 30 };
 function ebaHistRowsSection(page, open, hs, rerender) {
   var defs = [["money", "Geld"], ["points", "Punkte"], ["tickdur", "Tickl\u00E4nge"], ["foodsearch", "Futtersuchen"],
     ["antsearch", "Ameisensuchen"], ["stock_food", "Lager Futter"], ["stock_acc", "Lager Zubeh\u00F6r"],
-    ["stock_nest", "Lager Nester"], ["stock_furn", "Lager M\u00F6bel"], ["stock_ants", "Lager Ameisen"]];
+    ["stock_nest", "Lager Nester"], ["stock_furn", "Lager M\u00F6bel"], ["stock_ants", "Lager Ameisen"],
+    ["shopprice", "Ankaufspreise"]];
   var avail = $.grep(defs, function(d) {
     var v = GM_getValue(histKey(d[0]), "");
     return typeof v === "string" && v.indexOf("\n") >= 0;
