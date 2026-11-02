@@ -7331,10 +7331,26 @@ function ebaShWohnTab() {
 var ebaShNodes = [
   ["allg", "Allgemeines\nüber Ameisen", ["research_allgemeinwissen.jpg"], "t", ["allg"]],
   ["einh", "Einheimische\nArten", ["research_ameisen_einheimisch.jpg"], "a", ["einh"]],
-  ["ausb", "Ausbruchschutz", [], "f", ["ausb"]],
+  ["ausb", "Ausbruchschutz", [
+    "research_escapeprevention.jpg", "research_ausbruchverhinderung.jpg", "research_ausbruch_verhindern.jpg",
+    "research_anti_ausbruch.jpg", "research_antiausbruch.jpg", "research_ausbruchschutzmittel.jpg",
+    "research_schutzmittel.jpg", "research_gleitmittel.jpg", "research_ausbruch_gleitmittel.jpg",
+    "research_teflon.jpg", "research_teflonbeschichtung.jpg", "research_fluonbeschichtung.jpg",
+    "research_fluonschutz.jpg", "research_barriere.jpg", "research_barriere2.jpg",
+    "research_ausbruchkante.jpg", "research_kante.jpg", "research_ausbruchsicherung2.jpg",
+    "research_Ausbruchschutz.jpg", "research_Ausbruch.jpg"
+  ], "f", ["ausb"]],
   ["futt", "Futtertiere", ["research_futter.jpg"], "f", ["futt"]],
   ["bonus", "Forschungs-\nbonus", ["research_forschungsbonus.jpg"], "b", ["bonus"]],
-  ["bio", "Biologie der\nAmeisen", [], "b", ["bio"]],
+  ["bio", "Biologie der\nAmeisen", [
+    "research_biologie3.jpg", "research_bio2.jpg", "research_bio_ameisen.jpg",
+    "research_ameisen_bio.jpg", "research_ameisenbio.jpg", "research_ameisenkunde.jpg",
+    "research_ameisenleben.jpg", "research_lebenszyklus.jpg", "research_entwicklung.jpg",
+    "research_larve.jpg", "research_puppe.jpg", "research_ei.jpg",
+    "research_insekt.jpg", "research_insekten.jpg", "research_biology_drawing.jpg",
+    "research_ant_body.jpg", "research_bio_anatomie.jpg", "research_anatomy2.jpg",
+    "research_Biologie.jpg"
+  ], "b", ["bio"]],
   ["hand", "Handwerkliches\nGeschick", ["research_werkzeug.jpg"], "h", ["hand"]],
   ["find", "Ameisen finden\nund bestimmen", ["research_ameisenfinden.jpg"], "a", ["find"]],
   ["jobs", "Jobver-\nbesserungen", [], "j", ["jk", "jv", "jf"]],
@@ -7344,8 +7360,25 @@ var ebaShNodes = [
   ["zucker", "Zuckerwasser\nselbst\nherstellen", ["research_sugarwater.jpg"], "f", ["zucker"]],
   ["poly", "Polygynie", ["research_polygyny.jpg"], "b", ["poly"]],
   ["wachs", "Ameisen-\nwachstum", ["research_wachstum.jpg"], "b", ["wachs"]],
-  ["form", "Formicarien-\nbau", [], "h", ["form"]],
-  ["nest", "Nestbau", [], "h", ["nest"]],
+  ["form", "Formicarien-\nbau", [
+    "research_formicarium_bauen.jpg", "research_formicariumbauen.jpg", "research_formikarium_bauen.jpg",
+    "research_formicarienbauanleitung.jpg", "research_formicarien_bauanleitung.jpg", "research_formicariumbauanleitung.jpg",
+    "research_formicarium_anleitung.jpg", "research_formicarium_einrichtung.jpg", "research_formicarium_setup.jpg",
+    "research_formicarium_glas.jpg", "research_formicarium_kammer.jpg", "research_bauplan.jpg",
+    "research_bauplan_formicarium.jpg", "research_formicariumbau2.jpg", "research_formicary2.jpg",
+    "research_acrylformicarium.jpg", "research_formicarium_acryl.jpg", "research_Formicarienbau.jpg",
+    "research_Formicarium.jpg"
+  ], "h", ["form"]],
+  ["nest", "Nestbau", [
+    "research_nestbau3.jpg", "research_nest_material.jpg", "research_nestbau_material2.jpg",
+    "research_nester3.jpg", "research_ameisenbau.jpg", "research_ameisenbau_nest.jpg",
+    "research_bau.jpg", "research_nesthoehle.jpg", "research_nest_kammer.jpg",
+    "research_nestkammer.jpg", "research_kammerbau.jpg", "research_gaenge.jpg",
+    "research_gaenge_bauen.jpg", "research_tunnel.jpg", "research_tunnelbau.jpg",
+    "research_bodennest.jpg", "research_nest_untergrund.jpg", "research_nestbau_erde.jpg",
+    "research_nest_beton.jpg", "research_zement.jpg", "research_kies.jpg",
+    "research_Nestbau.jpg", "research_Nest.jpg"
+  ], "h", ["nest"]],
   ["asw", "Ameisen-\nschutzwarte", ["research_asw.jpg"], "j", ["asw"]],
   ["exot", "Exotische\nArten", ["research_ameisen_exotisch.jpg"], "a", ["exot"]],
   ["blaetter", "Blätter-\nsammeln", ["research_blaetter.jpg"], "f", ["blaetter"]]
@@ -7353,11 +7386,34 @@ var ebaShNodes = [
 // Die drei Jobverbesserungen einzeln (nur Bildsuche, kein eigener Baumknoten): Kloputz-Ausrüstung (Pümpel),
 // Verhaltensforscher (Lehrbücher), Online-Fahrschule (Gabelstaplerschein).
 var ebaShImgExtra = [
-  ["jk", "Jobverbesserung:\nKloputz (Pümpel)", [], "j", []],
-  ["jv", "Jobverbesserung:\nVerhaltensforscher", [], "j", []],
+  ["jk", "Jobverbesserung:\nKloputz (Pümpel)", [
+    "research_kloputzer.jpg", "research_kloputzer2.jpg", "research_kloputzer_pumpel.jpg",
+    "research_puempel2.jpg", "research_pumpel2.jpg", "research_pumpelausruestung.jpg",
+    "research_puempel_ausruestung.jpg", "research_toilettenpumpe.jpg", "research_toilettenreiniger.jpg",
+    "research_wc2.jpg", "research_wc_pumpel.jpg", "research_wcbuerste.jpg",
+    "research_plunger2.jpg", "research_sauger.jpg", "research_gummisauger.jpg",
+    "research_toilettenbuerste.jpg", "research_toilet_plunger.jpg", "research_toilet_pumpel.jpg",
+    "research_Kloputz.jpg", "research_Pumpel.jpg"
+  ], "j", []],
+  ["jv", "Jobverbesserung:\nVerhaltensforscher", [
+    "research_verhaltensforscher2.jpg", "research_verhalten2.jpg", "research_lehrbuch2.jpg",
+    "research_lehrbuecher2.jpg", "research_buch.jpg", "research_buch_forschung.jpg",
+    "research_forschungsbuch.jpg", "research_studienbuch.jpg", "research_fachbuecher.jpg",
+    "research_notizen.jpg", "research_beobachtungen.jpg", "research_kamera.jpg",
+    "research_videokamera.jpg", "research_fernglas.jpg", "research_stoppuhr.jpg",
+    "research_labor.jpg", "research_ethologe.jpg", "research_Verhaltensforscher.jpg"
+  ], "j", []],
   ["jf", "Jobverbesserung:\nGabelstaplerschein", ["research_gabelstapler.jpg"], "j", []],
   // Weiteres Bild (nur Bildersuche): zweites Bild von Handwerkliches Geschick (Stufe 2); neue Kandidaten, siehe BILDERSUCHE_GEPRUEFT.md
-  ["ha2", "Handwerkliches Geschick:\nzweites Bild", [], "x", []]
+  ["ha2", "Handwerkliches Geschick:\nzweites Bild", [
+    "research_werkzeugb.jpg", "research_werkzeug_stufe_2.jpg", "research_stufe2.jpg",
+    "research_stufe_2.jpg", "research_hand2.jpg", "research_hand_2.jpg",
+    "research_craft2.jpg", "research_crafting2.jpg", "research_crafting_2.jpg",
+    "research_craft_2.jpg", "research_tools2.jpg", "research_tools_2.jpg",
+    "research_tool.jpg", "research_werkbank.jpg", "research_bohrmaschine.jpg",
+    "research_schraube.jpg", "research_leim.jpg", "research_schere.jpg",
+    "research_Werkzeug.jpg"
+  ], "x", []]
 ];
 // Raster von oben nach unten: id -> [Spalte, Zeile, eingerückt]. Zeile 0 = Zweige unter der Wurzel,
 // darunter hängen deren Folge-Forschungen (eingerückt, Ast links daneben) bzw. stehen bei Ketten direkt darunter;
