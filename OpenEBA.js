@@ -8,7 +8,7 @@
 // @include        https://*.eatenbyants.de/*
 // @exclude        http://forum.eatenbyants.de/*
 // @exclude        https://forum.eatenbyants.de/*
-// @version        34.2
+// @version        34.3
 // @require        http://ajax.googleapis.com/ajax/libs/jquery/1/jquery.min.js
 // @grant          GM_getValue
 // @grant          GM_setValue
@@ -18,7 +18,7 @@
 // ==/UserScript==
 
 // Fallback für die angezeigte Skriptversion, falls GM_info fehlt (bei Versionserhöhung mit @version angleichen).
-const EBA_VERSION_FALLBACK = "34.2";
+const EBA_VERSION_FALLBACK = "34.3";
 function ebaScriptVersion() {
   try { if (typeof GM_info !== "undefined" && GM_info && GM_info.script && GM_info.script.version) { return String(GM_info.script.version); } } catch (e) { /* ignorieren */ }
   return EBA_VERSION_FALLBACK;
@@ -7913,6 +7913,10 @@ function ebaShBadgesHtml() {
   var it = function(imgs, name, txt) {
     return "<li>" + img(imgs, name) + " <b>" + name + "</b>" + (txt ? " <span class='sh-small'>" + txt + "</span>" : "") + "</li>";
   };
+  // Profil-Symbole liegen direkt unter /img/
+  var sym = function(f, name, txt) {
+    return "<li>" + ebaShImg(["/img/" + f], "sh-abzimg", name) + " <b>" + name + "</b>" + (txt ? " <span class='sh-small'>" + txt + "</span>" : "") + "</li>";
+  };
   // Top 3 der Statistik: Gold, Silber, Bronze
   var top = function(name, g, s, b) { return it([g, s, b], name, ""); };
   var money = ["money_gold.png", "money_silver.png", "money_bronze.png"];
@@ -7946,6 +7950,10 @@ function ebaShBadgesHtml() {
     + it(["osterei.png"], "Ostereiersuche", "Platzierung bei den Events 2009&ndash;2013.")
     + it(["speed1.png", "speed2.png", "speed3.png", "speed4.png"], "Speedserver-Medaillen", "Teilnahme an Speedserver-Events, Stufen 1&ndash;4.")
     + it(["Sponsor_gold.png", "Sponsor_silver.png", "Sponsor_bronze.png"], "Sponsor", "Fr&uuml;here finanzielle Unterst&uuml;tzung des Spiels.")
+    + "</ul></div>"
+    + "<div class='sh-card'><h4>Profil-Symbole</h4><p class='sh-small'>Keine Abzeichen, sondern Symbole im Profil hinter dem Spielernamen.</p><ul class='sh-list sh-abzlist'>"
+    + sym("icon_gesperrt.png", "gesperrter Spieler", "")
+    + sym("icon_urlaub.png", "Urlaubsmodus", "Die Kolonien entwickeln sich in dieser Zeit nicht weiter.")
     + "</ul></div>";
 }
 function ebaShBadgeTab() { return ebaShBadgesHtml(); }
