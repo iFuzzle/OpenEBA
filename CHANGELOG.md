@@ -21,6 +21,7 @@ Release-Zusammenfassung der wichtigsten Neuerungen seit 33.0 (Einzelheiten in de
 
 - **Spielhilfe im Lexikon** mit allen Reitern (Ameisen, Vergleich, Wohnungen, Forschungsbaum, Ziele & Bonus, Jobs, ASW, Futter, Sammlung, Abzeichen, Info); Entwicklungszeiten (Ei/Larve/Puppe) für alle Arten ergänzt.
 - **Sammlung:** alle 35 Arten abhaken, Stati aus Profil und Lager einlesen, Export fürs Spielerprofil.
+- **Lexikon-Daten** für Ponera coarctata (monogyn statt polygyn), Anochetus ghilianii, Camponotus lateralis und Marsameise nach Spieldaten abgeglichen (Entwicklungszeiten ergänzt); Marsameise mit Hinweis auf Martialis heureka im Steckbrief.
 - **Verläufe für Lager und Kolonien** inklusive Punktezuwachs.
 - **Ankaufspreise** des Ameisenshops je Tick mit Minimum, Maximum und Spanne.
 - **Endzeiten und laufende Aktion** (z. B. Job mit Endzeit und Stundenlohn) in der Anzeige.
