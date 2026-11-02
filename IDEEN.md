@@ -12,9 +12,9 @@ Zusätzlich zum bestehenden Schnee-Effekt (Option *Schnee*) jahreszeitliche Effe
 - Die Dezember-Events kommen laut Community automatisch (2024 gab es einen Adventskalender im Spiel) – vor einem eigenen Winter-Skin erst abwarten, was das Spiel im Dezember selbst zeigt.
 - Weitere Jahreszeiten (Frühling, Sommer, Herbst, Ostern) als Ideen offen; Bilder dafür sind noch nicht bekannt (Ostern-Titelbilder nicht gefunden; Halloween gab es im Spiel nicht).
 
-## Vor dem Release v34
+## Release v34 (erledigt)
 
-- Bildersuche (Spielhilfe → Info) entfernen – reines Entwickler-Werkzeug (geprüfte Namen und die 136 offenen Kandidaten: `BILDERSUCHE_GEPRUEFT.md`, danach ggf. löschen).
+- Bildersuche ist versteckt (nur per Konsole einblendbar, siehe README); Kandidatenliste leer.
 - Profil-Blättern (Links und Q/E) bleibt (Entscheidung des Nutzers); die Q/E-Option trägt noch den Zusatz „Entwickler-Werkzeug“, den ggf. streichen.
 
 ## Daten und Auswertungen

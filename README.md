@@ -71,7 +71,7 @@ Die Konfiguration steht auf der Statistik-Seite des Spiels unter *openEBA*. Die 
   - *Ziele & Bonus*, *Jobs* (Karten mit Dauer, Lohn, Stundenlohn, Freischaltung; auch der Weihnachtsmann-Job), *ASW* (Aktionen der Ameisenschutzwarte mit Kosten und ASW-Punkten) und *Futter* (sortier- und filterbar, Shop-Packungen mit Preis pro g, Rubrik *Relikte* mit dem Osterei, Abschnitt *Frühere Events*).
   - *Sammlung*: alle 35 Arten zum Abhaken (open → ready → active → done) mit Fortschritt. *Alle Stati einlesen* liest Profil (ausgewachsene Kolonien) und Lager aus und zeigt eine Vorschau; übernommen wird per Klick, nichts wird herabgestuft. Export fürs Spielerprofil (BBCode). Getrennt je Server, in Export/Import und im WebDAV-Abgleich enthalten.
   - *Abzeichen*: bekannte Abzeichen nach Gruppen (Kolonien, Top 3 der Statistik, ASW, Sonstige).
-  - *Info*: Quellen und Hinweise. Die Bilder lädt das Skript vom Spielserver. Die Bildersuche dort ist ein Entwickler-Werkzeug und wird vor v34 entfernt.
+  - *Info*: Quellen und Hinweise. Die Bilder lädt das Skript vom Spielserver.
   - Ein Schalter zeigt die Werte des Speedservers.
 - *Spielhilfe überall zugänglich*: Link *openEBA: Spielhilfe* in der Seitenleiste jeder Seite, unter den Bookmarks (setzt die Spielhilfe im Lexikon voraus).
 
@@ -92,6 +92,7 @@ Die Konfiguration steht auf der Statistik-Seite des Spiels unter *openEBA*. Die 
 - *Exportieren* / *Importieren*: Sichert und überträgt die Daten als JSON.
 - *Kolonie umziehen / Historien zusammenführen*: Führt die Historie einer alten Spiel-ID mit der neuen zusammen.
 - *Falsche Einträge korrigieren* (versteckt): Einzelne Zeitzeilen löschen (🗑 im openEBA-Verlauf unter „Datentabellen“, in der Kolonie-Tabelle und bei älteren Suchergebnissen) und „↻ aktuellen Tick neu erfassen“ in der Formicarien-Übersicht. Normalerweise nicht nötig, daher ausgeblendet. Einblenden: auf eatenbyants.de die Browser-Konsole öffnen (F12 → Konsole) und `localStorage.setItem("eba_tickedit", "1")` eingeben, Seite neu laden. Ausblenden: `localStorage.removeItem("eba_tickedit")`. Die Einstellung gilt je Browser und Server (normal/speed getrennt). Gelöschte Zeilen bleiben gelöscht, auch per WebDAV auf den anderen Geräten.
+- *Bildersuche* (Entwickler-Werkzeug, versteckt): einblenden mit `localStorage.setItem("eba_bildersuche", "1")` (Spielhilfe → Info), ausblenden mit `localStorage.removeItem("eba_bildersuche")`.
 
 ## Daten und Datenschutz
 

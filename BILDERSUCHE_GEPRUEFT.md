@@ -32,7 +32,7 @@ Weitere bestätigte Bilder (nicht Forschung):
 - `/img/awards/speed1.png`, `speed2.png`, `speed3.png`, `speed4.png` (Medaillen für Teilnahmen an Speedserver-Events; Stufen 1–4 bekannt, weitere nicht gefunden)
 - Weitere in der Spielhilfe (Reiter Abzeichen) verwendete Abzeichen: `award_star_gold_1.png`, `award_star_bronze_3.png`, `house_gold.png`, `house_schloss.png`, `house_schuppen.png`, `house_silver.png`, `house_bronze.png`, `award_asw_gold.png`, `award_asw_silver.png`, `award_asw_bronze.png`, `award_aswmonhtly_gold.png`, `award_aswmonhtly_silver.png`, `award_aswmonhtly_bronze.png` (Tippfehler „monhtly“ im Spiel), `marsameise.png`, `forklift.png`, `osterei.png`
 - Abzeichen (Reiter Abzeichen), alle unter `/img/awards/`, bestätigt: `award_star_gold_3.png`, `award_star_silver_3.png` (Größenrekord Platz 1–3 mit `award_star_bronze_3.png`); Top 3 der Statistik: `Pizza_gold_icon.png`, `Pizza_silber_icon.png`, `Pizza_bronze_icon.png`, `toliette_gold_icon.png`, `toliette_silber_icon.png`, `toliette_bronze_icon.png`, `1_palette_gold_icon.png`, `2_palette_silber_icon.png`, `3_palette_bronze_icon.png`, `1_mikroskop_gold_icon.png`, `2_mikroskop_silber_icon.png`, `3_mikroskop_bronze_icon.png`, `flasche_gold.png`, `flasche_silver.png`, `flasche_bronze.png`, `money_gold.png`, `money_silver.png`, `money_bronze.png`, `ameisen_gold_icon.png`, `ameisen_silber_icon.png`, `ameisen_bronze_icon.png`, `bug_gold.png`, `bug_silver.png`, `bug_bronze.png`, `blatt_gold.png`, `blatt_silver.png`, `blatt_bronze.png`, `samen_gold.png`, `samen_silver.png`, `samen_bronze.png` (Schreibweise „toliette“ im Spiel)
-- Jobbilder: `/img/tasks/job_verhaltensforscher.jpg`, `/img/tasks/job_weihnachtsmann.jpg`
+- Jobbilder: `/img/tasks/job_verhaltensforscher.jpg`, `/img/tasks/job_weihnachtsmann.jpg`, `/img/tasks/job_asw.jpg` (Ameisenschutzwarte sucht Freiwillige)
 
 ## Geprüft, nicht gefunden
 
@@ -363,14 +363,7 @@ Alle 136 Kandidaten (ausb, bio, form, nest, ha2, jk, jv; alle `.jpg` unter `/img
 
 ## Offene Kandidaten
 
-Noch nicht geprüft (6 Namen, alle `.jpg` unter `/img/tasks/`; Bildersuche unter *Info → Bildersuche*). Betrifft nur das Jobbild „Ameisenschutzwarte sucht Freiwillige“ (Knoten `jasw`; Screenshot zeigt einen Waldameisenhügel, Dateiname unbekannt). Nach dem Lauf das Ergebnis hier eintragen bzw. nach „Geprüft, nicht gefunden“ verschieben.
-
-- `job_asw.jpg`
-- `job_ameisenschutzwarte.jpg`
-- `job_waldameisen.jpg`
-- `job_huegel.jpg`
-- `job_umsiedeln.jpg`
-- `job_freiwillige.jpg`
+Keine. Das Jobbild „Ameisenschutzwarte sucht Freiwillige“ ist bestätigt (`job_asw.jpg`); die übrigen fünf Kandidaten (`job_ameisenschutzwarte.jpg`, `job_waldameisen.jpg`, `job_huegel.jpg`, `job_umsiedeln.jpg`, `job_freiwillige.jpg`) wurden nicht geprüft und sind nicht mehr nötig.
 
 ## Ameisen-Stufenbilder
 

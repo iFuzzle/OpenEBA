@@ -15,6 +15,20 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
 
 > **Hinweis vor dem Update:** Mehrere Versionen (31.1, 31.7, 31.9) wandeln gespeicherte Daten beim ersten Start automatisch um. Empfehlung: vorher in der openEBA-Konfiguration die Daten über *Exportieren* sichern.
 
+## 34.0 (02.11.2026)
+
+Release-Zusammenfassung der wichtigsten Neuerungen seit 33.0 (Einzelheiten in den Abschnitten darunter):
+
+- **Spielhilfe im Lexikon** mit allen Reitern (Ameisen, Vergleich, Wohnungen, Forschungsbaum, Ziele & Bonus, Jobs, ASW, Futter, Sammlung, Abzeichen, Info); Entwicklungszeiten (Ei/Larve/Puppe) für alle Arten ergänzt.
+- **Sammlung:** alle 35 Arten abhaken, Stati aus Profil und Lager einlesen, Export fürs Spielerprofil.
+- **Verläufe für Lager und Kolonien** inklusive Punktezuwachs.
+- **Ankaufspreise** des Ameisenshops je Tick mit Minimum, Maximum und Spanne.
+- **Endzeiten und laufende Aktion** (z. B. Job mit Endzeit und Stundenlohn) in der Anzeige.
+- **Serverzeit und Zeitzonen:** Zeitangaben richten sich nach der Serverzeit des Spiels.
+- **Vier Server getrennt** (normal, speed, test, testspeed).
+- **WebDAV-Erweiterungen:** Zwei-Wege-Abgleich, vergessene Reihen und weitere Schutzmaßnahmen.
+- Job *Ameisenschutzwarte sucht Freiwillige* zeigt sein Bild; die Bildersuche ist ein verstecktes Entwickler-Werkzeug (Einblenden siehe README).
+
 ## 33.42 (02.11.2026)
 
 - **Jobs:** Neuer Job *Ameisenschutzwarte sucht Freiwillige* (6 h, 5,00 €) im Reiter Jobs; die Anzeige der laufenden Aktion kennt ihn (Endzeit, Stundenlohn).
