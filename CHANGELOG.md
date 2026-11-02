@@ -15,6 +15,106 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
 
 > **Hinweis vor dem Update:** Mehrere Versionen (31.1, 31.7, 31.9) wandeln gespeicherte Daten beim ersten Start automatisch um. Empfehlung: vorher in der openEBA-Konfiguration die Daten über *Exportieren* sichern.
 
+## 34.0 (02.11.2026)
+
+Release-Zusammenfassung der wichtigsten Neuerungen seit 33.0 (Einzelheiten in den Abschnitten darunter):
+
+- **Spielhilfe im Lexikon** mit allen Reitern (Ameisen, Vergleich, Wohnungen, Forschungsbaum, Ziele & Bonus, Jobs, ASW, Futter, Sammlung, Abzeichen, Info); Entwicklungszeiten (Ei/Larve/Puppe) für alle Arten ergänzt.
+- **Sammlung:** alle 35 Arten abhaken, Stati aus Profil und Lager einlesen, Export fürs Spielerprofil.
+- **Verläufe für Lager und Kolonien** inklusive Punktezuwachs.
+- **Ankaufspreise** des Ameisenshops je Tick mit Minimum, Maximum und Spanne.
+- **Endzeiten und laufende Aktion** (z. B. Job mit Endzeit und Stundenlohn) in der Anzeige.
+- **Serverzeit und Zeitzonen:** Zeitangaben richten sich nach der Serverzeit des Spiels.
+- **Vier Server getrennt** (normal, speed, test, testspeed).
+- **WebDAV-Erweiterungen:** Zwei-Wege-Abgleich, vergessene Reihen und weitere Schutzmaßnahmen.
+- Job *Ameisenschutzwarte sucht Freiwillige* zeigt sein Bild; die Bildersuche ist ein verstecktes Entwickler-Werkzeug (Einblenden siehe README).
+
+## 33.42 (02.11.2026)
+
+- **Jobs:** Neuer Job *Ameisenschutzwarte sucht Freiwillige* (6 h, 5,00 €) im Reiter Jobs; die Anzeige der laufenden Aktion kennt ihn (Endzeit, Stundenlohn).
+- **Abzeichen:** Sponsor jetzt mit Gold, Silber und Bronze.
+- **Bildersuche:** Die 136 bisherigen Kandidaten waren alle nicht vorhanden und sind entfernt; neu nur wenige Kandidaten für das Jobbild der Ameisenschutzwarte.
+
+## 33.41 (02.11.2026)
+
+- Korrektur: Das Änderungsprotokoll ordnet die Einträge 33.38 bis 33.40 wieder den richtigen Versionen zu.
+
+## 33.40 (02.11.2026)
+
+- Ameisenshop-Ankauf: Neue Option. Die Ankaufspreise werden je Tick festgehalten (beim stündlichen Preisabruf der Menüanzeige und bei jedem Besuch von „Ankauf“, ohne zusätzliche Abrufe). Unter der Kurstabelle steht je Art ein Diagramm (zwei nebeneinander, auf dem Handy untereinander) mit gemessenem Minimum, Maximum und der Spanne, z.B. „min. 1,00 € · max. 5,00 € · Spanne: 4,00 €“. Die Werte werden wie die anderen Verläufe exportiert und per WebDAV abgeglichen.
+- Korrektur: beim Zusammenführen kurzzeitig verlorene Änderungen aus 33.38 wiederhergestellt.
+
+## 33.39 (02.11.2026)
+
+- Bildersuche (Entwickler-Werkzeug unter Spielhilfe → Info): 136 neue Dateinamen-Kandidaten für Ausbruchschutz, Biologie, Formicarienbau, Nestbau, zweites Bild Handwerkliches Geschick und die Jobverbesserungen Kloputz/Verhaltensforscher; der Prüf-Button ist wieder da, mit kurzer Pause zwischen den Anfragen.
+
+## 33.38 (02.11.2026)
+
+- Spielhilfe: Der Weihnachtsmann-Job steht jetzt als eigene Karte im Reiter Jobs (nicht mehr im Futter-Reiter), mit Freischaltung über das Kostüm aus dem Adventskalender.
+- Spielhilfe: Neuer Reiter *Abzeichen* mit allen bekannten Abzeichen, nach Gruppen sortiert (Kolonien, Top 3 der Statistik, ASW, Sonstige).
+- Spielhilfe: Texte zur Quelle (Info, Banner, Option) überarbeitet.
+- Formicarium-Ansicht: Statt des grünen Hakens zeigt „höchstens nötig“ jetzt ein Symbol: ↑ = dein Formicarium/Nest ist zu klein, ⚠ = größer als nötig, ? = bei mehreren Königinnen unklar. Bei Temnothorax kürzerer Text; mit Haselnuss-Nest passt die Mini Arena.
+- Formicarium-Ansicht: Unter den Hungerleisten stehen jetzt auch die Links *Verlauf | CSV | Tabelle* (bei aktiver Formicarien-Statistik).
+
+## 33.37 (02.11.2026)
+
+- Formicarium-Ansicht: Unter „Formicarium wechseln“ und „Nest wechseln“ steht jetzt, welches Formicarium bzw. Nest die Art höchstens braucht (✓, wenn deins schon reicht). Neue Option, der Tooltip zeigt die Rechnung; bei Arten mit mehreren Königinnen zählt deine Königinnenzahl.
+
+## 33.36 (02.11.2026)
+
+- Jobs: Der Job „Verhaltensforscher für Studie gesucht“ zeigt jetzt sein Bild.
+- Spielhilfe: Beim Weihnachtsmann-Job unter „Frühere Events“ steht jetzt das Bild dazu.
+- Info → Abzeichen: Platz 1–3 der ASW-Statistik (gesamt und letzter Monat) mit allen drei Bildern; beim Auszug werden alle Wohnungs-Abzeichen gezeigt.
+- Info → Bildersuche: zeigt nur noch die Liste, welche Forschungsbilder gefunden bzw. nicht gefunden wurden.
+
+## 33.35 (02.11.2026)
+
+- Spielerprofile: neue Option mit Links „← vorherige ID“ / „nächste ID →“ neben dem Spielernamen; die Option für die Tasten Q/E steuert nur noch die Tasten (dann mit „(Q)/(E)“ beschriftet).
+- Spielhilfe, Jobs: „Aushilfskraft zum Regale einräumen gesucht“ vollständig – Stufe 1 8 h / 15 €, mit Gabelstaplerschein 8 h / 20 €.
+- Spielhilfe, Abzeichen: ASW-Statistik (Platz 3, letzter Monat Platz 2), Marsameise, Auszug-Abzeichen je nach Wohnung.
+- Bildersuche (Entwickler-Werkzeug): Varianten der ASW- und Wohnungs-Abzeichen.
+
+## 33.34 (02.11.2026)
+
+- Spielhilfe, Info: Abzeichen ans Ende verschoben, eingeklappt und in Originalgröße (16×16); Speedserver-Medaillen 1–4. Danksagung an seupai8969 (Peppers Skript nach dem Serverumzug wieder lauffähig gemacht).
+- Spielhilfe, Jobs: Werbeplakate „je 40 Klicks auf die Werbebanner ein Job“; der 12-h-Job heißt „Verhaltensforscher für Studie gesucht“ (wird auch bei der laufenden Aktion erkannt).
+- Spielhilfe, Futter: Abschnitt „Frühere Events“ (Ostern 2009–2013, Weihnachtsaktion mit Weihnachtsmann-Job).
+- Spielhilfe, Ameisen: alle Stufenbild-Listen vollständig (Scan abgeschlossen, Stufen-Scan entfernt).
+- Bildersuche (Entwickler-Werkzeug): neue Kandidaten für Ausbruchschutz, Biologie, Formicarien-/Nestbau, Handwerk Stufe 2 und die Bilder des Verhaltensforscher- und Weihnachtsmann-Jobs.
+
+## 33.33 (01.11.2026)
+
+- Spielhilfe, Futter: neue Rubrik „Relikte“ mit dem Osterei (nur während der Oster-Events 2009–2013 sammelbar, heute nur noch über Verkauf).
+- Spielhilfe, Info: neuer Abschnitt „Abzeichen“ (ausgewachsene Kolonie, Größenrekord, Auszug bei den Eltern, Gabelstaplerschein, Ostereiersuche, Sponsor, Speedserver-Medaillen).
+- Bildersuche (Entwickler-Werkzeug): neue Gruppen „Marsameise“ (wissenschaftlicher Name) und „Abzeichen“ (Speedserver-Medaillen).
+
+## 33.32 (01.11.2026)
+
+- Vier Server getrennt: Normal (`www.`/ohne www), Speed (`speed.`), Testserver Normal (`test.`) und Testserver Speed (`testspeed.`). Jeder Server hat eigene Daten, eigene WebDAV-Dateien und einen eigenen Index; Testserver Speed rechnet wie Speed (12-Minuten-Tick). Bestehende Daten von Normal und Speed bleiben unverändert. Andere Subdomains (z. B. Forum) bleiben ausgeschlossen.
+- Spielhilfe, Ameisen: Bildlisten aller 35 Arten fest eingetragen (Ergebnis des Stufen-Scans); der Steckbrief lädt nur noch bestätigte Bilder, keine Fehlanfragen (404) mehr. „Allgemeines über Ameisen“ hat sein Bild (`research_allgemeinwissen.jpg`).
+- Bildersuche (Entwickler-Werkzeug): Stufen-Scan prüft nur noch Unbekanntes, nacheinander mit kurzen Pausen; Halloween-Suche entfernt.
+- Spielhilfe, Jobs: Pizza „Je 12* aktive Spieler pro Tick …“ und Werbeplakate „ca. 10* Abstimmungen“ mit Hinweis im openEBA-Stil, Spieltexte entfernt.
+
+## 33.31 (01.11.2026)
+
+- Bildersuche (Entwickler-Werkzeug): zweiter Button „Ameisen-Stufenbilder prüfen“ – prüft für alle 35 Arten die Bilder Stufe 0–15 und `_shop` (ca. 595 Anfragen, nur per Klick, abbrechbar) und liefert eine Liste zum Kopieren.
+
+## 33.30 (01.11.2026)
+
+- Einstellungsseite: oben „openEBA Version X“, damit man im Spiel sieht, welche Version geladen ist.
+- Neue Option: Auf Spielerprofilen mit Q / E zum vorherigen / nächsten Spieler blättern (ID −1 / +1), keine automatischen Abrufe.
+- Bildersuche: bereits erfolglos geprüfte Namen entfernt (dokumentiert in `BILDERSUCHE_GEPRUEFT.md`), neue Kandidaten für die sieben unbekannten Forschungsbilder, neue Gruppe für Saisonbilder (Ostern, Halloween).
+- `IDEEN.md`: Abschnitt „Vor dem Release v34“ (Bildersuche entfernen) und Winter-Skin-Idee.
+
+## 33.29 (01.11.2026)
+
+- Spielhilfe: Pheidologeton diversus zeigt das größte vorhandene Bild (`Pheidologeton_diversus2.jpg`).
+- Neue Datei `IDEEN.md` mit Vormerkungen für spätere Versionen (u. a. Saison-Effekte mit den Winter-Titelbildern des Spiels).
+
+## 33.28 (01.11.2026)
+
+- Spielhilfe, Ameisen: bestätigte Bilder je Wachstumsstufe (Lasius niger, L. flavus, Formica fusca, Myrmica rubra, Camponotus herculeanus, C. ligniperda, Temnothorax nylanderi mit Haselnuss, Pheidole pallidula). Das Hauptbild zeigt die ausgewachsene Kolonie; unter Details eine Galerie „Bilder je Wachstumsstufe“, die erst beim Aufklappen lädt. Quelle: Spielerprofil mit gesammelten Bildpfaden.
+
 ## 33.27 (01.11.2026)
 
 - Jobs/Forschungen anreichern: auch die laufende Aktion bekommt die Endzeit („[Endet Montag, 05:50]“) – auf der Internet-Startseite („Momentane Aktion“), im Arbeitsamt und in der Forschung. Laufende Jobs zeigen zusätzlich den Stundenlohn (feste Jobdauern, Speedserver ÷5). Wunsch aus der Community.
