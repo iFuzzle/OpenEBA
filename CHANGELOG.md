@@ -17,6 +17,7 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
 
 ## 34.1 (02.11.2026)
 
+- **Lexikon:** Daten der versteckten und seltenen Arten ergänzt bzw. korrigiert: Ponera coarctata (jetzt monogyn statt polygyn), Anochetus ghilianii, Camponotus lateralis und Marsameise haben nun Entwicklungszeiten für Ei, Larve und Puppe. Der Marsameise-Steckbrief enthält einen Hinweis auf Martialis heureka.
 - **Lexikon:** Camponotus sericeus mit Entwicklungszeiten (Ei/Larve/Puppe 15/30/16 h) aus den Spieldaten ergänzt.
 
 ## 34.0 (02.11.2026)
@@ -25,7 +26,6 @@ Release-Zusammenfassung der wichtigsten Neuerungen seit 33.0 (Einzelheiten in de
 
 - **Spielhilfe im Lexikon** mit allen Reitern (Ameisen, Vergleich, Wohnungen, Forschungsbaum, Ziele & Bonus, Jobs, ASW, Futter, Sammlung, Abzeichen, Info); Entwicklungszeiten (Ei/Larve/Puppe) für alle Arten ergänzt.
 - **Sammlung:** alle 35 Arten abhaken, Stati aus Profil und Lager einlesen, Export fürs Spielerprofil.
-- **Lexikon-Daten** für Ponera coarctata (monogyn statt polygyn), Anochetus ghilianii, Camponotus lateralis und Marsameise nach Spieldaten abgeglichen (Entwicklungszeiten ergänzt); Marsameise mit Hinweis auf Martialis heureka im Steckbrief.
 - **Verläufe für Lager und Kolonien** inklusive Punktezuwachs.
 - **Ankaufspreise** des Ameisenshops je Tick mit Minimum, Maximum und Spanne.
 - **Endzeiten und laufende Aktion** (z. B. Job mit Endzeit und Stundenlohn) in der Anzeige.
