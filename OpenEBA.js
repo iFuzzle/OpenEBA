@@ -7329,10 +7329,10 @@ function ebaShWohnTab() {
 var ebaShNodes = [
   ["allg", "Allgemeines\nüber Ameisen", ["research_allgemeinwissen.jpg"], "t", ["allg"]],
   ["einh", "Einheimische\nArten", ["research_ameisen_einheimisch.jpg"], "a", ["einh"]],
-  ["ausb", "Ausbruchschutz", ["research_ausbruch_talkum.jpg", "research_talkumpulver.jpg", "research_pulverflasche.jpg", "research_fluonpulver.jpg", "research_ausbruchschutz_pulver.jpg", "research_antirutsch.jpg", "research_ausbruchhemmer.jpg", "research_talkumflasche.jpg", "research_pulverschutz.jpg", "research_schutzpulver.jpg", "research_anti_escape.jpg", "research_flaeschchen.jpg", "research_talcum.jpg", "research_talc.jpg", "research_ausbruch_pulver.jpg", "research_schutzpuder.jpg", "research_ausbruchsperre.jpg", "research_talkum_flasche.jpg", "research_pulver_schutz.jpg"], "f", ["ausb"]],
+  ["ausb", "Ausbruchschutz", [], "f", ["ausb"]],
   ["futt", "Futtertiere", ["research_futter.jpg"], "f", ["futt"]],
   ["bonus", "Forschungs-\nbonus", ["research_forschungsbonus.jpg"], "b", ["bonus"]],
-  ["bio", "Biologie der\nAmeisen", ["research_anatomie_ameise.jpg", "research_ameise_anatomie.jpg", "research_anatomische_zeichnung.jpg", "research_ameisenanatomie.jpg", "research_ant_anatomie.jpg", "research_koerperteile.jpg", "research_morphologie.jpg", "research_morphology.jpg", "research_ameisenkoerper.jpg", "research_ameisen_anatomie.jpg", "research_skizze.jpg", "research_zeichnung_ameise.jpg", "research_ameisenaufbau.jpg", "research_insektenanatomie.jpg", "research_ant_morphology.jpg", "research_schema.jpg", "research_drawing.jpg", "research_aufbau_ameise.jpg"], "b", ["bio"]],
+  ["bio", "Biologie der\nAmeisen", [], "b", ["bio"]],
   ["hand", "Handwerkliches\nGeschick", ["research_werkzeug.jpg"], "h", ["hand"]],
   ["find", "Ameisen finden\nund bestimmen", ["research_ameisenfinden.jpg"], "a", ["find"]],
   ["jobs", "Jobver-\nbesserungen", [], "j", ["jk", "jv", "jf"]],
@@ -7342,8 +7342,8 @@ var ebaShNodes = [
   ["zucker", "Zuckerwasser\nselbst\nherstellen", ["research_sugarwater.jpg"], "f", ["zucker"]],
   ["poly", "Polygynie", ["research_polygyny.jpg"], "b", ["poly"]],
   ["wachs", "Ameisen-\nwachstum", ["research_wachstum.jpg"], "b", ["wachs"]],
-  ["form", "Formicarien-\nbau", ["research_formicarium2.jpg", "research_formicarienbau_bild.jpg", "research_formikarium_bau.jpg", "research_formicarienaufbau.jpg", "research_formicariumaufbau.jpg", "research_formicarienbauen.jpg", "research_formicarienbau_anleitung.jpg", "research_formikarienaufbau.jpg", "research_formicaria_bau.jpg", "research_anleitung.jpg", "research_bauanleitung.jpg", "research_formicarium_aufbau.jpg", "research_formicary_construction.jpg", "research_formicarium_construction.jpg", "research_formicarienbau.png", "research_formicarium_bau.png"], "h", ["form"]],
-  ["nest", "Nestbau", ["research_nestbau_ameisen.jpg", "research_nest_bau_ameisen.jpg", "research_nestbau_bild.jpg", "research_nestaufbau.jpg", "research_nest_aufbau.jpg", "research_nestbau_material.jpg", "research_nestmaterial.jpg", "research_kammer.jpg", "research_kammern.jpg", "research_nestbauten.jpg", "research_nest_kammern.jpg", "research_nest_construction.jpg", "research_nestconstruction.jpg", "research_nester2.jpg", "research_bauen_nest.jpg", "research_nestbau_ytong.jpg", "research_nest_gasbeton.jpg"], "h", ["nest"]],
+  ["form", "Formicarien-\nbau", [], "h", ["form"]],
+  ["nest", "Nestbau", [], "h", ["nest"]],
   ["asw", "Ameisen-\nschutzwarte", ["research_asw.jpg"], "j", ["asw"]],
   ["exot", "Exotische\nArten", ["research_ameisen_exotisch.jpg"], "a", ["exot"]],
   ["blaetter", "Blätter-\nsammeln", ["research_blaetter.jpg"], "f", ["blaetter"]]
@@ -7351,11 +7351,13 @@ var ebaShNodes = [
 // Die drei Jobverbesserungen einzeln (nur Bildsuche, kein eigener Baumknoten): Kloputz-Ausrüstung (Pümpel),
 // Verhaltensforscher (Lehrbücher), Online-Fahrschule (Gabelstaplerschein).
 var ebaShImgExtra = [
-  ["jk", "Jobverbesserung:\nKloputz (Pümpel)", ["research_poempel.jpg", "research_pompel.jpg", "research_p%C3%B6mpel.jpg", "research_poempel.png", "research_klo_poempel.jpg", "research_poempel_kaufen.jpg", "research_pumpel_ausruestung.jpg", "research_kloputzausruestung.jpg", "research_klo_ausruestung.jpg", "research_ausruestung.jpg", "research_schutzkleidung.jpg", "research_gummihandschuhe.jpg", "research_handschuhe.jpg", "research_gummistiefel.jpg", "research_schutzanzug.jpg", "research_overall.jpg", "research_kittel.jpg", "research_latexhandschuhe.jpg", "research_wc.jpg", "research_wc_reiniger.jpg", "research_abfluss.jpg", "research_saugglocke.jpg", "research_gummiglocke.jpg", "research_kloreiniger.jpg", "research_putzausruestung.jpg", "research_handschuh.jpg"], "j", []],
-  ["jv", "Jobverbesserung:\nVerhaltensforscher", ["research_studie_verhalten.jpg", "research_feldstudie.jpg", "research_beobachtung.jpg", "research_beobachten.jpg", "research_beobachtungsstudie.jpg", "research_ameisenstudie.jpg", "research_studien.jpg", "research_forscher.jpg", "research_forscherin.jpg", "research_wissenschaft.jpg", "research_wissenschaftler.jpg", "research_science.jpg", "research_stift.jpg", "research_klemmbrett.jpg", "research_klemmbrett_notizen.jpg", "research_lupe.jpg", "research_mikroskop.jpg", "research_beobachter.jpg", "research_verhaltensbeobachtung.jpg", "research_verhaltensexperiment.jpg"], "j", []],
+  ["jk", "Jobverbesserung:\nKloputz (Pümpel)", [], "j", []],
+  ["jv", "Jobverbesserung:\nVerhaltensforscher", [], "j", []],
   ["jf", "Jobverbesserung:\nGabelstaplerschein", ["research_gabelstapler.jpg"], "j", []],
   // Weiteres Bild (nur Bildersuche): zweites Bild von Handwerkliches Geschick (Stufe 2); neue Kandidaten, siehe BILDERSUCHE_GEPRUEFT.md
-  ["ha2", "Handwerkliches Geschick:\nzweites Bild", ["research_werkzeug_2.jpg", "research_werkzeuge.jpg", "research_werkzeug_stufe2.jpg", "research_werkzeuge2.jpg", "research_handwerk_2.jpg", "research_geschick2.jpg", "research_geschick_2.jpg", "research_handwerkzeug.jpg", "research_handwerkzeuge.jpg", "research_werkzeugkasten.jpg", "research_hammer.jpg", "research_zange.jpg", "research_schraubendreher.jpg", "research_bohrer.jpg", "research_saege.jpg", "research_fertigkeit.jpg", "research_geschicklichkeit.jpg", "research_werkstatt.jpg", "research_werkzeug_b.jpg", "research_handwerk_stufe2.jpg"], "x", []]
+  ["ha2", "Handwerkliches Geschick:\nzweites Bild", [], "x", []],
+  // Bild des Jobs "Ameisenschutzwarte sucht Freiwillige" (nur Bildersuche; Bild unbekannt)
+  ["jasw", "Job:\nAmeisenschutzwarte", ["job_asw.jpg", "job_ameisenschutzwarte.jpg", "job_waldameisen.jpg", "job_huegel.jpg", "job_umsiedeln.jpg", "job_freiwillige.jpg"], "y", []]
 ];
 // Raster von oben nach unten: id -> [Spalte, Zeile, eingerückt]. Zeile 0 = Zweige unter der Wurzel,
 // darunter hängen deren Folge-Forschungen (eingerückt, Ast links daneben) bzw. stehen bei Ketten direkt darunter;
@@ -7695,7 +7697,9 @@ var ebaShJobs = [
   ["Werbeplakate kleben", [
     ["Werbeplakate kleben", "job_plakate.jpg", 10, 25, 2.5, "Je 40 Klicks auf die Werbebanner (Abstimmen für EBA) gibt es einen Job ‚Werbeplakate kleben‘. Ob sich mehrere ansammeln, ist unklar.", "", 315]]],
   ["Betreuer bei studentischer Biologie-Exkursion", [
-    ["Betreuer bei studentischer Biologie Exkursion", "job_exkursion.jpg", 20, 50, 2.5, "Forschung Biologie der Ameisen, Stufe 4", "", 304]]]
+    ["Betreuer bei studentischer Biologie Exkursion", "job_exkursion.jpg", 20, 50, 2.5, "Forschung Biologie der Ameisen, Stufe 4", "", 304]]],
+  ["Ameisenschutzwarte sucht Freiwillige", [
+    ["Ameisenschutzwarte sucht Freiwillige", null, 6, 5, 5 / 6, ebaShSec("asw")[2], "", null]]]
 ];
 function ebaShJobsTab() {
   var speed = ebaShSpeed();
@@ -7713,7 +7717,7 @@ function ebaShJobsTab() {
       var dur = j[2] == null ? u : (j[2] === "tick" ? (speed ? "12&nbsp;min" : "1&nbsp;h")
         : (typeof j[2] === "string" ? ebaShE(j[2]) : (speed ? ebaShDur(j[2] * 60, true) : j[2] + "&nbsp;h")));
       h += "<div class='sh-card sh-jcard' data-job='" + ebaShE(fam[0]) + "' data-stage='" + (k + 1) + "'>"
-        + (j[1] ? ebaShImg(["/img/tasks/" + j[1]], "sh-jimg", j[0]) : "<span class='sh-ph sh-jimg'>?</span>")
+        + (j[1] ? ebaShImg(["/img/tasks/" + j[1]], "sh-jimg", j[0]) : (j[0] === "Ameisenschutzwarte sucht Freiwillige" && ebaShImgRes.jasw ? ebaShImg([ebaShImgSrc(ebaShImgRes.jasw)], "sh-jimg", j[0]) : "<span class='sh-ph sh-jimg'>?</span>"))
         + "<div><b>" + ebaShE(j[0]) + "</b>" + (fam[1].length > 1 ? " <small>(Lohnstufe " + (k + 1) + " von " + fam[1].length + ")</small>" : "")
         + (j[8] ? "<div class='sh-small'><i>" + ebaShE(j[8][0]) + "</i> <a href='#' class='sh-jlink' data-target='" + ebaShE(j[8][1]) + "'>"
                   + ebaShE(j[8][1]) + "</a></div>" : "")
@@ -7869,7 +7873,7 @@ function ebaShImgInfoHtml() {
     var r = ebaShImgRes[nd[0]], known = ebaShImgKnown[nd[0]];
     if (nd[3] === "x" && !seenGrp.x) {
       seenGrp.x = true;
-      h += "<tr><th colspan='3'>Weitere Bilder (zweites Bild Handwerkliches Geschick)</th></tr>";
+      h += "<tr><th colspan='3'>Weitere Bilder (zweites Bild Handwerkliches Geschick, Job Ameisenschutzwarte)</th></tr>";
     }
     if (nd[3] !== "x" && nd[3] !== "y") { n++; if (r) { found++; } }
     if (ebaShImgRun[nd[0]]) { running = true; }
@@ -7941,7 +7945,7 @@ function ebaShBadgesHtml() {
     + it(["marsameise.png"], "Marsameise gefunden", "&bdquo;als N. gefunden am &lt;Datum&gt;&ldquo;.")
     + it(["osterei.png"], "Ostereiersuche", "Platzierung bei den Events 2009&ndash;2013.")
     + it(["speed1.png", "speed2.png", "speed3.png", "speed4.png"], "Speedserver-Medaillen", "Teilnahme an Speedserver-Events, Stufen 1&ndash;4.")
-    + it(["Sponsor_gold.png"], "Sponsor", "Fr&uuml;here finanzielle Unterst&uuml;tzung des Spiels.")
+    + it(["Sponsor_gold.png", "Sponsor_silver.png", "Sponsor_bronze.png"], "Sponsor", "Fr&uuml;here finanzielle Unterst&uuml;tzung des Spiels.")
     + "</ul></div>";
 }
 function ebaShBadgeTab() { return ebaShBadgesHtml(); }
