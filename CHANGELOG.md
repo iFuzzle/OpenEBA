@@ -15,6 +15,10 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
 
 > **Hinweis vor dem Update:** Mehrere Versionen (31.1, 31.7, 31.9) wandeln gespeicherte Daten beim ersten Start automatisch um. Empfehlung: vorher in der openEBA-Konfiguration die Daten über *Exportieren* sichern.
 
+## 34.1 (02.11.2026)
+
+- **Lexikon:** Camponotus sericeus mit Entwicklungszeiten (Ei/Larve/Puppe 15/30/16 h) aus den Spieldaten ergänzt.
+
 ## 34.0 (02.11.2026)
 
 Release-Zusammenfassung der wichtigsten Neuerungen seit 33.0 (Einzelheiten in den Abschnitten darunter):
