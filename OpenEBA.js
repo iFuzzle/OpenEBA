@@ -8,7 +8,7 @@
 // @include        https://*.eatenbyants.de/*
 // @exclude        http://forum.eatenbyants.de/*
 // @exclude        https://forum.eatenbyants.de/*
-// @version        34.1
+// @version        34.2
 // @require        http://ajax.googleapis.com/ajax/libs/jquery/1/jquery.min.js
 // @grant          GM_getValue
 // @grant          GM_setValue
@@ -18,7 +18,7 @@
 // ==/UserScript==
 
 // Fallback für die angezeigte Skriptversion, falls GM_info fehlt (bei Versionserhöhung mit @version angleichen).
-const EBA_VERSION_FALLBACK = "34.1";
+const EBA_VERSION_FALLBACK = "34.2";
 function ebaScriptVersion() {
   try { if (typeof GM_info !== "undefined" && GM_info && GM_info.script && GM_info.script.version) { return String(GM_info.script.version); } } catch (e) { /* ignorieren */ }
   return EBA_VERSION_FALLBACK;
@@ -167,9 +167,10 @@ const antcat = {
 //   n    = Platzbedarf im Nest bei a Arbeiterinnen            (Spalte M = C * Q)
 //   f    = Platzbedarf im Formicarium bei a Arbeiterinnen     (Spalte N = C * R)
 //   b    = Platzbedarf der Brut je Arbeiterin im Nest         (Spalte O), derzeit nicht verwendet
-// Punkte werden immer als Math.round(arbeiterinnen * p / a) gerechnet. Dadurch
-// bleiben alle Werte Ganzzahlen aus dem Blatt; die krummen Float-Werte der
-// Spalten Q/R (z.B. 7.0000000000000007E-2) kommen hier bewusst nicht vor.
+// Punkte werden immer als Math.floor(arbeiterinnen * p / a) gerechnet (das Spiel
+// rundet ab, an Messdaten belegt). Dadurch bleiben alle Werte Ganzzahlen aus
+// dem Blatt; die krummen Float-Werte der Spalten Q/R (z.B. 7.0000000000000007E-2)
+// kommen hier bewusst nicht vor.
 const antmax = {
   // --- Einheimische Arten (Blatt "Ameisen", Zeile 2) ---
   "Camponotus herculeanus":    { p: 5000, a: 10000, poly: false, n: 4000, f: 4000 },
@@ -4359,7 +4360,7 @@ function initSnow(){
 // Spielhilfe-Excel steht in Spalte B die Formel PRODUCT(C,P), also
 // Punkte = Arbeiterinnen * Pt/Arbeiterin. Daraus folgt für eine Kolonie mit
 // mehr Arbeiterinnen als dem Einzelköniginnen-Maximum:
-//   Punkte = Math.round(Arbeiterinnen * p / a)
+//   Punkte = Math.floor(Arbeiterinnen * p / a)
 // Beide Operanden sind Ganzzahlen aus dem Blatt, deshalb genau diese Form und
 // nicht arbeiterinnen * (p/a) -- sonst schlägt die Gleitkomma-Ungenauigkeit
 // der Division durch.
@@ -4432,7 +4433,7 @@ function ebaMaxPoints(kind, queens, speed) {
     return { points: e.p, ants: e.a, poly: true, queens: 1, grow: null, ratio: ratio, base: e.a, unknown: false };
   }
   var ants = e.a + (q - 1) * z;
-  return { points: Math.round(ants * e.p / e.a), ants: ants, poly: true, queens: q,
+  return { points: Math.floor(ants * e.p / e.a), ants: ants, poly: true, queens: q,
            grow: z, ratio: ratio, base: e.a, unknown: false };
 }
 

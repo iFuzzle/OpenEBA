@@ -4,6 +4,7 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
 
 ## Seit dem Fork
 
+- **34.2 Punkte-Rundung:** Das Spiel rundet Kolonie-Punkte ab (Arbeiterinnen × Pt/Arbeiterin, an sechs Kolonien belegt). Die maximale Punktzahl bei Polygynie und der Königinnenrechner in der Spielhilfe runden jetzt ebenfalls ab statt zu runden.
 - **Vollständige Historien:** Neben der Formicarien-Statistik werden jetzt auch Geld, Punkte, Ticklänge sowie Futter- und Ameisensuchen als Zeitreihen gespeichert. Ältere Treffer der Suchen bleiben erhalten.
 - **Verlaufsgrafiken:** Kurven für Geld und Punkte in der Kopfzeile und eine eigene Seite *openEBA-Verlauf* mit Diagrammen je Formicarium (Hunger, Brut, Ausbruchschutz).
 - **Mehr Infos zu Kolonien:** maximale Punktzahl, Auswachszustand in Prozent mit Wachstumsphasen und Nestwarnung.
