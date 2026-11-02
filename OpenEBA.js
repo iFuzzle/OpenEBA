@@ -8,7 +8,7 @@
 // @include        https://*.eatenbyants.de/*
 // @exclude        http://forum.eatenbyants.de/*
 // @exclude        https://forum.eatenbyants.de/*
-// @version        34.3
+// @version        34.4
 // @require        http://ajax.googleapis.com/ajax/libs/jquery/1/jquery.min.js
 // @grant          GM_getValue
 // @grant          GM_setValue
@@ -18,7 +18,7 @@
 // ==/UserScript==
 
 // Fallback für die angezeigte Skriptversion, falls GM_info fehlt (bei Versionserhöhung mit @version angleichen).
-const EBA_VERSION_FALLBACK = "34.3";
+const EBA_VERSION_FALLBACK = "34.4";
 function ebaScriptVersion() {
   try { if (typeof GM_info !== "undefined" && GM_info && GM_info.script && GM_info.script.version) { return String(GM_info.script.version); } } catch (e) { /* ignorieren */ }
   return EBA_VERSION_FALLBACK;
@@ -7001,7 +7001,7 @@ function ebaShAntRows() {
 // ---- Reiter: Ameisen --------------------------------------------------------
 
 function ebaShAntCard(r, maxP) {
-  var m = r.m, a = r.a, n = r.name, rg = ebaShRegal(n), speed = ebaShSpeed(), dev = a[7] ? a[7].split("/") : null;
+  var m = r.m, a = r.a, n = r.name, rg = ebaShRegal(n), speed = ebaShSpeed(), dev = a[7] ? a[7].split("/") : null, dv = speed ? 5 : 1;
   var w = Math.max(3, Math.round(100 * Math.sqrt(m.p / maxP))), open = ebaShState.open[n];
   var pv = speed ? m.ps : m.pn;
   var zuw = !m.poly ? "nein" : (pv == null ? "ja, Zuwachs unbekannt" : ebaShN(pv) + "&nbsp;A je K");
@@ -7038,8 +7038,8 @@ function ebaShAntCard(r, maxP) {
       + (m.b != null ? "<tr><td>Brut (nur im Nest)</td><td>" + ebaShN(m.b, 3) + " Platz je Arbeiterin</td></tr>" : "")
       + "<tr><td>Futter</td><td>" + ebaShE(a[3]) + "</td></tr>"
       + (n === "Marsameise" ? "<tr><td>Hinweis</td><td>Eine reine Spiel-Art, inspiriert von <i>Martialis heureka</i> (2008 beschriebene augenlose Ameise; &bdquo;wie vom Mars&ldquo;).</td></tr>" : "")
-      + "<tr><td>Entwicklung (Lexikon)</td><td>" + (dev ? "Ei " + dev[0] + " h &middot; Larve " + dev[1] + " h &middot; Puppe " + dev[2] + " h <small>(&Sigma; "
-          + (+dev[0] + +dev[1] + +dev[2]) + " h)</small>" : "&ndash;") + "</td></tr>"
+      + "<tr><td>Entwicklung (Lexikon)</td><td>" + (dev ? "Ei " + ebaShN(dev[0] / dv, 1) + " h &middot; Larve " + ebaShN(dev[1] / dv, 1) + " h &middot; Puppe " + ebaShN(dev[2] / dv, 1) + " h <small>(&Sigma; "
+          + ebaShN((+dev[0] + +dev[1] + +dev[2]) / dv, 1) + " h)</small>" : "&ndash;") + "</td></tr>"
       + "<tr><td>Shop-Preis (Lexikon)</td><td>" + ebaShEuro(a[6]) + "</td></tr>"
       + "<tr><td>Freischaltung</td><td>" + (ebaShUnlock(n) ? ebaShE(ebaShUnlock(n)) : "&ndash;") + "</td></tr></table>";
     if (m.poly) {

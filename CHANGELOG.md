@@ -4,6 +4,7 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
 
 ## Seit dem Fork
 
+- **34.4 Speed-Brutdauer:** Im Arten-Steckbrief der Spielhilfe zeigt „Entwicklung (Lexikon)“ (Ei/Larve/Puppe und Summe) bei eingeschaltetem Speedserver-Schalter jetzt die Speed-Werte (Normalwert / 5, z. B. 4 / 7 / 3,6 h) statt der Normalserver-Stunden.
 - **34.3 Profil-Symbole:** Die Spielhilfe zeigt im Abschnitt Abzeichen die Symbole für gesperrte Spieler und den Urlaubsmodus (im Profil hinter dem Spielernamen).
 - **34.3 Bildersuche:** neue Kandidaten für die 7 fehlenden Forschungsbilder (nur auf Knopfdruck geprüft).
 - **34.2 Punkte-Rundung:** Das Spiel rundet Kolonie-Punkte ab (Arbeiterinnen × Pt/Arbeiterin, an sechs Kolonien belegt). Die maximale Punktzahl bei Polygynie und der Königinnenrechner in der Spielhilfe runden jetzt ebenfalls ab statt zu runden.
