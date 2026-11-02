@@ -15,6 +15,12 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
 
 > **Hinweis vor dem Update:** Mehrere Versionen (31.1, 31.7, 31.9) wandeln gespeicherte Daten beim ersten Start automatisch um. Empfehlung: vorher in der openEBA-Konfiguration die Daten über *Exportieren* sichern.
 
+## 33.42 (02.11.2026)
+
+- **Jobs:** Neuer Job *Ameisenschutzwarte sucht Freiwillige* (6 h, 5,00 €) im Reiter Jobs; die Anzeige der laufenden Aktion kennt ihn (Endzeit, Stundenlohn).
+- **Abzeichen:** Sponsor jetzt mit Gold, Silber und Bronze.
+- **Bildersuche:** Die 136 bisherigen Kandidaten waren alle nicht vorhanden und sind entfernt; neu nur wenige Kandidaten für das Jobbild der Ameisenschutzwarte.
+
 ## 33.41 (02.11.2026)
 
 - Korrektur: Das Änderungsprotokoll ordnet die Einträge 33.38 bis 33.40 wieder den richtigen Versionen zu.
