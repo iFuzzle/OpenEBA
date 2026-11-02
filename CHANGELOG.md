@@ -15,25 +15,326 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
 
 > **Hinweis vor dem Update:** Mehrere Versionen (31.1, 31.7, 31.9) wandeln gespeicherte Daten beim ersten Start automatisch um. Empfehlung: vorher in der openEBA-Konfiguration die Daten über *Exportieren* sichern.
 
-## 33.0 (Entwurf)
+## 34.0 (02.11.2026)
 
-> **Entwurf:** bitte vor der Freigabe finalisieren (Datum, Highlights, Hinweise). Die Einzelheiten stehen in den Einträgen 31.1 bis 32.8 darunter.
+Release-Zusammenfassung der wichtigsten Neuerungen seit 33.0 (Einzelheiten in den Abschnitten darunter):
 
-### Neu
-- Vollständige Historien für Formicarien, Geld, Punkte, Ticklänge sowie Futter- und Ameisensuchen, mit Verlaufsgrafiken (Seite *openEBA-Verlauf*), Auswachszustand in Prozent, maximaler Punktzahl und Nestwarnung.
-- Abgleich der Historien per WebDAV/Nextcloud in beide Richtungen, mit Index-Dateien und Markierungen für vergessene Reihen.
-- Kolonienpflege: *Vergessen* für ehemalige Kolonien und *Kolonie umziehen* für neue Spiel-IDs.
-- Export und Import der Daten, Normal- und Speedserver getrennt.
+- **Spielhilfe im Lexikon** mit allen Reitern (Ameisen, Vergleich, Wohnungen, Forschungsbaum, Ziele & Bonus, Jobs, ASW, Futter, Sammlung, Abzeichen, Info); Entwicklungszeiten (Ei/Larve/Puppe) für alle Arten ergänzt.
+- **Sammlung:** alle 35 Arten abhaken, Stati aus Profil und Lager einlesen, Export fürs Spielerprofil.
+- **Verläufe für Lager und Kolonien** inklusive Punktezuwachs.
+- **Ankaufspreise** des Ameisenshops je Tick mit Minimum, Maximum und Spanne.
+- **Endzeiten und laufende Aktion** (z. B. Job mit Endzeit und Stundenlohn) in der Anzeige.
+- **Serverzeit und Zeitzonen:** Zeitangaben richten sich nach der Serverzeit des Spiels.
+- **Vier Server getrennt** (normal, speed, test, testspeed).
+- **WebDAV-Erweiterungen:** Zwei-Wege-Abgleich, vergessene Reihen und weitere Schutzmaßnahmen.
+- Job *Ameisenschutzwarte sucht Freiwillige* zeigt sein Bild; die Bildersuche ist ein verstecktes Entwickler-Werkzeug (Einblenden siehe README).
+
+## 33.42 (02.11.2026)
+
+- **Jobs:** Neuer Job *Ameisenschutzwarte sucht Freiwillige* (6 h, 5,00 €) im Reiter Jobs; die Anzeige der laufenden Aktion kennt ihn (Endzeit, Stundenlohn).
+- **Abzeichen:** Sponsor jetzt mit Gold, Silber und Bronze.
+- **Bildersuche:** Die 136 bisherigen Kandidaten waren alle nicht vorhanden und sind entfernt; neu nur wenige Kandidaten für das Jobbild der Ameisenschutzwarte.
+
+## 33.41 (02.11.2026)
+
+- Korrektur: Das Änderungsprotokoll ordnet die Einträge 33.38 bis 33.40 wieder den richtigen Versionen zu.
+
+## 33.40 (02.11.2026)
+
+- Ameisenshop-Ankauf: Neue Option. Die Ankaufspreise werden je Tick festgehalten (beim stündlichen Preisabruf der Menüanzeige und bei jedem Besuch von „Ankauf“, ohne zusätzliche Abrufe). Unter der Kurstabelle steht je Art ein Diagramm (zwei nebeneinander, auf dem Handy untereinander) mit gemessenem Minimum, Maximum und der Spanne, z.B. „min. 1,00 € · max. 5,00 € · Spanne: 4,00 €“. Die Werte werden wie die anderen Verläufe exportiert und per WebDAV abgeglichen.
+- Korrektur: beim Zusammenführen kurzzeitig verlorene Änderungen aus 33.38 wiederhergestellt.
+
+## 33.39 (02.11.2026)
+
+- Bildersuche (Entwickler-Werkzeug unter Spielhilfe → Info): 136 neue Dateinamen-Kandidaten für Ausbruchschutz, Biologie, Formicarienbau, Nestbau, zweites Bild Handwerkliches Geschick und die Jobverbesserungen Kloputz/Verhaltensforscher; der Prüf-Button ist wieder da, mit kurzer Pause zwischen den Anfragen.
+
+## 33.38 (02.11.2026)
+
+- Spielhilfe: Der Weihnachtsmann-Job steht jetzt als eigene Karte im Reiter Jobs (nicht mehr im Futter-Reiter), mit Freischaltung über das Kostüm aus dem Adventskalender.
+- Spielhilfe: Neuer Reiter *Abzeichen* mit allen bekannten Abzeichen, nach Gruppen sortiert (Kolonien, Top 3 der Statistik, ASW, Sonstige).
+- Spielhilfe: Texte zur Quelle (Info, Banner, Option) überarbeitet.
+- Formicarium-Ansicht: Statt des grünen Hakens zeigt „höchstens nötig“ jetzt ein Symbol: ↑ = dein Formicarium/Nest ist zu klein, ⚠ = größer als nötig, ? = bei mehreren Königinnen unklar. Bei Temnothorax kürzerer Text; mit Haselnuss-Nest passt die Mini Arena.
+- Formicarium-Ansicht: Unter den Hungerleisten stehen jetzt auch die Links *Verlauf | CSV | Tabelle* (bei aktiver Formicarien-Statistik).
+
+## 33.37 (02.11.2026)
+
+- Formicarium-Ansicht: Unter „Formicarium wechseln“ und „Nest wechseln“ steht jetzt, welches Formicarium bzw. Nest die Art höchstens braucht (✓, wenn deins schon reicht). Neue Option, der Tooltip zeigt die Rechnung; bei Arten mit mehreren Königinnen zählt deine Königinnenzahl.
+
+## 33.36 (02.11.2026)
+
+- Jobs: Der Job „Verhaltensforscher für Studie gesucht“ zeigt jetzt sein Bild.
+- Spielhilfe: Beim Weihnachtsmann-Job unter „Frühere Events“ steht jetzt das Bild dazu.
+- Info → Abzeichen: Platz 1–3 der ASW-Statistik (gesamt und letzter Monat) mit allen drei Bildern; beim Auszug werden alle Wohnungs-Abzeichen gezeigt.
+- Info → Bildersuche: zeigt nur noch die Liste, welche Forschungsbilder gefunden bzw. nicht gefunden wurden.
+
+## 33.35 (02.11.2026)
+
+- Spielerprofile: neue Option mit Links „← vorherige ID“ / „nächste ID →“ neben dem Spielernamen; die Option für die Tasten Q/E steuert nur noch die Tasten (dann mit „(Q)/(E)“ beschriftet).
+- Spielhilfe, Jobs: „Aushilfskraft zum Regale einräumen gesucht“ vollständig – Stufe 1 8 h / 15 €, mit Gabelstaplerschein 8 h / 20 €.
+- Spielhilfe, Abzeichen: ASW-Statistik (Platz 3, letzter Monat Platz 2), Marsameise, Auszug-Abzeichen je nach Wohnung.
+- Bildersuche (Entwickler-Werkzeug): Varianten der ASW- und Wohnungs-Abzeichen.
+
+## 33.34 (02.11.2026)
+
+- Spielhilfe, Info: Abzeichen ans Ende verschoben, eingeklappt und in Originalgröße (16×16); Speedserver-Medaillen 1–4. Danksagung an seupai8969 (Peppers Skript nach dem Serverumzug wieder lauffähig gemacht).
+- Spielhilfe, Jobs: Werbeplakate „je 40 Klicks auf die Werbebanner ein Job“; der 12-h-Job heißt „Verhaltensforscher für Studie gesucht“ (wird auch bei der laufenden Aktion erkannt).
+- Spielhilfe, Futter: Abschnitt „Frühere Events“ (Ostern 2009–2013, Weihnachtsaktion mit Weihnachtsmann-Job).
+- Spielhilfe, Ameisen: alle Stufenbild-Listen vollständig (Scan abgeschlossen, Stufen-Scan entfernt).
+- Bildersuche (Entwickler-Werkzeug): neue Kandidaten für Ausbruchschutz, Biologie, Formicarien-/Nestbau, Handwerk Stufe 2 und die Bilder des Verhaltensforscher- und Weihnachtsmann-Jobs.
+
+## 33.33 (01.11.2026)
+
+- Spielhilfe, Futter: neue Rubrik „Relikte“ mit dem Osterei (nur während der Oster-Events 2009–2013 sammelbar, heute nur noch über Verkauf).
+- Spielhilfe, Info: neuer Abschnitt „Abzeichen“ (ausgewachsene Kolonie, Größenrekord, Auszug bei den Eltern, Gabelstaplerschein, Ostereiersuche, Sponsor, Speedserver-Medaillen).
+- Bildersuche (Entwickler-Werkzeug): neue Gruppen „Marsameise“ (wissenschaftlicher Name) und „Abzeichen“ (Speedserver-Medaillen).
+
+## 33.32 (01.11.2026)
+
+- Vier Server getrennt: Normal (`www.`/ohne www), Speed (`speed.`), Testserver Normal (`test.`) und Testserver Speed (`testspeed.`). Jeder Server hat eigene Daten, eigene WebDAV-Dateien und einen eigenen Index; Testserver Speed rechnet wie Speed (12-Minuten-Tick). Bestehende Daten von Normal und Speed bleiben unverändert. Andere Subdomains (z. B. Forum) bleiben ausgeschlossen.
+- Spielhilfe, Ameisen: Bildlisten aller 35 Arten fest eingetragen (Ergebnis des Stufen-Scans); der Steckbrief lädt nur noch bestätigte Bilder, keine Fehlanfragen (404) mehr. „Allgemeines über Ameisen“ hat sein Bild (`research_allgemeinwissen.jpg`).
+- Bildersuche (Entwickler-Werkzeug): Stufen-Scan prüft nur noch Unbekanntes, nacheinander mit kurzen Pausen; Halloween-Suche entfernt.
+- Spielhilfe, Jobs: Pizza „Je 12* aktive Spieler pro Tick …“ und Werbeplakate „ca. 10* Abstimmungen“ mit Hinweis im openEBA-Stil, Spieltexte entfernt.
+
+## 33.31 (01.11.2026)
+
+- Bildersuche (Entwickler-Werkzeug): zweiter Button „Ameisen-Stufenbilder prüfen“ – prüft für alle 35 Arten die Bilder Stufe 0–15 und `_shop` (ca. 595 Anfragen, nur per Klick, abbrechbar) und liefert eine Liste zum Kopieren.
+
+## 33.30 (01.11.2026)
+
+- Einstellungsseite: oben „openEBA Version X“, damit man im Spiel sieht, welche Version geladen ist.
+- Neue Option: Auf Spielerprofilen mit Q / E zum vorherigen / nächsten Spieler blättern (ID −1 / +1), keine automatischen Abrufe.
+- Bildersuche: bereits erfolglos geprüfte Namen entfernt (dokumentiert in `BILDERSUCHE_GEPRUEFT.md`), neue Kandidaten für die sieben unbekannten Forschungsbilder, neue Gruppe für Saisonbilder (Ostern, Halloween).
+- `IDEEN.md`: Abschnitt „Vor dem Release v34“ (Bildersuche entfernen) und Winter-Skin-Idee.
+
+## 33.29 (01.11.2026)
+
+- Spielhilfe: Pheidologeton diversus zeigt das größte vorhandene Bild (`Pheidologeton_diversus2.jpg`).
+- Neue Datei `IDEEN.md` mit Vormerkungen für spätere Versionen (u. a. Saison-Effekte mit den Winter-Titelbildern des Spiels).
+
+## 33.28 (01.11.2026)
+
+- Spielhilfe, Ameisen: bestätigte Bilder je Wachstumsstufe (Lasius niger, L. flavus, Formica fusca, Myrmica rubra, Camponotus herculeanus, C. ligniperda, Temnothorax nylanderi mit Haselnuss, Pheidole pallidula). Das Hauptbild zeigt die ausgewachsene Kolonie; unter Details eine Galerie „Bilder je Wachstumsstufe“, die erst beim Aufklappen lädt. Quelle: Spielerprofil mit gesammelten Bildpfaden.
+
+## 33.27 (01.11.2026)
+
+- Jobs/Forschungen anreichern: auch die laufende Aktion bekommt die Endzeit („[Endet Montag, 05:50]“) – auf der Internet-Startseite („Momentane Aktion“), im Arbeitsamt und in der Forschung. Laufende Jobs zeigen zusätzlich den Stundenlohn (feste Jobdauern, Speedserver ÷5). Wunsch aus der Community.
+
+## 33.26 (01.11.2026)
+
+- Sammlung, Profil-Export: Die Trennstriche stehen jetzt über alle drei Gruppen auf gleicher Höhe (eine gemeinsame Spaltenbreite).
+
+## 33.25 (01.11.2026)
+
+- Spielhilfe, Sammlung: Button „Alle Stati einlesen“ – liest das eigene Profil (Abzeichen „ausgewachsene … Kolonie“ → done, Formicarien → active) und das Lager (→ ready) und zeigt eine Vorschau; übernommen wird per Klick, nichts wird herabgestuft. Die Einzelvorschläge nutzen die Profildaten mit.
+- Sammlung: Text-Import entfernt. Neuer Export fürs Spielerprofil (nur [b], [i], [center]; eine Zeile je Art), Spalten pixelgenau für die Spielschrift ausgerichtet (gemessen im Browser, aufgefüllt mit Sonder-Leerzeichen, die das Profil nicht zusammenfasst).
+- Sammlung: Tooltips im openEBA-Stil (klickbar).
+
+## 33.24 (01.11.2026)
+
+- Spielhilfe, Ameisen: Steckbrief neu geordnet – vorne Max. Punkte, Max. Kolonie, ASW-Punkte, Verkaufspreis, Max. Nest, Max. Formi, Platzbedarf (bei Nestbecken „N + M (Nestbecken) Regalplätze“); in den Details „Polygyn“ (z. B. „20.000 A je K“), Freischaltung kurz („Exotische Arten 3“), Fundorte.
+- Spielhilfe, Forschungsbaum: rechts nicht mehr abgeschnitten (Breitenberechnung korrigiert, Spaltenabstand verringert). Gabelstaplerschein-Bild fest eingetragen; neue Kandidaten für die Bildersuche.
+- Spielhilfe, Jobs: Texte gekürzt (keine Job-IDs, keine Tick-Hinweise), Pizzeria Omerta mit Originaltext, Pümpel nach 200 Klos, Regale immer 8 h, Werbeplakate nach ca. 10 Abstimmungen.
+- Spielhilfe, ASW: Faustformel ASW-Punkte ≈ 1,57 × ∛(Punkte). Futter: Filter „züchtbar“, Brombeerblätter über Blättersammeln, Ertrags-Verbesserung für Samen und Blätter, Dauer der Futtersuche erklärt.
+- Spielhilfe, Info: Telas verlinkt, Links neu (Discord, openEBA auf GitHub, Fork von Peppers Skript).
+- Tooltips im openEBA-Stil (wie in den Einstellungen) auf „Ameisen suchen“; „auch im Shop“ / „nicht im Shop“ fett.
+- Lexikon → Futter: Zeilen sauber abwechselnd eingefärbt, „Schon züchtbar“.
+- Neue Option „Spielhilfe überall zugänglich“ (unter „Spielhilfe im Lexikon anzeigen“): Link in der Seitenleiste jeder Seite, unter den Lesezeichen.
+
+## 33.23 (01.11.2026)
+
+- Spielhilfe: neuer Reiter „Sammlung“ – alle 35 Arten zum Abhaken (open → ready → active → done), mit Fortschritt, `*` für versteckte Arten, Shop-Kennzeichen und Vorschlägen aus Lager, aktiven Formicarien und ausgewachsenen Kolonien (nur per Klick übernommen). Liste als Text einfügen und als BBCode exportieren; getrennt je Server, in Export/Import und im WebDAV-Abgleich (Datei `eba_collection_ants.tsv`).
+- Ameisen suchen: „Findbare Arten“ als Block mit „auch im Shop“ / „nicht im Shop“; versteckte Arten mit `*` und Tooltip.
+- Lexikon → Futter: neue Zeile „Haltbarkeit“ unter der Zersetzungsrate (Ticks bis 0 % = 100 ÷ Rate, aufgerundet; für den aktuellen Server, der andere im Tooltip). Eigene Option.
+- Spielhilfe, Regalplätze: Bei Lasius fuliginosus reicht das große Ytong (100 % Belegung), bremst aber am Ende stark; die Spielhilfe empfiehlt das riesige Ytong.
+
+## 33.22 (01.11.2026)
+
+- Spielhilfe, Regalplätze korrigiert: Bei den Nestbecken-Arten (Acromyrmex spec., A. versicolor, Polyrhachis dives) ist das Nest ein eigenes Formicarium neben dem Formicarium, unabhängig in der Größe, und belegt eigene Regalplätze (jetzt 12 statt 6). Temnothorax nylanderi: Normalfall kleines Nest + kleines Formicarium (1 Regalplatz), Haselnuss-Fund als Sonderfall in der Mini Arena (0,5). Lasius fuliginosus: großes Ytong reicht rechnerisch genau (Spielhilfe-Tabelle: riesiges Ytong), Regalplätze 0 wegen riesiger Anlage.
+
+## 33.21 (01.11.2026)
+
+- Spielhilfe: Regalplätze für alle 35 Arten berechnet (Platzbedarf je Arbeiterin × maximale Arbeiterinnen → kleinstes passendes Nest und Formicarium; das Formicarium zieht mit der Nestgröße nach; bei Nestbecken zählen beide Formicarien). Neue sortierbare Spalte im Vergleich mit Rechnung im Tooltip, Zeile „Benötigt“ im Steckbrief. Hinweis auf die riesige Anlage (0 Regalplätze, gewollt). Abweichungen zur Spielhilfe-Tabelle sind mit ‡ markiert, die Tabelle hat Vorrang.
+
+## 33.20 (01.11.2026)
+
+- Spielhilfe: neuer Reiter „ASW“ mit den Aktionen der Ameisenschutzwarte (riesige Anlage, Riesen-YTong-Nest, Käferlarven) samt Bild, Dauer, Kosten und verbrauchten ASW-Punkten; ASW-Punkte gibt es fürs Auswildern.
+- Spielhilfe: Quellen klargestellt – bei Abweichungen gilt die Spielhilfe-Tabelle (Excel), das Lexikon ergänzt nur (Entwicklungszeiten, Shop-Kaufpreis, Futterliste).
+
+## 33.19 (01.11.2026)
+
+- Spielhilfe, Forschungsbaum: „Handwerkliches Geschick“ steht links unter „Zuckerwasser selbst herstellen“, der Baum passt ohne Seitenscrollen in die Lexikon-Spalte; Karten und Schrift etwas größer.
+- Spielhilfe, Bilder: 14 im Spiel bestätigte Forschungsbilder fest eingetragen (u. a. `research_werkzeug.jpg` für Handwerkliches Geschick, `research_sugarwater.jpg`). Die Bildersuche unter Info prüft nur noch die unbekannten (Allgemeines, Ausbruchschutz, Biologie, Formicarienbau, Nestbau und die drei Jobverbesserungen einzeln).
+- Spielhilfe: Forschungsbaum vollständig gegen die Spielhilfe-Tabelle geprüft (keine Abweichungen). Klargestellt: „Körner und Samen sammeln“ gibt es ab Futtertiere Stufe 6, die Forschung Samensammeln erhöht nur den Ertrag.
+- Spielhilfe, Vergleich: Filter „Alle / im Shop kaufbar / nicht im Shop“ (Shop-Arten sind ebenfalls findbar). Steckbriefe zeigen die Fundorte.
+- Neue Option: Auf „Ameisen suchen“ steht bei jedem Suchort, welche Arten dort laut Spielhilfe findbar sind.
+
+## 33.18 (01.11.2026)
+
+- Kolonie-Verlauf: Arbeiterinnen und Punkte in einem Diagramm (Punkte auf eigener rechter Achse), direkt darunter neu der Punktezuwachs je Tick (bei Lücken Durchschnitt je Tick, Nulllinie). Untertitel nennt die fehlenden Punkte bis zum Maximum und wie lange die Kolonie schon ohne Zuwachs ist – hilft zu entscheiden, ob sich das Weiterwachsen noch lohnt.
+- README auf den aktuellen Stand gebracht.
+
+## 33.17 (01.11.2026)
+
+- Spielhilfe, Jobs: Der 12-h-Job (30 €) nach der Verhaltensforscher-Forschung ist ein eigener Job, keine Vorstufe der Biologie-Exkursion (20 h, 50 €).
+
+## 33.16 (01.11.2026)
+
+- Zeilen löschen (🗑, „Datentabellen“ im Verlauf) und „↻ aktuellen Tick neu erfassen“ sind ausgeblendet. Einblenden über die Browser-Konsole, siehe README (*Falsche Einträge korrigieren*). Der Abgleich bereits gelöschter Zeilen läuft weiter.
+
+## 33.15 (01.11.2026)
+
+- Formicarien-Übersicht: Link „↻ aktuellen Tick neu erfassen“ unter der Überschrift. Verwirft (nach Rückfrage) die Statistik- und Futterzeilen des aktuellen Ticks aller Kolonien und erfasst sie nach dem Neuladen frisch, z. B. nach einem falschen Eintrag. Verworfen wird nur genau diese Fassung der Zeile (per WebDAV auch auf anderen Geräten), die neu erfasste bleibt.
+
+## 33.14 (01.11.2026)
+
+- Das Skript läuft nur noch auf `eatenbyants.de`, `www.eatenbyants.de` und `speed.eatenbyants.de`; auf dem Testserver (`test.eatenbyants.de`) und anderen Subdomains tut es nichts mehr und speichert nichts.
+- Einzelne Zeitzeilen löschen (🗑 mit Rückfrage): im openEBA-Verlauf unter „Datentabellen“ (standardmäßig alle Reihen dieses Zeitpunkts), in der Kolonie-Tabelle und bei den älteren Suchergebnissen. Gelöschte Zeilen werden per WebDAV auf allen Geräten gelöscht und kommen durch den Abgleich nicht zurück (Datei `eba_rowdel_list.tsv`).
+- Spielhilfe, Bilder: Keine automatischen Probe-Anfragen mehr. Unter Info → Bildersuche einmalig per Button prüfen, Ergebnis zum Kopieren.
+- Spielhilfe, Jobs: Dauer des Klojobs = ein Tick (1 h normal, 12 min Speed), andere Jobs ein Vielfaches; Speedserver-Werte rechnen die Dauern um. Die Länge unterscheidet die Jobs, der Lohn die Stufen; 12-h-Job als vermutliche Vorstufe der Exkursion gekennzeichnet.
+
+## 33.13 (01.11.2026)
+
+- Spielhilfe, Forschungsbaum: von oben nach unten aufgebaut, mehr Abstand, Stufen-Plaketten direkt an der Zielkarte; bei schmaler Spalte seitlich scrollbar.
+- Spielhilfe, Bilder: Der Browser probiert je Forschung mehrere mögliche Dateinamen und merkt sich den Treffer (Futtertiere: `research_futter.jpg`); unter Info → „Bildersuche“ steht, was gefunden wurde und was fehlt.
+- Spielhilfe, Jobs: nach echter Arbeitsamt-Seite und Spielhilfe-Tabelle korrigiert – Museumsjob ist „Museum sucht versierten Myrmekologen“ (Ameisen finden und bestimmen Stufe 4), danach Verhaltensforscher-Forschung mit neuem Job (12 h, 30 €); Pizza mit Pümpel 25 €; Werbeplakate durch Abstimmen für EBA; Klo dauert 1 Tick; Job-IDs auf den Karten.
+- Spielhilfe: Hinweis, dass sich die Angaben auf eine Königin beziehen; Futter-Reiter mit den drei Sammelarten der Futtersuche.
+
+## 33.12 (31.10.2026)
+
+- Spielhilfe, Wohnungen: in Spielreihenfolge (Zimmer bei den Eltern, Schuppen, Dachboden, Hochhaus, Haus, Schloss), zusätzlich sortierbar nach Punkten, Preis, Plätzen und € je Platz.
+- Spielhilfe, Jobs: alle 10 Jobstufen als Karten mit Bild, Dauer, Lohn, Stundenlohn und Freischaltung (Klos putzen mit Pümpel, Pizza ausfahren, Regale einräumen mit Gabelstaplerschein, Museum bis „versierter Myrmekologe“, Werbeplakate kleben, Biologie-Exkursion). Fehlende Werte als „unbekannt“.
+- Spielhilfe, Futter: sortier- und filterbar (Futterart, Shop), Shop-Packungen mit Preis und Preis pro g; `&ndash;` wurde als Text angezeigt (behoben, auch in den Ameisen-Steckbriefen); Zuckerwasser, Mehlwürmer und Grassamen sind von Beginn an im Shop.
+- Spielhilfe, Vergleich: Spalten ASW-Punkte, ASW/Tag, ASW/Tag/Platz und ASW je € Kaufpreis.
+- Spielhilfe, Info: Dank an Telas, Links zu GitHub und Discord; tote Links (Forum-Backup, Polygynierechner-Sheet) entfernt; Schlusszeile „Danke an Martin für EBA!“.
+
+## 33.11
 
 ### Verbessert
-- Datum und Uhrzeit kommen aus der Serverzeit des Spiels (32.8).
-- Futterbestand wird zu Tickbeginn erfasst, nicht erst nach dem Füttern (32.6).
-- Skriptkopf: Beschreibung ergänzt, Forum auch unter `https` ausgenommen. Korrekturen an Optionsbeschreibungen (Tippfehler).
+- Spielhilfe:
+  - Der Menüpunkt heißt nur noch *openEBA: Spielhilfe*. Der Hinweis auf Community-Daten steht auf der Seite selbst.
+  - Der Reiter *Shopameisen* heißt jetzt *Vergleich* und umfasst alle Arten. Oben lässt sich umschalten zwischen *Alle*, *kaufbar (Shop)* und *nur findbar*, dazu kommt ein Filter nach Kategorie. Werte, die nur für Shopameisen bekannt sind (Tage, Regalplatz, Preise, Punkte bzw. Geld pro Tag), stehen bei findbaren Arten als „–“.
+  - Sortieren: Ein zweiter Klick auf dieselbe Spalte kehrt die Richtung um, ▲/▼ zeigt sie an. „–“ steht immer am Ende. Die Steckbriefe haben einen Knopf für auf- oder absteigend.
+  - Die Wohnung im Hochhaus hat jetzt ein Bild.
+
+## 33.10
 
 ### Behoben
-- Zahlreiche Korrekturen an Statistik, Suchhistorie und Datenabgleich (u.a. doppelte Zeilen je Tick, vermischte Suchen, WebDAV-Fehler 412).
+- Zeitzone: Alle Zeiten sind jetzt unabhängig von Zeitzone und Uhr des Rechners, z. B. beim Spielen im Urlaub. Die Serverzeit der Seite wird ausdrücklich als deutsche Zeit (inkl. Sommerzeit) gelesen, gespeichert wird eine weltweit eindeutige Zeit, angezeigt wird immer deutsche Zeit. Ein Gerät im Ausland erzeugt beim WebDAV-Abgleich mit einem Gerät in Deutschland kein endloses Hin und Her mehr. Bereits gespeicherte Daten aus Deutschland bleiben unverändert gültig.
 
-> **Hinweis vor dem Update:** Mehrere Versionen wandeln gespeicherte Daten beim ersten Start automatisch um. Vorher in der openEBA-Konfiguration über *Exportieren* sichern.
+## 33.9
+
+### Verbessert
+- Endzeit beim Suchen: wird immer ab dem Seitenaufruf gerechnet, nicht mehr ab dem Ende einer laufenden Aktion. Im Spiel läuft ohnehin nur eine Aktion gleichzeitig.
+- Ausbruchschutz in der Übersicht: sichtbar nur noch der Wert, z. B. `97,4 %`. Die Art steht im Tooltip. Läuft für die Kolonie noch ein Abruf, steht ein ⏳ hinter dem Wert statt des Textes „wird aktualisiert …“.
+
+## 33.8
+
+### Verbessert
+- WebDAV-Abgleich mit Serverzeit statt Rechner-Uhr:
+  - Sperren, Wartezeiten und die Anzeige „Letzter Abgleich“ laufen jetzt nach Serverzeit.
+  - Die Zeitstempel der Lösch-Marker („vergessen“ und „wieder zulassen“) sind auf allen Geräten vergleichbar. Bei zwei Geräten gewinnt die zeitlich spätere Aktion, auch wenn eine Rechner-Uhr falsch geht.
+  - Rückwärtskompatibel: Das Indexformat ist unverändert. Geräte mit älterer Version und vorhandene Index-Dateien funktionieren weiter. Gespeicherte Sperren aus der Rechner-Uhr führen nicht zu Dauersperren.
+
+## 33.7
+
+### Neu
+- Option *Spielhilfe im Lexikon anzeigen (Community-Daten)*: Im Lexikon steht unter den Kategorien der neue Punkt **openEBA: Spielhilfe** mit dem Hinweis „Community-Daten, nicht vom Spielbetreiber“. Er enthält acht Reiter:
+  - **Ameisen:** Steckbriefe aller Arten mit Bild, Filter und Sortierung, Details mit Platzbedarf, Fundorten, Futter und Entwicklungszeiten, dazu ein Polygynie-Rechner und eine Bildergalerie der Entwicklungsstufen.
+  - **Shopameisen:** Punkte und Geld pro Tag, auch je Regalplatz.
+  - **Wohnungen.**
+  - **Forschungsbaum:** als Grafik und als Stufentabellen.
+  - **Ziele & Bonus.**
+  - **Jobs.**
+  - **Futter.**
+  - **Info:** Wachstumshinweise und Danksagungen.
+  
+  Ein Schalter zeigt die Werte des Speedservers. Die Bilder lädt das Skript vom Spielserver, die Daten stammen aus der Community-Spielhilfe.
+- Ameisen- und Futtersuche: In der Auswahl der Dauer steht hinter jeder Option die voraussichtliche Endzeit, z. B. `8:00:00 → morgen 07:53`. Läuft gerade eine Aktion, wird ab deren Ende gerechnet. Die Anzeige nutzt die Serverzeit und aktualisiert sich jede Minute. Gehört zur Option *Jobs/Forschungen mit Informationen anreichern*.
+
+## 33.6
+
+### Verbessert
+- Ausbruchschutz in der Übersicht: Ein Wert aus einem früheren Tick ist immer blass und kursiv dargestellt, auch während der neue Wert noch abgerufen wird. Der Tooltip nennt dann zusätzlich „wird aktualisiert …“. Sobald der Wert des aktuellen Ticks da ist, erscheint die Zeile normal.
+
+## 33.5
+
+### Verbessert
+- Formicarien-Übersicht: Der Link *Statistik* unter jeder Kolonie ist ersetzt durch drei Links:
+  - **Verlauf** öffnet die Seite *openEBA-Verlauf* mit dieser Kolonie aufgeklappt.
+  - **CSV** lädt die Statistik als Datei für Excel herunter (Semikolon, Dezimalkomma).
+  - **Tabelle** öffnet das bisherige Textfeld zum Kopieren.
+- Seite *openEBA-Verlauf*: Jede Formicarium-Gruppe hat in der Kopfzeile einen CSV-Link.
+- Einheitlich Serverzeit statt Rechner-Uhr: Endzeit „[Endet …]“ bei Jobs und Forschung, Zeitraumfilter der Seite *openEBA-Verlauf* und der Kurve im Header, Stunden-Cache der Ameisenshop-Preise, Punkte pro Stunde, Sperre des Lager-Abrufs und Zeitstempel im Export. Zwei Browser im selben Tick verhalten sich damit gleich. Das Punkte-pro-Stunde-Fenster wird nach dem Update einmal neu befüllt („+?“, bis zwei Stunden vorliegen).
+- *Ausbruchschutz in der Formicarien-Übersicht anzeigen*: Der Prozentbalken ist eine eigene Option (*… mit Prozentbalken*, Standard aus). Ohne sie steht nur der Wert, z. B. `97,4 % PTFE`.
+
+### Behoben
+- Mit *Bookmarks einblenden* stand *openEBA-Verlauf* im Statistik-Menü hinter den Bookmarks. Er steht jetzt immer direkt unter *openEBA*.
+- Ausbruchschutz in der Übersicht: Die Zeile aktualisiert sich jetzt, sobald der Hintergrundabruf den neuen Wert geliefert hat. Bisher blieben Kolonien, die noch nicht abgerufen waren, blass und kursiv. Während ein Abruf läuft, ist die Zeile neutral dargestellt. Ein hängender Abruf blockiert die Warteschlange nicht mehr. Balken und Text brechen nicht mehr um.
+
+## 33.4
+
+### Neu
+- Option *Ausbruchschutz in der Formicarien-Übersicht anzeigen*: Unter „Hunger (Proteine)“ bzw. „Pilzstatus“ steht je Kolonie eine Zeile *Ausbruchschutz* mit Balken und Wert, z. B. `97,4 % PTFE`. Unter 20 % orange, unter 10 % rot. Ein Wert aus einem früheren Tick ist blass dargestellt, der Tooltip nennt den Stand. Quelle ist die Erfassung von Futter und Ausbruchschutz je Tick.
+
+### Verbessert
+- Lager: höchstens ein Scan pro Tick und Server, egal ob über die Lagerseite, den Hintergrundabruf, mehrere Tabs oder die Seitenleisten-Anzeige. Der erste Stand eines Ticks gewinnt. Fehlversuche frühestens nach 10 Minuten wiederholt, höchstens 3 pro Tick. Während eines laufenden Ticks wird nicht mehr abgerufen.
+- Changelog: Abschnitt 33.0 zusammengefasst.
+
+## 33.3
+
+### Neu
+- Seite *openEBA-Verlauf*: neuer einklappbarer Bereich **Lager** unter Geld, Punkte und Ticklänge. Die Kopfzeile zeigt den letzten Futtervorrat in kg je Art. Das Diagramm *Futtervorrat nach Art* hat vier Linien: Zucker (gemixtes Zuckerwasser, Zuckerwasser, Honig), Körner (Löwenzahnsamen, Grassamen), Blätter (Brombeerblätter) und Protein (alle übrigen Sorten). Jede Art lässt sich aufklappen und zeigt die Einzelsorten. Dazu kommt ein Diagramm für Zubehör. Voraussetzung: Option *Lagerbestand je Tick festhalten*.
+
+## 33.2
+
+### Neu
+- Option *Lagerbestand je Tick festhalten*: Einmal pro Tick werden die Bestände aus dem Lager gespeichert, getrennt nach Futter (Gramm je Sorte), Zubehör, Formicarien und Nester, Möbel sowie Ameisen im Lager (je Art). Erfasst wird beim Besuch der Lagerseite, sonst mit einem einzigen Hintergrundabruf pro Tick. Die Reihen laufen mit WebDAV, Export und Import.
+
+### Behoben
+- *Inventar in der Seitenleiste anzeigen*: aktualisiert sich jetzt pro Tick statt pro Stunde. Begriffe mit Sonderzeichen wie `(` oder `[` lassen die Anzeige nicht mehr ausfallen. Mehrdeutige Begriffe wie „Nest“ werden aufsummiert, ein exakter Name hat Vorrang. Unsichtbare Zeilenenden in der Itemliste stören nicht mehr. Fehlerseiten werden nicht mehr zwischengespeichert. Ameisen im Lager lassen sich mit `@Art` anzeigen.
+
+## 33.1
+
+### Neu
+- Formicarien-Übersicht und Detailansicht: Hinter Punkten und Maximum steht der Punktezuwachs im letzten Tick, z. B. `4817 / 5000 +37 (96,3 %)`. Grün bei Zuwachs, grau bei ±0, orange bei Rückgang. Fehlen dazwischen Ticks, wird der Durchschnitt je Tick gezeigt und mit ⌀ markiert. Quelle ist die Formicarien-Statistik.
+
+### Verbessert
+- Punkte und Maximum in der Punkte-Zelle ohne Tausenderpunkt.
+
+## 33.0 (31.10.2026)
+
+Erste Veröffentlichung auf `main` seit dem Fork von Pepper. Die Version fasst die Änderungen von 32.0 bis 32.9 zusammen; die Einzelheiten stehen unten in den Einträgen der jeweiligen Versionen.
+
+### Highlights
+- **Abgleich per WebDAV/Nextcloud in beide Richtungen:** Ein neues Gerät holt nach *Verbindung testen* und *Jetzt abgleichen* alle Reihen auf einmal (32.3).
+- **Kolonienpflege:** ehemalige Kolonien lassen sich vergessen, Kolonien nach einem Umzug (neue Spiel-ID) lassen sich mit *Kolonie umziehen* zusammenführen (32.1, 32.5).
+- **Diagramm *Punkte pro Tick*** auf der Seite *openEBA-Verlauf* (32.6).
+- **Zuverlässigere Zeiten:** Datum und Uhrzeit kommen aus der Serverzeit des Spiels, eine falsch gestellte Rechner-Uhr stört nicht mehr (32.8).
+
+### Neu
+- WebDAV: Reihen, die ein Gerät noch nie gesehen hat, werden über den Ordnerinhalt bzw. die Index-Dateien `eba_index_normal.tsv` / `eba_index_speed.tsv` geholt. Der automatische Lauf holt neue Reihen in Portionen (32.3).
+- Vergessene Reihen werden als „vergessen“ markiert und von allen Geräten ignoriert; die Datei auf dem Server bleibt bestehen. *Vergessene Reihen wieder zulassen* hebt die Markierungen auf (32.3).
+- Ehemalige Kolonien erscheinen auf der Verlaufsseite in einem eigenen Bereich und lassen sich dort lokal mit *Vergessen* löschen (32.1).
+- *Kolonie umziehen / Historien zusammenführen* in der openEBA-Konfiguration, mit Prüfung (Art, Arbeiterinnen, Königinnen, zeitliche Reihenfolge) und Vorschau (32.1).
+- Diagramm *Punkte pro Tick*; bei Lücken in den Daten wird der Durchschnitt über mehrere Ticks gezeigt, markiert mit einem Ring (32.6).
+- Dieses Änderungsprotokoll (`CHANGELOG.md`) (32.6).
+
+### Verbessert
+- *Kolonie umziehen* behält immer die größere ID und vergisst die kleinere; die Reihenfolge der Eingabe spielt keine Rolle mehr (32.5).
+- Futterbestand wird zu Tickbeginn erfasst (beim Öffnen der Detailseite bzw. unmittelbar vor dem Füttern), nicht erst nach dem Füttern. Der erste Stand eines Ticks gewinnt (32.6).
+- README neu gegliedert, Tippfehler in Optionstexten korrigiert, Skriptbeschreibung ergänzt, Forum auch unter `https` ausgenommen (32.9).
+
+### Behoben
+- WebDAV: Dauerschleife mit Fehler 412 („Precondition Failed“) behoben; der Abgleich verträgt unterschiedliche ETag-Schreibweisen. Eine nicht schreibbare Reihe bricht den Abgleich nicht mehr ab, der automatische Lauf pausiert sie 15 Minuten (32.4).
+- Suchhistorie funktioniert auch auf `draussen.php` mit leerem `cat`-Parameter, wohin das Spiel nach Ende einer Aktion weiterleitet (32.2).
+- Falsche Rechner-Uhr führt nicht mehr zu Zeilen mit falschem Datum oder Tick (32.8).
+
+### Hinweise zum Update
+- **Backup vor dem Update:** Mehrere frühere Versionen (31.1, 31.7, 31.9) wandeln gespeicherte Daten beim ersten Start automatisch um. Vorher in der openEBA-Konfiguration die Daten über *Exportieren* sichern.
+- **WebDAV:** Geräte mit älterer Skriptversion kennen die Markierungen für vergessene Reihen nicht und laden ihre Reihe höchstens wie bisher hoch. Am besten alle Geräte auf 33 aktualisieren. Details im [README](README.md).
+- Wird auf einem Gerät ohne Skript gefüttert, kann weiterhin der Nachher-Zustand des Futterbestands erfasst werden (32.6).
+
+### Einzelversionen 32.0 bis 32.9
 
 ## 32.9
 

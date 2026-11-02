@@ -8,7 +8,7 @@
 // @include        https://*.eatenbyants.de/*
 // @exclude        http://forum.eatenbyants.de/*
 // @exclude        https://forum.eatenbyants.de/*
-// @version        33
+// @version        34.0
 // @require        http://ajax.googleapis.com/ajax/libs/jquery/1/jquery.min.js
 // @grant          GM_getValue
 // @grant          GM_setValue
@@ -16,6 +16,13 @@
 // @grant          GM_deleteValue
 // @grant          GM_xmlhttpRequest
 // ==/UserScript==
+
+// Fallback für die angezeigte Skriptversion, falls GM_info fehlt (bei Versionserhöhung mit @version angleichen).
+const EBA_VERSION_FALLBACK = "34.0";
+function ebaScriptVersion() {
+  try { if (typeof GM_info !== "undefined" && GM_info && GM_info.script && GM_info.script.version) { return String(GM_info.script.version); } } catch (e) { /* ignorieren */ }
+  return EBA_VERSION_FALLBACK;
+}
 
 // Version des Speicherschemas der Historien.
 // 0/1 = Altbestand (nur Formi- und Futter-Historie, ohne Versionsschlüssel)
@@ -33,17 +40,18 @@ const EBA_HIST_FORMAT = 2;
 const EBA_HIST_MAX_LINES = 2000;
 
 // Bereichspräfixe aller servergetrennten Schlüssel. Direkt dahinter steht
-// srvKey(), also "speed_" oder nichts. Siehe keyServer().
+// srvKey(), also "", "speed_", "test_" oder "testspeed_". Siehe keyServer().
 // Bewusst NICHT hier: Optionen (eba_enable_*, eba_disable_*, eba_sort_*),
 // eba_shopfilter, eba_bookmarks, eba_note, eba_stock_items - die gelten für
-// beide Server.
+// alle Server.
 var EBA_SRV_PREFIXES = [
   "eba_hist_", "eba_statistic_", "eba_food_", "eba_tickdur_",
   "eba_schemaversion_", "eba_points_", "eba_hours_",
   "eba_inventory_", "eba_shop_prices_", "eba_saved_state_",
-  "eba_shop_remember_price_", "eba_formi_active_"
+  "eba_shop_remember_price_", "eba_formi_active_", "eba_rowdel_", "eba_collection_", "eba_profile_"
 ];
 
+const EBA_CONFIG_SUB = { "eba_enable_spielhilfe_everywhere": true };
 const configItems = {
   "eba_disable_reload"                       : [disableReloadOnFinish, "Auto-Reload ausschalten", "Nach Ende eines Jobs, einer Forschung usw. wird die Seite nicht mehr neu geladen."],
   "eba_enable_sound_on_job_end"              : [enableSoundOnJobEnd, "Am Ende des Countdowns einen Sound abspielen"],
@@ -61,11 +69,14 @@ const configItems = {
   "eba_enable_copy_percentages"              : [copyHungerPercentages, "Hunger-Prozente mit Nachkommastelle"],
   "eba_enable_formi_move_form"               : [processSingleFormicariumView, "F&uuml;tterformular &uuml;ber die Futtertabelle schieben"],
   "eba_enable_key_navi"                      : [enableKeyNavi, "Mit v und n (bzw. q und e) zwischen Formicarien navigieren, mit z bzw. p f&uuml;ttern"],
+  "eba_enable_profile_nav"                   : [ebaProfileNav, "Auf Spielerprofilen zur vorherigen/n&auml;chsten ID bl&auml;ttern (Links)", "Auf Spielerprofilen erscheinen links und rechts neben dem Spielernamen die Links <i>vorherige ID</i> / <i>n&auml;chste ID</i> (ID &minus;1 / +1). Nur Navigation, es gibt keine automatischen Abrufe."],
+  "eba_enable_profile_hotkeys"               : [ebaProfileHotkeys, "Profil-Bl&auml;ttern mit Q / E", "Auf Spielerprofilen mit Q / E zum vorherigen / n&auml;chsten Spieler (ID &minus;1 / +1) bl&auml;ttern. Nur Navigation per Tastendruck, es gibt keine automatischen Abrufe. Wirkt nicht in Eingabefeldern und nicht mit Strg/Alt/Meta."],
   "eba_enable_always_show_shop_prices"       : [alwaysShowShopPrices, "Ameisenshop-Preise immer zeigen", "Links neben dem Ameisenshop-Men&uuml;eintrag. Kann sein, dass nicht jeder Browser das richtig (verkleinert) darstellt."],
   "eba_enable_highlight_shop_prices"         : [highlightShopPrices, "Ameisenshop-Preise f&auml;rben", "Preise ab 95 % des H&ouml;chstpreises gelb, ab 98 % sanft rot, bei 100 % dunkelrot mit wei&szlig;er Schrift."],
+  "eba_enable_shop_price_history"            : [ebaShopPriceHistory, "Ankaufspreise des Ameisenshops festhalten und als Diagramme zeigen", "Die Ankaufspreise (<i>shop.php?cat=99</i>) werden je Tick einmal pro Art festgehalten: bei der st&uuml;ndlichen Preisabfrage der Men&uuml;anzeige und bei jedem Besuch der Seite. Es gibt keine zus&auml;tzlichen Abrufe. Unter der Kurstabelle erscheint je Art ein Diagramm (zwei nebeneinander, auf dem Handy untereinander) mit gemessenem Minimum, Maximum und der Spanne. Die Werte stammen aus den eigenen Messungen, nicht aus der Spielhilfe; sie werden wie die anderen Historien exportiert und per WebDAV abgeglichen."],
   "eba_enable_stat_beautify"                 : [statBeautify, "Statistik verbessern", "Einf&uuml;gen von 1.000er-Trennzeichen und Tooltips, die die Differenz zu den eigenen Punkten anzeigen. Das Avatar-Bild oben rechts bekommt als Tooltip die eigene Punkte-Entwicklung pro Stunde."],
-  "eba_enable_process_jobs"                  : [processJobOffers, "Jobs/Forschungen mit Informationen anreichern", "Stundenlohn und Dauer (nach Abschluss der aktuellen Aktion) anzeigen."],
-  "eba_enable_formi_statistic"               : [updateFormiStatistic, "Formicarien-Statistik", "Wird aktualisiert bei jedem Aufruf der Formicarien-&Uuml;bersicht. Aufzurufen dort mit dem Link <i>Statistik</i> bei jedem Formicarium. Optimiert zum Kopieren und Einf&uuml;gen in Excel und Co. Die Werte werden auch genutzt, um die Entwicklung von Eiern, Larven, Puppen, Ameisen und Punkten pro Stunde als jeweiligen Tooltip anzuzeigen."],
+  "eba_enable_process_jobs"                  : [processJobOffers, "Jobs/Forschungen mit Informationen anreichern", "Stundenlohn und Dauer (nach Abschluss der aktuellen Aktion) anzeigen und bei den Suchen die Endzeit in der Auswahl der Dauer. Die laufende Aktion (Internet-Startseite, Arbeitsamt, Forschung) bekommt ebenfalls die Endzeit, ein laufender Job zus&auml;tzlich den Stundenlohn (sobald die Jobdauer bekannt ist)."],
+  "eba_enable_formi_statistic"               : [updateFormiStatistic, "Formicarien-Statistik", "Wird aktualisiert bei jedem Aufruf der Formicarien-&Uuml;bersicht. Aufzurufen dort mit dem Link <i>Statistik</i> bei jedem Formicarium. Optimiert zum Kopieren und Einf&uuml;gen in Excel und Co. Die Werte werden auch genutzt, um die Entwicklung von Eiern, Larven, Puppen, Ameisen und Punkten pro Stunde als jeweiligen Tooltip anzuzeigen. In der Formicarium-Einzelansicht stehen die Links <i>Verlauf | CSV | Tabelle</i> unter den Hungerleisten."],
   "eba_enable_food_snapshot"                 : [ebaFoodSnapshotDetail, "Futterbestand und Ausbruchschutz pro Tick festhalten", "Beim ersten Aufruf der Formicarien-&Uuml;bersicht nach einem Tick wird die Futtertabelle jedes Formicariums samt Ausbruchschutz (Typ und Prozent, z.B. <i>PTFE 97,4</i>) im Hintergrund aus der Detailansicht geholt und in der Formicarien-Statistik erg&auml;nzt. Wird die Detailansicht des Formicariums vorher aufgerufen, wird der Bestand direkt beim Laden bzw. unmittelbar vor dem F&uuml;ttern erfasst (Zustand vor dem F&uuml;ttern). Funktioniert nur zusammen mit der Formicarien-Statistik."],
   "eba_enable_mark_shop_messages"            : [enableMarkShopMessages, "Option zum Markieren von Kleinanzeigen-Nachrichten einblenden"],
   "eba_enable_sum_multiple_messages"         : [sumMultipleMessages, "Gleichartige Nachrichten zusammenfassen", "Nachrichten desselben Benutzers mit demselben Betreff werden zusammengefasst. Der Haken zum L&ouml;schen bezieht sich auf alle zusammengefassten Nachrichten!"],
@@ -77,15 +88,23 @@ const configItems = {
   "eba_enable_food_move_form"                : [foodMoveForm, "Dialog 'Futtertierzucht einrichten' an den Anfang der Seite schieben"],
   "eba_enable_form_move_form"                : [formiMoveForm, "Dialog 'Formicarium einrichten' an den Anfang der Seite schieben"],
   "eba_enable_stock_sort"                    : [sortStock, "Nester und Formicarien im Lager nach Größe statt alphabetisch ordnen"],
-  "eba_enable_show_inventory"                : [showInventory, "Inventar in der Seitenleiste anzeigen", "Bestimmte Items aus dem Lager in der linken Seitenleiste anzeigen. Begriffe werden in der unteren Liste gepflegt."],
+  "eba_enable_show_inventory"                : [showInventory, "Inventar in der Seitenleiste anzeigen", "Bestimmte Items aus dem Lager in der linken Seitenleiste anzeigen. Begriffe werden in der unteren Liste gepflegt. Ein Begriff z&auml;hlt zun&auml;chst als exakter Name, sonst als Teilstring mit der Summe aller Treffer (z.B. <i>Nest</i> = alle Nester). Ameisen mit <i>@Lasius niger</i> (K&ouml;niginnen/Arbeiterinnen). Der Lagerstand wird h&ouml;chstens einmal pro Tick im Hintergrund geholt."],
+  "eba_enable_stock_history"                 : [ebaStockHistory, "Lagerbestand je Tick festhalten", "Je Tick wird einmal das Lager (Futter, Zubeh&ouml;r, Formicarien und Nester, M&ouml;bel, Ameisen) mit Zeitstempel festgehalten. Auf der Lagerseite direkt aus der Seite, sonst durch einen einzigen Hintergrundabruf der Lagerseite nach Ende des Ticks."],
   "eba_enable_global_statistic"              : [updateGlobalStatistic, "Geld, Punkte und Tickl&auml;nge historisieren", "Je Tick wird einmal der Geldbestand, die Punktzahl und die Dauer des letzten Ticks mit Zeitstempel festgehalten. Die Erfassung l&auml;uft auf jeder Spielseite (die Werte stehen in der Statusbox oben), aber immer nur einmal pro Tick."],
   "eba_enable_search_statistic"              : [updateSearchStatistic, "Futter- und Ameisensuchen vollst&auml;ndig historisieren", "Das Spiel zeigt nur die letzten Ergebnisse einer Futtersuche bzw. K&ouml;niginnensuche. Beim Aufruf der jeweiligen Seite wird die angezeigte Tabelle mit der gespeicherten Historie verschmolzen, sodass auch &auml;ltere Treffer erhalten bleiben."],
   "eba_enable_history_compaction"            : [function(){}, "Historien ausd&uuml;nnen, wenn sie zu gro&szlig; werden", "Ohne diese Option wachsen die Historien unbegrenzt (bisheriges Verhalten). Mit der Option wird in einer Reihe ab " + EBA_HIST_MAX_LINES + " Zeilen aus der <b>&auml;lteren H&auml;lfte</b> jede zweite Zeile entfernt. Die j&uuml;ngere H&auml;lfte und die Kopfzeile bleiben unangetastet. <b>Achtung:</b> Das entfernt alte Messpunkte unwiderruflich. Den aktuellen Speicherverbrauch zeigt die Zeile unten. Vertr&auml;gt sich nicht mit dem WebDAV-Abgleich, der ist bei eingeschalteter Kompaktierung gesperrt."],
-  "eba_enable_max_points"                    : [showMaxPoints, "Maximale Punktzahl in der Formicarien-&Uuml;bersicht anzeigen", "Hinter den Punkten jedes Formicariums erscheint die maximal erreichbare Punktzahl, z.B. <i>12.340 / 50.000</i>. Bei monogynen Arten ist das ein harter Wert, bei polygynen Arten wird der Zuwachs je weiterer K&ouml;nigin eingerechnet (auf dem Speedserver mit anderen Werten als auf dem Normalserver). Der Tooltip zeigt Arbeiterinnen-Maximum, Auslastung in Prozent und die Punkte je Arbeiterin laut Tabelle. Quelle der Werte ist die Spielhilfe; f&uuml;r zwei Arten ist der polygyne Zuwachs auf dem Speedserver dort unbekannt, dann erscheint ab zwei K&ouml;niginnen ein <i>?</i>."],
+  "eba_enable_max_points"                    : [showMaxPoints, "Maximale Punktzahl in der Formicarien-&Uuml;bersicht anzeigen", "Hinter den Punkten jedes Formicariums erscheint die maximal erreichbare Punktzahl, z.B. <i>12340 / 50000</i>, dahinter der Punktezuwachs im letzten Tick aus der Formicarien-Statistik, z.B. <i>12340 / 50000 +37</i> (gr&uuml;n, bei Verlust orange mit &minus;, ohne Zuwachs <i>&plusmn;0</i>). Liegen zwischen den beiden j&uuml;ngsten Statistikzeilen mehrere Ticks, steht der Durchschnitt je Tick mit <i>&#8960;</i>. Ohne Statistikdaten erscheint kein Zuwachs. Bei monogynen Arten ist das ein harter Wert, bei polygynen Arten wird der Zuwachs je weiterer K&ouml;nigin eingerechnet (auf dem Speedserver mit anderen Werten als auf dem Normalserver). Der Tooltip zeigt Arbeiterinnen-Maximum, Auslastung in Prozent und die Punkte je Arbeiterin laut Tabelle. Quelle der Werte ist die Spielhilfe; f&uuml;r zwei Arten ist der polygyne Zuwachs auf dem Speedserver dort unbekannt, dann erscheint ab zwei K&ouml;niginnen ein <i>?</i>."],
   "eba_enable_webdav_sync"                   : [enableWebdavSync, "Historien per WebDAV/Nextcloud zwischen Ger&auml;ten abgleichen", "Jede Zeitreihe (Formicarien, Futter, Geld, Punkte, Tickl&auml;nge, Suchen) liegt als eigene Datei in einem WebDAV-Ordner und wird mit den lokalen Daten verschmolzen, h&ouml;chstens einmal pro Tick und nur f&uuml;r den aktuellen Server. Lokal geht dabei nie etwas verloren. Einrichtung unten unter <i>Abgleich der Historien per WebDAV</i>; der automatische Abgleich startet erst nach einem erfolgreichen <i>Verbindung testen</i> auf diesem Ger&auml;t. Tampermonkey fragt dabei einmal, ob das Skript den Host erreichen darf. Ein Skriptmanager, der stattdessen hart blockt, braucht im Skriptkopf eine Zeile <i>// @connect &lt;host&gt;</i>. Optionen, Filter und Notizen werden nie abgeglichen. Vertr&auml;gt sich nicht mit der Kompaktierung."],
   "eba_enable_search_history_view"          : [showSearchHistory, "Alle gespeicherten Ergebnisse unter draussen.php?cat=3 anzeigen", "Zeigt unter jeder der beiden Ergebnistabellen des Spiels (Ameisensuche, Futtertiersuche; nur die letzten 10) eine einklappbare Tabelle mit den &auml;lteren gespeicherten Ergebnissen, neueste oben, samt kurzen Summen. Die Erfassung wird auf dieser Seite selbst angesto&szlig;en (Option <i>Futter- und Ameisensuchen vollst&auml;ndig historisieren</i> ist nicht n&ouml;tig, aber die Historie w&auml;chst nur, wenn die Seite aufgerufen wird). Wird keine Tabelle erkannt, erscheint ein kleiner Hinweis."],
-  "eba_enable_growth_percent"                : [showGrowthPercent, "Auswachszustand der Kolonien in Prozent anzeigen", "Hinter den Punkten (bei aktivierter maximaler Punktzahl dahinter) steht in Klammern der Auswachszustand, z.B. <i>4998 / 5.000 (99,9 %)</i> in Formicarien-&Uuml;bersicht und Einzelansicht: Arbeiterinnen geteilt durch die maximalen Arbeiterinnen der Art (bei polygynen Arten mit dem Zuwachs je K&ouml;nigin laut Polygynierechner wie bei der maximalen Punktzahl, bei unbekanntem Zuwachs ein <i>?</i>). Die Prozentzahl wird abgeschnitten, nicht gerundet. Die Farbe zeigt die Wachstumsphase: unter 24 % Anlaufphase (blau), 24&ndash;94 % Hauptwachstumsphase (gr&uuml;n), ab 94 % Endphase (gelb), 100 % ausgewachsen (hell, fett). Ist das Nest zu mehr als 75 % belegt, erscheint ein oranges <i>&#9888;</i>, denn das bremst das Wachstum (in der Einzelansicht mit der Belegung des Spiels, in der &Uuml;bersicht nur, wenn schon die Arbeiterinnen allein dar&uuml;ber liegen). Der Tooltip zeigt Phase, ob Nest oder Formicarium zuerst voll ist (z.B. <i>Nest voll bei ca. 5.000 Arbeiterinnen</i>) und die Belegung. Der Platzbedarf der Brut ist nicht eingerechnet."],
-  "eba_enable_history_charts"                : [enableHistoryCharts, "Verlaufsgrafiken f&uuml;r Geld, Punkte und Formicarien", "Beim &Uuml;berfahren von <i>Geld</i> und <i>Punkte</i> in der Kopfzeile erscheint eine kleine Kurve aus den gespeicherten Werten. Ein Klick darauf &ouml;ffnet unter <i>Statistik</i> die Seite <i>openEBA-Verlauf</i> mit gro&szlig;en Diagrammen (Geld, Punkte, Tickl&auml;nge, je Formicarium Arbeiterinnen, Punkte, Brut und Hunger). Die Kurven brauchen die Optionen <i>Geld, Punkte und Tickl&auml;nge historisieren</i> bzw. <i>Formicarien-Statistik</i>."]
+  "eba_enable_growth_percent"                : [showGrowthPercent, "Auswachszustand der Kolonien in Prozent anzeigen", "Hinter den Punkten (bei aktivierter maximaler Punktzahl dahinter) steht in Klammern der Auswachszustand, z.B. <i>4998 / 5000 +37 (99,9 %)</i> (ohne maximale Punktzahl <i>4998 +37 (99,9 %)</i>; der Zuwachs im letzten Tick kommt aus der Formicarien-Statistik) in Formicarien-&Uuml;bersicht und Einzelansicht: Arbeiterinnen geteilt durch die maximalen Arbeiterinnen der Art (bei polygynen Arten mit dem Zuwachs je K&ouml;nigin laut Polygynierechner wie bei der maximalen Punktzahl, bei unbekanntem Zuwachs ein <i>?</i>). Die Prozentzahl wird abgeschnitten, nicht gerundet. Die Farbe zeigt die Wachstumsphase: unter 24 % Anlaufphase (blau), 24&ndash;94 % Hauptwachstumsphase (gr&uuml;n), ab 94 % Endphase (gelb), 100 % ausgewachsen (hell, fett). Ist das Nest zu mehr als 75 % belegt, erscheint ein oranges <i>&#9888;</i>, denn das bremst das Wachstum (in der Einzelansicht mit der Belegung des Spiels, in der &Uuml;bersicht nur, wenn schon die Arbeiterinnen allein dar&uuml;ber liegen). Der Tooltip zeigt Phase, ob Nest oder Formicarium zuerst voll ist (z.B. <i>Nest voll bei ca. 5.000 Arbeiterinnen</i>) und die Belegung. Der Platzbedarf der Brut ist nicht eingerechnet."],
+  "eba_enable_max_habitat"                   : [showMaxHabitat, "Formicarium-Einzelansicht: h&ouml;chstens ben&ouml;tigtes Formicarium bzw. Nest anzeigen", "In der Formicarium-Detailansicht unter &bdquo;Formicarium wechseln&ldquo; und &bdquo;Nest wechseln&ldquo; anzeigen, welches Formicarium bzw. Nest die Art h&ouml;chstens braucht (Platzbedarf &times; maximale Arbeiterinnen; bei polygynen Arten wird die aktuelle K&ouml;niginnenzahl eingerechnet). Dahinter steht ein Symbol: <i>&uarr;</i> = dein Formicarium/Nest ist kleiner als n&ouml;tig, <i>&#9888;</i> = gr&ouml;&szlig;er als n&ouml;tig (belegt unn&ouml;tig Regalpl&auml;tze), <i>?</i> = bei mehreren K&ouml;niginnen h&auml;ngt der Bedarf von ihrer Zahl ab; passt es genau, steht kein Symbol. Der Tooltip <i>Rechnung</i> zeigt die Rechnung."],
+  "eba_enable_history_charts"                : [enableHistoryCharts, "Verlaufsgrafiken f&uuml;r Geld, Punkte und Formicarien", "Beim &Uuml;berfahren von <i>Geld</i> und <i>Punkte</i> in der Kopfzeile erscheint eine kleine Kurve aus den gespeicherten Werten. Ein Klick darauf &ouml;ffnet unter <i>Statistik</i> die Seite <i>openEBA-Verlauf</i> mit gro&szlig;en Diagrammen (Geld, Punkte, Tickl&auml;nge, je Formicarium Arbeiterinnen, Punkte, Brut und Hunger). Die Kurven brauchen die Optionen <i>Geld, Punkte und Tickl&auml;nge historisieren</i> bzw. <i>Formicarien-Statistik</i>."],
+  "eba_enable_overview_escape_bar"           : [ebaNoop, "Ausbruchschutz in der &Uuml;bersicht mit Prozentbalken", "Zeigt in der Zeile <i>Ausbruchschutz</i> zus&auml;tzlich einen Prozentbalken vor dem Text. Wirkt nur, wenn die Option <i>Ausbruchschutz in der Formicarien-&Uuml;bersicht anzeigen</i> aktiv ist; ohne diese Option erscheint nur der Text (z.B. <i>97,4 % PTFE</i>)."],
+  "eba_enable_overview_escape"               : [showOverviewEscape, "Ausbruchschutz in der Formicarien-&Uuml;bersicht anzeigen", "Unter dem Hunger (Proteine) bzw. dem Pilzstatus jeder Kolonie erscheint eine Zeile <i>Ausbruchschutz</i> mit Balken, Prozentwert (z.B. <i>97,4 %</i>; die Art, z.B. PTFE, steht im Tooltip). Das Spiel zeigt ihn in der &Uuml;bersicht nicht; der Wert stammt aus der zuletzt festgehaltenen Futter-Historie (daf&uuml;r muss die Option <i>Futterbestand und Ausbruchschutz pro Tick festhalten</i> aktiv sein). Stammt der Wert nicht aus dem aktuellen Tick, erscheint er blasser und kursiv, der Tooltip nennt den Zeitpunkt; solange ein Abruf aussteht, erscheint dahinter ein &#9203;. Sobald der Hintergrundabruf den neuen Wert geholt hat, wird die Zeile automatisch normal dargestellt. Den Prozentbalken schaltet die separate Option <i>mit Prozentbalken</i> zu. Unter 20 % orange, unter 10 % rot."],
+  "eba_enable_spielhilfe"                    : [enableSpielhilfe, "Spielhilfe im Lexikon anzeigen (Community-Daten)", "F&uuml;gt unter <i>lexikon.php</i> den Men&uuml;punkt <i>openEBA: Spielhilfe</i> ein: Ameisen-Steckbriefe mit Bildern, Artenvergleich (Arten im Shop und nicht im Shop), Wohnungen, Forschungsbaum als Grafik, Forschungsziele und -bonus, Jobs, ASW-Aktionen, Futter. Die Daten stammen haupts&auml;chlich aus der Community-Spielhilfe (Excel), erweitert um Daten aus dem Lexikon, und sind <b>nicht vom Spielbetreiber</b>. Bilder werden vom Spielserver geladen, der Reiter l&auml;dt sie erst beim Anzeigen."],
+  "eba_enable_spielhilfe_everywhere"         : [ebaSpielhilfeEverywhere, "Spielhilfe &uuml;berall zug&auml;nglich", "F&uuml;gt auf jeder Seite mit Men&uuml;leiste links ganz unten, unter den Bookmarks, den Link <i>openEBA: Spielhilfe</i> ein (Ziel: <i>lexikon.php#eba-spielhilfe</i>). Setzt <i>Spielhilfe im Lexikon anzeigen</i> voraus: Wird diese Option eingeschaltet, schaltet sich jene mit ein; wird jene ausgeschaltet, schaltet sich diese mit aus."],
+  "eba_enable_search_species"               : [ebaSearchSpecies, "Findbare Arten bei den Suchorten anzeigen (Ameisen suchen)", "F&uuml;gt unter <i>nach Drau&szlig;en &rarr; Ameisen suchen</i> bei jedem Suchort zwischen Beschreibung und Dauer eine kleine Zeile <i>Findbare Arten</i> ein. Die Zuordnung stammt aus der Community-Spielhilfe (Excel), ist <b>nicht vom Spielbetreiber</b> und kann unvollst&auml;ndig sein; Arten im Shop sind getrennt aufgef&uuml;hrt. Es werden keine zus&auml;tzlichen Anfragen gestellt."],
+  "eba_enable_lexikon_food_life"            : [ebaLexikonFoodLife, "Haltbarkeit der Futter im Lexikon anzeigen", "F&uuml;gt unter <i>lexikon.php?cat=4</i> (Futter) in jeder Kachel unter <i>Zersetzungsrate</i> die Zeile <i>Haltbarkeit</i> ein: Zeit, bis die Frische von allein 0,0&nbsp;% erreicht. Je Tick werden die Prozentpunkte der Zersetzungsrate abgezogen, also 100&nbsp;% / Rate Ticks (aufgerundet); angezeigt f&uuml;r den aktuellen Server (Normalserver 1 Tick = 60 min, Speedserver 12 min). Der Tooltip zeigt die Rechnung und den Wert des anderen Servers. Es werden keine zus&auml;tzlichen Anfragen gestellt."]
 }
 const shopPriceLimits = {
   "Camponotus ligniperda": 6.34,
@@ -210,56 +229,67 @@ const formiCapacity = {
 var foodQueue = [];
 var foodQueueRunning = false;
 var foodQueued = {};
+var foodPending = {}; // Abrufe dieses Seitenaufrufs, die noch ausstehen (Schlüssel wie foodQueued)
+// Meldet der Übersicht (showOverviewEscape), dass sich Snapshot oder Abrufstatus geändert haben.
+function ebaFoodChanged() { try { $(document).trigger("eba_food_changed"); } catch (err) {} }
 
-function showInventory(){
-  var doInsert = function(rowsHTML) {
-    $("body").append(rowsHTML);
-  };
-  // Ein Schlüssel für Lesen und Schreiben, mit Server-Präfix: vorher wurde
-  // eba_inv gelesen und eba_inventory geschrieben, der Cache griff also nie.
-  var invKey = "eba_inventory_" + srvKey();
-  var storedData = GM_getValue(invKey, "0\nx").split("\n", 2);
-  var hours = Math.floor($.now()/3600000);
-  //get schaben
-  if (hours!=storedData[0]) {
-    GM_xmlhttpRequest({
-      method: "GET",
-      url: document.URL.substring(0, document.URL.indexOf("/", 9))+"/ameisenzimmer.php?cat=2",
-      onload: function(response) {
-
-          var items = GM_getValue("eba_stock_items", "").split("\n");
-          var length = 0;
-          for(i = 0; i < items.length; i++){
-              length = items[i].length > length ? items[i].length : length;
-          }
-          var eba_inv = "<p style=\"color:white;font-family:monospace\">";
-          for(i = 0; i < items.length; i++){
-              var item = items[i]+":&nbsp;";
-              for(j = 0; j < length - items[i].length; j++){
-                  item += "&nbsp;";
-              }
-              if(items[i].length == 0){
-                  eba_inv += "<br>";
-              }else{
-                  var str_regex = items[i]+"<\/td><td class=liste><center>[0-9]+";
-                  var regex = new RegExp(str_regex, "g");
-
-                  try{
-                      var item_amount = response.responseText.match(str_regex)[0].replace(items[i]+"</td><td class=liste><center>", "");
-                  }catch(err){
-                      item_amount = 0;
-                  }
-                  eba_inv += "&nbsp;"+item+item_amount+"<br>"
-              }
-          }
-          eba_inv += "</p>";
-        doInsert(eba_inv);
-        GM_setValue(invKey, ""+hours+"\n"+eba_inv);
-      }
-    });
-  } else {
-    doInsert(storedData[1]);
+// Seitenleiste: Werte der Begriffe aus eba_stock_items (ein Begriff pro Zeile).
+// Der Lagerstand kommt aus ebaParseStock() und dem Tick-Abruf ebaStockRun().
+// Zuordnung eines Begriffs: zuerst exakter Name (Futter, Zubehör, Formicarien/
+// Nester, Möbel), sonst Teilstring ohne Beachtung der Groß-/Kleinschreibung mit
+// der SUMME aller Treffer ("Nest" = alle Nester, "Anlage" = alle Anlagen).
+// Ameisen nur mit eigener Syntax: "@Lasius niger" zeigt Königinnen/Arbeiterinnen
+// (ebenfalls erst exakt, sonst Teilstring mit Summe); sonst werden sie nicht gezählt.
+function ebaStockLookup(stock, term) {
+  var cats = ["food", "acc", "nest", "furn"];
+  if (term.charAt(0) === "@") {
+    var an = $.trim(term.substr(1)), ants = stock.ants || {}, sub = {q: 0, w: 0}, r;
+    if (Object.prototype.hasOwnProperty.call(ants, an)) { r = ants[an]; }
+    else {
+      var low = an.toLowerCase();
+      $.each(ants, function(n, e) { if (low && n.toLowerCase().indexOf(low) >= 0) { sub.q += e.q; sub.w += e.w; } });
+      r = sub;
+    }
+    return ebaStockNum(r.q) + "/" + ebaStockNum(r.w);
   }
+  var sum = 0, found = false, i, k;
+  for (i = 0; i < cats.length; i++) {
+    var c = stock[cats[i]] || {};
+    if (Object.prototype.hasOwnProperty.call(c, term)) { sum += c[term]; found = true; }
+  }
+  if (!found) {
+    var lt = term.toLowerCase();
+    for (i = 0; i < cats.length; i++) {
+      var d = stock[cats[i]] || {};
+      for (k in d) {
+        if (Object.prototype.hasOwnProperty.call(d, k) && lt && k.toLowerCase().indexOf(lt) >= 0) { sum += d[k]; }
+      }
+    }
+  }
+  return ebaStockNum(sum);
+}
+function showInventory(){
+  var items = $.map(("" + GM_getValue("eba_stock_items", "")).split("\n"), function(l) { return $.trim(l); });
+  var render = function(stock) {
+    var esc = function(s) { return $("<div>").text(s).html(); };
+    var width = 0, i;
+    var labels = $.map(items, function(t) { return t.charAt(0) === "@" ? $.trim(t.substr(1)) : t; });
+    for (i = 0; i < labels.length; i++) { width = Math.max(width, labels[i].length); }
+    var html = "<p id=\"eba_inventory\" style=\"color:white;font-family:monospace\">";
+    for (i = 0; i < items.length; i++) {
+      if (!items[i].length) { html += "<br>"; continue; }
+      var pad = "";
+      for (var j = 0; j < width - labels[i].length; j++) { pad += "&nbsp;"; }
+      html += "&nbsp;" + esc(labels[i]) + ":&nbsp;" + pad + ebaStockLookup(stock, items[i]) + "<br>";
+    }
+    html += "</p>";
+    $("#eba_inventory").remove();
+    $("body").append(html);
+  };
+  var cache = ebaStockCacheRead();
+  if (cache) { render(cache.stock); }
+  ebaStockListeners.push(render);
+  ebaStockRun();
 }
 function researchLevelCorrection () {
   if(!$("h3:contains('Forschung')").length){return}
@@ -406,7 +436,9 @@ function alwaysShowShopPrices() {
   // es nicht - wer zuerst lud, hat dem anderen Server seine Preise gezeigt.
   var priceKey = "eba_shop_prices_" + srvKey();
   var storedData = GM_getValue(priceKey, "0\nx").split("\n", 2);
-  var hours = Math.floor($.now()/3600000);
+  // Stundenraster der Serverzeit (echte Epoch), nicht der PC-Uhr. Ein alter Cache mit
+  // PC-Stunde passt fast nie dazu (Vergleich per !=) und wird einmalig neu geladen.
+  var hours = Math.floor(getServerNow()/3600000);
   if (hours!=storedData[0]) {
     GM_xmlhttpRequest({
       method: "GET",
@@ -416,6 +448,7 @@ function alwaysShowShopPrices() {
         var regexp = /<table class=liste>(.*?)<\/table>/g;
         var rows = regexp.exec(response.responseText)[1];
         doInsert(rows);
+        try { ebaShopPriceRecord(response.responseText); } catch (err) { /* Erfassung darf die Anzeige nicht stören */ }
         GM_setValue(priceKey, ""+hours+"\n"+rows);
       }
     });
@@ -432,29 +465,109 @@ function alwaysShowShopPrices() {
 // Formicarien-Statistik: Tick-Erkennung, Serverzeit, Futter-Snapshots
 // ---------------------------------------------------------------------------
 
-function formatStatTime(ms) {
-  var d = new Date(ms);
-  var p = function(n) { return (n < 10 ? "0" : "") + n; };
-  return p(d.getDate()) + "." + p(d.getMonth() + 1) + "." + d.getFullYear() + " " + p(d.getHours()) + ":" + p(d.getMinutes());
+// ---------------------------------------------------------------------------
+// Zeitbasis: echte Epoch, Anzeige in Berliner Zeit
+//
+// Der Spielserver läuft auf Europe/Berlin (MEZ/MESZ). getServerNow() liefert die
+// ECHTE Epoch (ms seit 1970 UTC) der Serveruhr - unabhängig von Zeitzone und Uhr
+// des PCs. Alle Zeitschlüssel (Ticks, Historien, WebDAV) bauen darauf auf.
+// Alles, was als Datum/Uhrzeit angezeigt oder von der Seite gelesen wird, geht
+// über ebaBerlinParts() bzw. ebaBerlinToEpoch(), nie über die lokalen Getter
+// (getHours() usw.), die von der Zeitzone des PCs abhängen.
+//
+// Rückwärtskompatibilität: Bis Version 33.8 war getServerNow() ein "Wanduhr-Epoch"
+// (die Epoch, deren LOKALE Wanduhr der Server-Wanduhr entspricht). Auf einem PC in
+// deutscher Zeitzone ist das genau die echte Epoch; ebaBerlinToEpoch() wählt in
+// der doppelten Stunde bei der Umstellung auf Winterzeit und in der fehlenden
+// Stunde bei der Umstellung auf Sommerzeit dieselbe Epoch wie new Date(y, m, d, ...)
+// auf einem solchen PC. Daten von deutschen PCs bleiben damit gültig; eine
+// Umwandlung ist nicht nötig.
+//
+// Tick-Raster: Berlin liegt immer ganze Stunden (+1 h/+2 h) neben UTC. Volle
+// Stunden (Normalserver) und 12-Minuten-Raster (Speedserver, 60 = 5 * 12) der
+// Berliner Wanduhr fallen deshalb exakt auf floor(epoch / tickMs) * tickMs - auch an
+// den Umstellungstagen (die Umstellung erfolgt um 01:00 UTC, also selbst auf
+// einer Tickgrenze; die Epoch läuft dabei gleichmäßig weiter).
+//
+// Ohne Intl-Zeitzonen (sehr alte Browser) wird wie bis Version 33.8 mit der
+// Zeitzone des PCs gerechnet.
+// ---------------------------------------------------------------------------
+var ebaTzFmt = null, ebaTzCache = {}, ebaTzCacheN = 0;
+// Versatz der Berliner Wanduhr zu UTC (ms) zum Zeitpunkt t, null ohne Intl-Zeitzonen.
+// Die Umstellungen liegen auf vollen UTC-Stunden, daher je UTC-Stunde zwischengespeichert.
+function ebaBerlinOff(t) {
+  if (typeof t !== "number" || isNaN(t)) { return null; }
+  var hk = Math.floor(t / 3600000);
+  if (ebaTzCache.hasOwnProperty(hk)) { return ebaTzCache[hk]; }
+  var off = null;
+  try {
+    if (!ebaTzFmt) {
+      ebaTzFmt = new Intl.DateTimeFormat("en-US", { timeZone: "Europe/Berlin", hour12: false, year: "numeric",
+        month: "numeric", day: "numeric", hour: "numeric", minute: "numeric", second: "numeric" });
+    }
+    var h0 = hk * 3600000;
+    var p = {}, parts = ebaTzFmt.formatToParts(new Date(h0));
+    for (var i = 0; i < parts.length; i++) { p[parts[i].type] = parseInt(parts[i].value, 10); }
+    off = Date.UTC(p.year, p.month - 1, p.day, p.hour % 24, p.minute, p.second) - h0;
+    if (isNaN(off) || Math.abs(off) > 86400000) { off = null; }
+  } catch (err) { off = null; }
+  if (ebaTzCacheN > 5000) { ebaTzCache = {}; ebaTzCacheN = 0; }
+  ebaTzCache[hk] = off; ebaTzCacheN++;
+  return off;
+}
+// Berliner Wanduhr zur Epoch ms: {y, mo (1-12), d, h, mi, s, wd (0 = Sonntag)}
+function ebaBerlinParts(ms) {
+  var o = ebaBerlinOff(ms), d;
+  if (o === null) {
+    d = new Date(ms);
+    return { y: d.getFullYear(), mo: d.getMonth() + 1, d: d.getDate(), h: d.getHours(),
+             mi: d.getMinutes(), s: d.getSeconds(), wd: d.getDay() };
+  }
+  d = new Date(ms + o);
+  return { y: d.getUTCFullYear(), mo: d.getUTCMonth() + 1, d: d.getUTCDate(), h: d.getUTCHours(),
+           mi: d.getUTCMinutes(), s: d.getUTCSeconds(), wd: d.getUTCDay() };
+}
+// Berliner Wanduhr (Monat 1-12) als echte Epoch ms. Wie new Date(...) auf einem
+// PC in deutscher Zeitzone: doppelte Stunde (Ende der Sommerzeit) -> die frühere,
+// fehlende Stunde (Beginn der Sommerzeit) -> mit dem Versatz davor.
+function ebaBerlinToEpoch(y, mo, d, h, mi, s) {
+  var w = Date.UTC(y, mo - 1, d, h || 0, mi || 0, s || 0);
+  var oA = ebaBerlinOff(w - 10800000), oB = ebaBerlinOff(w + 10800000);
+  if (oA === null || oB === null) { return new Date(y, mo - 1, d, h || 0, mi || 0, s || 0).getTime(); }
+  var eA = w - oA, eB = w - oB;
+  var okA = ebaBerlinOff(eA) === oA, okB = ebaBerlinOff(eB) === oB;
+  if (okA && okB) { return Math.min(eA, eB); }
+  if (okA) { return eA; }
+  if (okB) { return eB; }
+  return eA; // Lücke: Versatz vor der Umstellung
+}
+// Kalendertag (Tage seit 1970) der Berliner Wanduhr, für "heute/morgen"
+function ebaBerlinDay(ms) {
+  var p = ebaBerlinParts(ms);
+  return Math.round(Date.UTC(p.y, p.mo - 1, p.d) / 86400000);
 }
 
-// Serveruhr. Rückgabe ist ein "Wanduhr-Epoch": die Epoch-ms, bei denen die LOKALE
-// Wanduhr des Browsers (getHours() usw.) der Server-Wanduhr entspricht. Alle
-// Zeitschlüssel, Ticks und Formatierungen bauen darauf auf.
+function formatStatTime(ms) {
+  var b = ebaBerlinParts(ms);
+  var p = function(n) { return (n < 10 ? "0" : "") + n; };
+  return p(b.d) + "." + p(b.mo) + "." + b.y + " " + p(b.h) + ":" + p(b.mi);
+}
+
+// Serveruhr. Rückgabe ist die echte Epoch (ms seit 1970 UTC) der Serveruhr.
 // Quellen in dieser Reihenfolge:
 // 1. Inline-Skript des Spiels (Variable currenttime, Format "Month DD, YYYY HH:MM:SS",
-//    Server-Ortszeit): liefert Datum UND Uhrzeit. Wird beim Skriptstart einmal aus dem
-//    Seitenquelltext gelesen (nicht über window, wegen Tampermonkey-Sandbox) und als fester
-//    Offset zur PC-Uhr gemerkt; er gilt auch nach AJAX-Neuaufbauten weiter.
+//    Berliner Wanduhr): liefert Datum UND Uhrzeit. Wird beim Skriptstart einmal aus dem
+//    Seitenquelltext gelesen (nicht über window, wegen Tampermonkey-Sandbox), als
+//    Europe/Berlin in die echte Epoch umgerechnet und als fester Offset zur PC-Uhr
+//    gemerkt; er gilt auch nach AJAX-Neuaufbauten weiter. Zeitzone und Uhr des PCs
+//    spielen damit keine Rolle (nur der Gang der PC-Uhr seit dem Seitenladen).
 //    Das Element #servertime ist im Quelltext leer und wird erst in window.onload gefüllt.
-// 2. #servertime (nur Uhrzeit, ±12 h zur PC-Uhr; das Datum kommt von der PC-Uhr)
+// 2. #servertime (nur Uhrzeit, ±12 h zur Berliner Uhrzeit der PC-Uhr; das Datum kommt
+//    von der PC-Uhr)
 // 3. PC-Uhr
-// Zeitzonen: Die Server-Wanduhr wird als lokale Wanduhr des Browsers aufgebaut (wie bisher
-// bei #servertime), die Werte sind also unabhängig von der PC-Zeitzone Server-Wanduhrzeit.
-// Randfälle: Liegt die Server-Wanduhrzeit in einer Sommerzeit-Lücke der PC-Zeitzone, rückt
-// der Browser sie um eine Stunde vor (wie schon bisher). Wechselt die PC-Zeitzone zwischen
-// Skriptstart und Aufruf die Sommerzeit, bleibt der Offset fest (Abweichung höchstens 1 h bis
-// zum nächsten Seitenladen).
+// Randfall: In der doppelten Stunde am Ende der Sommerzeit (02:00-03:00) ist die
+// Wanduhr mehrdeutig; gewählt wird die frühere Epoch (wie bisher auf deutschen PCs),
+// also höchstens eine Stunde Abweichung bis zum nächsten Seitenladen nach 03:00.
 var EBA_MONTHS = ["january","february","march","april","may","june","july","august","september","october","november","december"];
 function readServerOffset() {
   var scripts = document.getElementsByTagName("script");
@@ -466,9 +579,9 @@ function readServerOffset() {
     var y = parseInt(m[4], 10), day = parseInt(m[3], 10);
     var h = parseInt(m[5], 10), mi = parseInt(m[6], 10), sec = parseInt(m[7], 10);
     if (mon < 0 || day < 1 || day > 31 || h > 23 || mi > 59 || sec > 59) { continue; } // nicht eindeutig
-    var d = new Date(y, mon, day, h, mi, sec);
-    if (d.getMonth() !== mon || d.getDate() !== day) { continue; } // z.B. 31. Februar
-    return d.getTime() - Date.now();
+    var chk = new Date(Date.UTC(y, mon, day));
+    if (chk.getUTCMonth() !== mon || chk.getUTCDate() !== day) { continue; } // z.B. 31. Februar
+    return ebaBerlinToEpoch(y, mon + 1, day, h, mi, sec) - Date.now();
   }
   return null;
 }
@@ -477,34 +590,62 @@ var EBA_SERVER_OFFSET = readServerOffset();
 function getServerNow() {
   if (EBA_SERVER_OFFSET !== null) { return Date.now() + EBA_SERVER_OFFSET; }
   var t = /(\d+):(\d+):(\d+)/.exec($("#servertime").text());
-  var d = new Date();
-  if (!t) { return d.getTime(); } // Fallback: PC-Uhr
+  var now = Date.now();
+  if (!t) { return now; } // Fallback: PC-Uhr
   var srv = (parseInt(t[1])*3600 + parseInt(t[2])*60 + parseInt(t[3])) * 1000;
-  var loc = ((d.getHours()*60 + d.getMinutes())*60 + d.getSeconds())*1000 + d.getMilliseconds();
+  var b = ebaBerlinParts(now); // Berliner Uhrzeit laut PC-Uhr
+  var loc = ((b.h*60 + b.mi)*60 + b.s)*1000 + now % 1000;
   var day = 86400000;
   var diff = (((srv - loc + day/2) % day) + day) % day - day/2; // in [-12h, +12h)
-  return d.getTime() + diff;
+  return now + diff;
 }
 
-// Nur die Subdomain speed.* ist der Speed-Server. Die frühere, unverankerte
-// Prüfung hat jedes "speed" im Hostnamen erkannt (z.B. speedtest.eatenbyants.de).
-function isSpeedServer() { return /^speed\./i.test(location.hostname); }
-// Tick-Länge in Minuten: Normal = 60, Speed = 12
+// Vier Server, getrennt gespeichert: Normal (eatenbyants.de, www.), Speed (speed.),
+// TestNormal (test.) und TestSpeed (testspeed.). Alle anderen Hosts (z.B. forum.,
+// speedtest.) werden ignoriert, damit dort nichts in die gemeinsamen GM-Daten
+// geschrieben wird. Die Prüfung im Code ist nötig, weil @include/@exclude bei
+// bestehenden Installationen erst nach einem Update gelten. Die Subdomain wird
+// verankert geprüft (frühere unverankerte Prüfung erkannte jedes "speed").
+function ebaHostAllowed(h) {
+  return /^(www\.|speed\.|test\.|testspeed\.)?eatenbyants\.de$/i.test(h === undefined ? location.hostname : h);
+}
+var EBA_HOST_OK = ebaHostAllowed();
+// Server-Präfix zu einem Hostnamen: "" (Normal), "speed_", "test_", "testspeed_"
+function ebaHostSrvKey(h) {
+  h = h === undefined ? location.hostname : h;
+  if (/^testspeed\./i.test(h)) { return "testspeed_"; }
+  if (/^speed\./i.test(h)) { return "speed_"; }
+  if (/^test\./i.test(h)) { return "test_"; }
+  return "";
+}
+// "Speed-Regeln" (Tick 12 min, Jobdauer 1/5, Speed-Polygynie ...) gelten für Speed UND TestSpeed
+function isSpeedServer() { return /^(testspeed_|speed_)$/.test(ebaHostSrvKey()); }
+// Tick-Länge in Minuten: Normal/TestNormal = 60, Speed/TestSpeed = 12
 function getTickMinutes() { return isSpeedServer() ? 12 : 60; }
-// GM-Werte gelten für alle Subdomains, daher eigener Präfix für den Speed-Server
-function srvKey() { return isSpeedServer() ? "speed_" : ""; }
-// Klartextname zu einem Server-Präfix, für Dialoge
-function srvName(key) { return key === "speed_" ? "Speedserver" : "Normalserver"; }
+// GM-Werte gelten für alle Subdomains, daher eigener Präfix je Server
+function srvKey() { return ebaHostSrvKey(); }
+// Klartextname zu einem Server-Präfix, für Dialoge und Anzeigen
+function srvName(key) {
+  return key === "speed_" ? "Speedserver" : key === "test_" ? "Testserver (Normal)"
+    : key === "testspeed_" ? "Testserver (Speed)" : "Normalserver";
+}
+// Kurzname für Dateinamen (WebDAV-Index): normal, speed, test, testspeed
+function ebaSrvFileName(key) { return key ? key.replace(/_$/, "") : "normal"; }
 
 // Zu welchem Server gehört ein gespeicherter Wert?
 // Alle servergetrennten Schlüssel haben die Form "<bereich>" + srvKey() + "<rest>",
 // der Server steckt also direkt hinter dem festen Bereichspräfix.
-// Rückgabe: "" (Normalserver), "speed_" (Speedserver) oder null (gilt für beide).
+// Rückgabe: "" (Normal), "speed_", "test_", "testspeed_" oder null (gilt für alle).
 function keyServer(k) {
   for (var i = 0; i < EBA_SRV_PREFIXES.length; i++) {
     var p = EBA_SRV_PREFIXES[i];
     if (k.indexOf(p) === 0) {
-      return k.substr(p.length).indexOf("speed_") === 0 ? "speed_" : "";
+      var rest = k.substr(p.length);
+      // "testspeed_" vor "speed_" und "test_" prüfen; ein Präfix ist nie Teilstück eines anderen
+      if (rest.indexOf("testspeed_") === 0) { return "testspeed_"; }
+      if (rest.indexOf("speed_") === 0) { return "speed_"; }
+      if (rest.indexOf("test_") === 0) { return "test_"; }
+      return "";
     }
   }
   return null; // Optionen, Filter, Notizen, Bookmarks: bewusst für beide Server
@@ -625,6 +766,7 @@ function mergeFoodHistory(a, b) {
 // Zeile: nach dem Verschmelzen mit einem anderen Gerät muss die letzte Zeile
 // nicht die aktuellste sein.
 function hasFoodSnapshot(id, tickMin) {
+  if (ebaRowDelHas("eba_food_" + srvKey() + id, "" + tickMin)) { return true; } // gelöscht
   var saved = GM_getValue("eba_food_" + srvKey() + id, "");
   if (!saved) { return false; }
   var ls = saved.split("\n");
@@ -703,14 +845,16 @@ function queueFoodSnapshot(id, url, tickMin) {
   var k = srvKey() + id + "_" + tickMin;
   if (foodQueued[k] || hasFoodSnapshot(id, tickMin)) { return; }
   foodQueued[k] = true;
+  foodPending[k] = true;
   foodQueue.push({id: id, url: url, tickMin: tickMin, qk: k});
+  ebaFoodChanged();
   if (!foodQueueRunning) { runFoodQueue(); }
 }
 function runFoodQueue() {
   var job = foodQueue.shift();
   if (!job) { foodQueueRunning = false; return; }
   foodQueueRunning = true;
-  var next = function() { setTimeout(runFoodQueue, 300); };
+  var next = function() { delete foodPending[job.qk]; ebaFoodChanged(); setTimeout(runFoodQueue, 300); };
   var fail = function() { delete foodQueued[job.qk]; next(); }; // Retry beim nächsten Aufruf erlauben
   GM_xmlhttpRequest({
     method: "GET",
@@ -730,7 +874,8 @@ function runFoodQueue() {
       } catch (err) { fail(); }
     },
     onerror: fail,
-    ontimeout: fail
+    ontimeout: fail,
+    timeout: 20000 // sonst blockiert ein hängender Abruf die ganze Warteschlange
   });
 }
 
@@ -756,7 +901,36 @@ function ebaHungerFromCell(td) {
   return isNaN(val) ? "" : val.toString().replace(".", ",");
 }
 
+// Detailansicht: unter den Hungerleisten dieselben Links wie in der Übersicht (Verlauf | CSV | Tabelle).
+// Die Ansicht wird nach dem Füttern per AJAX neu aufgebaut, daher idempotent und per Observer erneut.
+function ebaDetailStatLinks() {
+  var apply = function() {
+    try {
+      var box = $("div[data-formi='stats']").first();
+      if (!box.length || box.find(".eba_detail_stat").length) { return; }
+      var sp = box.find("span[id^='sugarhunger']").first();
+      var id = sp.length ? sp.attr("id").substr(11) : "";
+      if (!/^\d+$/.test(id)) { return; }
+      var host = box.find("table.inner").first();
+      if (!host.length) { return; }
+      var links = "";
+      if (GM_getValue("eba_enable_history_charts", false)) {
+        links += "<a id='eba_statistic_hist_"+id+"' href='/stats.php#eba-verlauf-"+id+"'>Verlauf</a> | ";
+      }
+      links += "<a id='eba_statistic_csv_"+id+"' href='javascript:void(0)'>CSV</a> | "
+        + "<a id='eba_statistic_show_"+id+"' href='javascript:void(0)'>Tabelle</a>";
+      var el = $("<div class='eba_detail_stat' style='text-align:center;margin-top:4px'></div>").html(links);
+      el.find("#eba_statistic_csv_"+id).on("click", function(e) { e.preventDefault(); ebaDownloadFormiCsv(id); });
+      el.find("#eba_statistic_show_"+id).on("click", function(e) { e.preventDefault(); ebaShowFormiTable(id, 60); });
+      host.after(el);
+    } catch (err) {}
+  };
+  apply();
+  new MutationObserver(apply).observe(document.body, {childList: true, subtree: true});
+}
+
 function updateFormiStatistic() {
+  if($("div[data-formi='stats']").length && !$("h3:contains('Deine Formicarien')").length){ ebaDetailStatLinks(); return; }
   if(!$("h3:contains('Deine Formicarien')").length){return}
   refreshTickDuration();
   var tk = getTickInfo();
@@ -769,7 +943,17 @@ function updateFormiStatistic() {
     var aid = $(this).attr("id").substr(11);
     if (/^\d+$/.test(aid) && $.inArray(aid, activeIds) < 0) { activeIds.push(aid); }
   });
-  GM_setValue("eba_formi_active_" + srvKey(), new Date().getTime() + "\t" + activeIds.join(","));
+  GM_setValue("eba_formi_active_" + srvKey(), getServerNow() + "\t" + activeIds.join(","));
+  if (tk.done && activeIds.length && ebaTickEdit() && !$("#eba_recapture").length) {
+    var rb = $("<div style='text-align:center;font-size:0.85em;margin:4px 0'><a id='eba_recapture' href='javascript:void(0)' title='Verwirft die Statistik- und Futterzeilen des aktuellen Ticks aller Kolonien dieser Seite (auch auf anderen Ger\u00E4ten per WebDAV) und erfasst sie neu.'>\u21BB aktuellen Tick neu erfassen</a></div>");
+    $("h3:contains('Deine Formicarien')").first().after(rb);
+    rb.find("a").on("click", function(e) {
+      e.preventDefault();
+      if (!confirm("Statistik- und Futterzeilen des aktuellen Ticks f\u00FCr " + activeIds.length + " Kolonien verwerfen und neu erfassen?")) { return; }
+      ebaRecaptureTick(activeIds);
+      location.reload();
+    });
+  }
   $("div[id='shopitem']:contains('Larven')").each(function(i, e) {
     var div = $(this);
     var long_str = ["Reagenzglas", "Mini Arena", "kleines Formicarium", "mittleres Formicarium", "großes Formicarium", "mittlere Anlage",
@@ -826,6 +1010,8 @@ function updateFormiStatistic() {
     for (var q = lines.length - 1; q >= 1; q--) {
       if (Math.abs(parseFloat(lines[q].split("\t")[0]) - nowElapsed) < 0.005) { haveTick = true; break; }
     }
+    // Zeile dieses Ticks vom Nutzer gelöscht: nicht neu anlegen
+    if (!haveTick && ebaRowDelHas(key, "" + Math.round((baseHour + nowElapsed) * 60))) { haveTick = true; }
     if (tk.done && !haveTick) {
       // chronologisch einsortieren (normal: ans Ende)
       var at = lines.length;
@@ -866,43 +1052,134 @@ function updateFormiStatistic() {
       }
     }
 
-    // Statistik anzeigen
-    div.find("div[id='group'] center").append("<br><a id='eba_statistic_show_"+id+"' href='javascript:void(0)'>Statistik</a>");
+    // Statistik anzeigen: Verlauf (Detailseite), CSV-Download, Tabelle zum Kopieren
+    var links = "";
+    if (GM_getValue("eba_enable_history_charts", false)) {
+      links += "<a id='eba_statistic_hist_"+id+"' href='/stats.php#eba-verlauf-"+id+"'>Verlauf</a> | ";
+    }
+    links += "<a id='eba_statistic_csv_"+id+"' href='javascript:void(0)'>CSV</a> | "
+      + "<a id='eba_statistic_show_"+id+"' href='javascript:void(0)'>Tabelle</a>";
+    div.find("div[id='group'] center").append("<br>" + links);
+    $("#eba_statistic_csv_"+id).on("click", function(e) {
+      e.preventDefault();
+      ebaDownloadFormiCsv(id);
+    });
     $("#eba_statistic_show_"+id).on("click", function(e) {
-      var mainArea = $("td[width='700px']");
-      mainArea.empty();
-      var statisticHTML = "<div id='shopitem'><textarea id='eba_statistic_area' style='height:300px;width:100%;padding:0;border:1px solid #3aab54;font-family:monospace;'></textarea>";
-      statisticHTML += "<button id='eba_statistic_ok' type='button'>OK</button></div>";
-      mainArea.append(statisticHTML);
-
-      // Futter und Ausbruchschutz nach Tick (Minuten seit Epoch) indexieren
-      var foodMap = {};
-      $.each(mergeFoodHistory(GM_getValue("eba_food_" + srvKey() + id, ""), "").split("\n"), function(k, line) {
-        if (!line) { return; }
-        var ff = line.split("\t");
-        foodMap[ff[0]] = [ff[2] || "", ff[3] || ""];
-      });
-
-      var headLines = savedData.substring(0, savedData.indexOf("\n"))+"\nZeit(h)\tKön.\tArb.\tEier\tLarven\tPuppen\tPunkte\tNest       \tFormicarium\tZu(%)\tPr(%)\tUhrzeit\tFutter\tAusbruchschutz\n";
-      var rows = savedData.substr(savedData.indexOf("\n")+1).split("\n");
-      var body = $.map(rows, function(line) {
-        var r = line.split("\t");
-        var elapsed = parseFloat(r[0]);
-        if (r.length < 12) { // alte Zeile ohne Uhrzeit
-          r.push(formatStatTime((baseHour + elapsed) * 3600000));
-        }
-        var tickKey = Math.round((baseHour * 60 + elapsed * 60) / tickMin) * tickMin;
-        var fd = foodMap[tickKey];
-        r.push(fd ? fd[0] : "", fd ? fd[1] : "");
-        r[0] = r[0].replace(".", ",");
-        return r.join("\t");
-      }).join("\n");
-      $("#eba_statistic_area").val(headLines+body).select();
-      $("#eba_statistic_ok").on("click", function(e) {
-        window.location.href = window.location.href.replace(/\?.*/, '');
-      });
+      e.preventDefault();
+      ebaShowFormiTable(id, 60);
     });
   });
+}
+
+// Tabellenansicht einer Kolonie (Link "Tabelle"): Text zum Kopieren und darunter
+// die Zeilen, neueste zuerst, je Zeile mit Papierkorb zum Löschen.
+function ebaShowFormiTable(id, limit) {
+  var mainArea = $("td[width='700px']");
+  mainArea.empty();
+  var savedData = GM_getValue("eba_statistic_" + srvKey() + id, "");
+  var box = $("<div id='shopitem'></div>");
+  box.append("<textarea id='eba_statistic_area' style='height:300px;width:100%;padding:0;border:1px solid #3aab54;font-family:monospace;'></textarea>");
+  box.append("<button id='eba_statistic_ok' type='button'>OK</button>");
+  mainArea.append(box);
+  if (!savedData) { box.append("<p>Keine Daten.</p>"); }
+  var t = savedData ? ebaFormiStatTable(id, savedData) : { head: [], rows: [], keys: [] };
+  var headLines = savedData.substring(0, savedData.indexOf("\n")) + "\n" + t.head.join("\t") + "\n";
+  var body = $.map(t.rows, function(r) { return r.join("\t"); }).join("\n");
+  $("#eba_statistic_area").val(headLines + body).select();
+  $("#eba_statistic_ok").on("click", function() {
+    window.location.href = window.location.href.replace(/\?.*/, '');
+  });
+  if (!t.rows.length || !ebaTickEdit()) { return; }
+  var n = t.rows.length, shown = Math.min(n, limit || n);
+  var wrap = $("<div class='eba_rowtable' style='margin-top:10px;overflow-x:auto'></div>");
+  wrap.append("<b>Zeilen</b> (neueste zuerst) &ndash; <span style='font-size:0.9em'>&#128465; l&ouml;scht die Zeile dieses Zeitpunkts "
+    + "samt Futterangabe; bei aktivem WebDAV-Abgleich auch auf den anderen Ger&auml;ten.</span>");
+  var tbl = $("<table class='liste' style='border-collapse:collapse;font-size:0.85em'></table>");
+  var htr = $("<tr class='liste'></tr>");
+  $.each(t.head, function(j, h) { htr.append($("<td class='liste'></td>").text($.trim(h))); });
+  htr.append("<td class='liste'></td>");
+  tbl.append(htr);
+  for (var i = n - 1, c = 0; i >= n - shown; i--, c++) {
+    var tr = $("<tr></tr>").addClass(c % 2 ? "color2" : "color1");
+    $.each(t.rows[i], function(j, v) { tr.append($("<td class='liste'></td>").text(v)); });
+    var del = $("<a href='javascript:void(0)' class='eba_rowdel' title='Zeile l\u00F6schen' style='text-decoration:none'>\uD83D\uDDD1</a>");
+    del.on("click", (function(idx) { return function(ev) {
+      ev.preventDefault();
+      var r = t.rows[idx], k = t.keys[idx];
+      if (!k) { return; }
+      var parts = [];
+      $.each(t.head, function(j, h) { h = $.trim(h); if (r[j] !== "" && r[j] != null && h !== "Nest" && h !== "Formicarium") { parts.push(h + " " + r[j]); } });
+      if (!window.confirm("Zeile l\u00F6schen?\n\nKolonie: " + (ebaFormiKind(id) || "?") + " (Formicarium " + id + ")\n"
+        + "Zeitpunkt: " + r[11] + "\nWerte: " + parts.join(", ") + "\n\n"
+        + "Gel\u00F6scht werden die Statistik- und die Futterzeile dieses Zeitpunkts. Das l\u00E4sst sich nicht r\u00FCckg\u00E4ngig machen; "
+        + "mit WebDAV-Abgleich wird die L\u00F6schung auf die anderen Ger\u00E4te \u00FCbertragen.")) { return; }
+      ebaRowDelRemove([["eba_statistic_" + srvKey() + id, k], ["eba_food_" + srvKey() + id, k]]);
+      ebaShowFormiTable(id, limit);
+    }; })(i));
+    tr.append($("<td class='liste'></td>").append(del));
+    tbl.append(tr);
+  }
+  wrap.append(tbl);
+  if (shown < n) {
+    wrap.append($("<a href='javascript:void(0)'></a>").text("alle " + n + " Zeilen anzeigen").on("click", function(ev) {
+      ev.preventDefault(); ebaShowFormiTable(id, 0);
+    }));
+  }
+  box.append(wrap);
+}
+
+// Statistik-Tabelle einer Kolonie: {head: [Spalten], rows: [[Felder]], keys: [absolute Minuten]}.
+// Zeiten in Serverzeit-Darstellung, Dezimalkomma bei der Zeit(h)-Spalte.
+function ebaFormiStatTable(id, savedData) {
+  var tickMin = getTickMinutes();
+  // Futter und Ausbruchschutz nach Tick (Minuten seit Epoch) indexieren
+  var foodMap = {};
+  $.each(mergeFoodHistory(GM_getValue("eba_food_" + srvKey() + id, ""), "").split("\n"), function(k, line) {
+    if (!line) { return; }
+    var ff = line.split("\t");
+    foodMap[ff[0]] = [ff[2] || "", ff[3] || ""];
+  });
+  var baseHour = parseInt(savedData.substring(0, savedData.indexOf("\t")));
+  var head = ["Zeit(h)", "Kön.", "Arb.", "Eier", "Larven", "Puppen", "Punkte", "Nest       ", "Formicarium", "Zu(%)", "Pr(%)", "Uhrzeit", "Futter", "Ausbruchschutz"];
+  var rows = [], keys = [];
+  $.each(savedData.substr(savedData.indexOf("\n")+1).split("\n"), function(k, line) {
+    var r = line.split("\t");
+    var elapsed = parseFloat(r[0]);
+    keys.push(isNaN(elapsed) ? "" : "" + Math.round((baseHour + elapsed) * 60));
+    if (r.length < 12) { // alte Zeile ohne Uhrzeit
+      r.push(formatStatTime((baseHour + elapsed) * 3600000));
+    }
+    var tickKey = Math.round((baseHour * 60 + elapsed * 60) / tickMin) * tickMin;
+    var fd = foodMap[tickKey];
+    r.push(fd ? fd[0] : "", fd ? fd[1] : "");
+    r[0] = r[0].replace(".", ",");
+    rows.push(r);
+  });
+  return { head: head, rows: rows, keys: keys };
+}
+
+// Statistik einer Kolonie als CSV laden (Semikolon, UTF-8 mit BOM für Excel)
+function ebaDownloadFormiCsv(id) {
+  var saved = GM_getValue("eba_statistic_" + srvKey() + id, "");
+  if (!saved) { return false; }
+  var t = ebaFormiStatTable(id, saved);
+  var cell = function(v) {
+    v = String(v == null ? "" : v);
+    return /[;"\r\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+  };
+  var lines = [$.map(t.head, function(h) { return cell($.trim(h)); }).join(";")];
+  $.each(t.rows, function(i, r) { lines.push($.map(r, cell).join(";")); });
+  var kind = (ebaFormiKind(id) || "Kolonie").replace(/[^A-Za-z0-9\u00C4\u00D6\u00DC\u00E4\u00F6\u00FC\u00DF_-]+/g, "_").replace(/^_+|_+$/g, "");
+  var d = ebaBerlinParts(getServerNow()), p = function(n) { return (n < 10 ? "0" : "") + n; };
+  var name = "openEBA_" + kind + "_" + id + "_" + d.y + "-" + p(d.mo) + "-" + p(d.d) + ".csv";
+  var blob = new Blob(["\uFEFF" + lines.join("\r\n") + "\r\n"], { type: "text/csv;charset=utf-8" });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement("a");
+  a.href = url; a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(function() { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
+  return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -935,6 +1212,7 @@ function histHead(name, unit) {
 // wenn tatsächlich geschrieben wurde.
 function histAppend(name, timeKey, fields, unit) {
   var key = histKey(name);
+  if (ebaRowDelHas(key, "" + timeKey)) { return false; } // dieser Zeitpunkt wurde gelöscht
   var saved = GM_getValue(key, "");
   if (!saved) {
     saved = histHead(name, unit);
@@ -1006,6 +1284,497 @@ function updateGlobalStatistic() {
   if (money != null) { histAppend("money", timeKey, "" + money, "cent"); }
   var points = readStatusPoints();
   if (points != null) { histAppend("points", timeKey, "" + points, "punkte"); }
+}
+
+// ---------------------------------------------------------------------------
+// Lagerbestand je Tick (ameisenzimmer.php?cat=2, "Dein Lager")
+//
+// Fünf Reihen je Server, Schlüssel histKey("stock_<kat>"), Kopfzeile wie bei den
+// anderen eba_hist_*-Reihen (Format 2):
+//   stock_food  Futter in Gramm              2<TAB>stock_food<TAB>gramm<TAB><Ticklänge min>
+//   stock_acc   Zubehör (Anzahl)             ... stueck
+//   stock_nest  Formicarien und Nester       ... stueck
+//   stock_furn  Möbel                        ... stueck
+//   stock_ants  Ameisen                      ... koeniginnen/arbeiterinnen
+// Datenzeile, spärlich (Name alphabetisch, 0/fehlend weggelassen):
+//   <Tick-Beginn in Minuten seit Epoch>TAB Name=Wert TAB Name=Wert ...
+//   Ameisen: Art=Königinnen/Arbeiterinnen, Zeilen der Art (unterschiedliche
+//   Nester) werden addiert. Ein leerer Bestand ergibt eine Zeile nur mit Zeitschlüssel.
+// Höchstens eine Zeile je Tick und Reihe; beim Verschmelzen (mergeStockHistory)
+// gewinnt die nichtleere, dann die lexikografisch kleinere Zeile.
+//
+// Lesen für Auswertungen: ebaStockSeries(kat) -> [{t: ms, values: {Name: Zahl}}]
+// ---------------------------------------------------------------------------
+
+var EBA_STOCK_CATS = { food: "gramm", acc: "stueck", nest: "stueck", furn: "stueck", ants: "koeniginnen/arbeiterinnen" };
+var EBA_STOCK_HEADINGS = { "Ameisen": "ants", "Futter": "food", "Zubehör": "acc", "Formicarien und Nester": "nest", "Möbel": "furn" };
+var EBA_STOCK_RETRY_MS = 10 * 60000; // frühestens nach 10 Minuten erneut abrufen
+var ebaStockEarly = null;            // Lager, direkt aus der Seite gelesen (vor anderen Features)
+var ebaStockStarted = false;
+var ebaStockListeners = [];
+
+// Lagerseite lesen. Argument: Document, Element, jQuery-Objekt oder HTML-Text.
+// Rückgabe {food:{Name:Gramm}, acc:{Name:Anzahl}, nest:{...}, furn:{...},
+// ants:{Art:{q:Königinnen, w:Arbeiterinnen, n:Zeilen}}} oder null, wenn die Seite
+// kein Lager ist ("Dein Lager" fehlt) oder eine Zahl nicht lesbar ist.
+// Gelesen wird über die Abschnittsüberschriften (<b>Name</b> vor der Tabelle),
+// nicht über Tabellenpositionen. Reihen mit gleichem Namen werden addiert.
+function ebaParseStock(docOrHtml) {
+  var root;
+  try {
+    root = (typeof docOrHtml === "string")
+      ? $(new DOMParser().parseFromString(docOrHtml, "text/html"))
+      : $(docOrHtml);
+  } catch (err) { return null; }
+  var ok = false;
+  root.find("h3").each(function() { if ($(this).text().indexOf("Dein Lager") >= 0) { ok = true; } });
+  if (!ok) { return null; }
+  var res = { food: {}, acc: {}, nest: {}, furn: {}, ants: {} };
+  var clean = function(s) { return $.trim(("" + s).replace(/[\s ]+/g, " ")); };
+  var bad = false;
+  // In Dokumentreihenfolge: Überschrift (<b> außerhalb von table.liste) setzt die
+  // Kategorie, die nächste Tabelle gehört dazu. Wie der Parser <p> und <table>
+  // verschachtelt (je nach Dokumentmodus), spielt so keine Rolle.
+  var cat = null;
+  root.find("b, table.liste").each(function() {
+    if (this.nodeName.toUpperCase() === "B") {
+      if ($(this).closest("table.liste").length) { return; }
+      cat = EBA_STOCK_HEADINGS[clean($(this).text())] || null;
+      return;
+    }
+    if (!cat || $(this).parents("table.liste").length) { return; } // verschachtelte Tabellen nicht
+    var cur = cat;
+    cat = null; // eine Tabelle je Überschrift
+    var rows = $(this).find("tr");
+    // Kopfzeile prüfen: erste Zelle "Name" - sonst ist es nicht die Lagertabelle
+    var h = rows.first().children("td,th");
+    if (h.length < 2 || clean(h.eq(0).text()) !== "Name") { return; }
+    rows.slice(1).each(function() {
+      var tds = $(this).children("td,th");
+      if (tds.length < 2) { return; }
+      var name = clean(tds.eq(0).text());
+      if (!name) { return; }
+      var a = parseDeNumber(clean(tds.eq(1).text()));
+      if (a === null) { bad = true; return; }
+      if (cur === "ants") {
+        var w = parseDeNumber(clean(tds.eq(2).text()));
+        if (w === null) { bad = true; return; }
+        var e = res.ants[name] || (res.ants[name] = { q: 0, w: 0, n: 0 });
+        e.q += a; e.w += w; e.n++;
+      } else {
+        res[cur][name] = (res[cur][name] || 0) + a;
+      }
+    });
+  });
+  return bad ? null : res;
+}
+
+// Namen für die Reihe: Tab, Zeilenumbruch und "=" ersetzen
+function ebaStockName(n) { return ("" + n).replace(/[\t\r\n=]/g, "-"); }
+function ebaStockNum(v) { return "" + (Math.round(v * 100) / 100); }
+
+// Datenzeile ohne Zeitschlüssel ("Name=Wert\tName=Wert"), "" bei leerem Bestand
+function ebaStockFields(cat, stock) {
+  var sum = {};
+  var src = stock[cat] || {};
+  for (var k in src) {
+    if (!Object.prototype.hasOwnProperty.call(src, k)) { continue; }
+    var n = ebaStockName(k);
+    if (cat === "ants") {
+      var s = sum["k" + n] || (sum["k" + n] = { n: n, q: 0, w: 0 });
+      s.q += src[k].q; s.w += src[k].w;
+    } else {
+      var t = sum["k" + n] || (sum["k" + n] = { n: n, v: 0 });
+      t.v += src[k];
+    }
+  }
+  var list = [];
+  for (var j in sum) {
+    if (!Object.prototype.hasOwnProperty.call(sum, j)) { continue; }
+    var e = sum[j];
+    if (cat === "ants") {
+      if (!(e.q || e.w)) { continue; }
+      list.push([e.n, e.n + "=" + ebaStockNum(e.q) + "/" + ebaStockNum(e.w)]);
+    } else {
+      if (!e.v) { continue; }
+      list.push([e.n, e.n + "=" + ebaStockNum(e.v)]);
+    }
+  }
+  list.sort(function(x, y) { return x[0] < y[0] ? -1 : (x[0] > y[0] ? 1 : 0); });
+  return $.map(list, function(p) { return p[1]; }).join("\t");
+}
+
+// Gibt es in dieser Reihe schon eine Zeile für den Tick? Die Reihe wird von hinten
+// durchsucht (nach dem Abgleich muss die letzte Zeile nicht die jüngste sein).
+function ebaStockHasTick(cat, tickMin) { return ebaSeriesHasTick("stock_" + cat, tickMin); }
+function ebaSeriesHasTick(name, tickMin) {
+  if (ebaRowDelHas(histKey(name), "" + tickMin)) { return true; } // gelöscht: nicht erneut schreiben
+  var saved = GM_getValue(histKey(name), "");
+  if (!saved) { return false; }
+  var ls = saved.split("\n");
+  for (var i = ls.length - 1; i >= 1; i--) {
+    var t = parseFloat(ls[i]);
+    if (t === tickMin) { return true; }
+    if (t < tickMin) { return false; }
+  }
+  return false;
+}
+
+// Eine Zeile je Kategorie und Tick anhängen. true, wenn etwas geschrieben wurde.
+function ebaStockStore(stock, tickMin) {
+  var wrote = false;
+  $.each(EBA_STOCK_CATS, function(cat, unit) {
+    if (ebaStockHasTick(cat, tickMin)) { return; }
+    var key = histKey("stock_" + cat);
+    var saved = GM_getValue(key, "") || histHead("stock_" + cat, unit);
+    var f = ebaStockFields(cat, stock);
+    GM_setValue(key, compactHistory(saved + "\n" + tickMin + (f ? "\t" + f : "")));
+    wrote = true;
+  });
+  return wrote;
+}
+
+// Verschmelzen zweier Lager-Reihen: eine Zeile je Zeitschlüssel. Auswahl bei
+// gleichem Zeitschlüssel: nichtleere Zeile vor leerer, dann die lexikografisch
+// kleinere. Totale Ordnung auf dem Inhalt, also kommutativ, assoziativ,
+// idempotent; die Ausgabe ist kanonisch (Kopfzeile, dann aufsteigend nach Zeit).
+function mergeStockHistory(a, b) {
+  var head = "", best = {};
+  var add = function(text) {
+    if (typeof text !== "string") { return; }
+    var ls = text.replace(/\r/g, "").split("\n");
+    for (var i = 0; i < ls.length; i++) {
+      var l = ls[i];
+      if (!l) { continue; }
+      if (/^\d+\t(stock_[a-z]+|shopprice)(\t|$)/.test(l)) { head = head ? mergeHeadLine(head, l) : l; continue; }
+      var t = parseFloat(l);
+      if (isNaN(t)) { continue; }
+      var tab = l.indexOf("\t");
+      var rest = tab < 0 ? "" : l.substr(tab + 1);
+      var line = t + (rest ? "\t" + rest : "");
+      var cur = best["k" + t];
+      if (!cur || (rest !== "" && cur.rest === "") ||
+          ((rest !== "") === (cur.rest !== "") && syncCmpLine(line, cur.line) < 0)) {
+        best["k" + t] = { t: t, line: line, rest: rest };
+      }
+    }
+  };
+  add(a); add(b);
+  var all = [];
+  for (var k in best) { if (Object.prototype.hasOwnProperty.call(best, k)) { all.push(best[k]); } }
+  all.sort(function(x, y) { return x.t - y.t; });
+  var out = head ? [head] : [];
+  for (var j = 0; j < all.length; j++) { out.push(all[j].line); }
+  return out.join("\n");
+}
+
+// Lesezugriff für Auswertungen. cat = "food" | "acc" | "nest" | "furn" | "ants".
+// Rückgabe chronologisch aufsteigend: [{t: ms, values: {Name: Zahl}}].
+// Die Zeilen sind spärlich: ein Name, der in values fehlt, hatte in diesem Tick
+// den Bestand 0 (eine Zeile ohne Namen = Lager dieser Kategorie leer). Bei "ants"
+// ist values = Königinnen + Arbeiterinnen; zusätzlich gibt es queens:{Art:Zahl}
+// und workers:{Art:Zahl}. t = Tick-Beginn in ms seit Epoch (Serverzeit); die Zeile
+// zeigt das Lager, wie es nach dem Ende dieses Ticks war.
+function ebaStockSeries(cat) {
+  var out = [];
+  if (!EBA_STOCK_CATS.hasOwnProperty(cat)) { return out; }
+  var saved = GM_getValue(histKey("stock_" + cat), "");
+  if (!saved) { return out; }
+  var ls = saved.split("\n");
+  for (var i = 1; i < ls.length; i++) {
+    var f = ls[i].split("\t");
+    var t = parseFloat(f[0]);
+    if (isNaN(t)) { continue; }
+    var row = { t: t * 60000, values: {} };
+    if (cat === "ants") { row.queens = {}; row.workers = {}; }
+    for (var j = 1; j < f.length; j++) {
+      var p = f[j].lastIndexOf("=");
+      if (p < 1) { continue; }
+      var name = f[j].substr(0, p), val = f[j].substr(p + 1);
+      if (cat === "ants") {
+        var qw = val.split("/"), q = parseFloat(qw[0]), w = parseFloat(qw[1]);
+        if (isNaN(q) || isNaN(w)) { continue; }
+        row.queens[name] = q; row.workers[name] = w; row.values[name] = q + w;
+      } else {
+        var v = parseFloat(val);
+        if (!isNaN(v)) { row.values[name] = v; }
+      }
+    }
+    out.push(row);
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// Ankaufspreise des Ameisenshops (shop.php?cat=99)
+//
+// Eine Reihe je Server, Schlüssel histKey("shopprice"), Kopfzeile wie bei den
+// anderen eba_hist_*-Reihen (Format 2): 2<TAB>shopprice<TAB>cent<TAB><Ticklänge min>
+// Datenzeile, wie bei den Lager-Reihen (gleiche Merge-Funktion, Art "stock"):
+//   <Tick in Minuten seit Epoch>TAB Art=Cent TAB Art=Cent ...   (Art alphabetisch)
+// Eine Zeile je Tick mit ALLEN Arten: die Preise ändern sich nur zum Tick, und
+// eine vollständige Zeile je Tick lässt sich beim Verschmelzen eindeutig
+// auswählen; "nur bei Änderung" ließe offen, ob ein fehlender Tick unverändert
+// oder nicht gemessen war. Erfasst wird bei dem vorhandenen stündlichen Abruf der
+// Menüanzeige und bei jedem Besuch der Seite, nie durch einen eigenen Abruf.
+// Wird in den ersten Sekunden nach dem Tick gelesen (Preise evtl. noch alt), zählt
+// der Wert für den vorigen Tick.
+// ---------------------------------------------------------------------------
+
+// Preise aus der Kurstabelle lesen. Argument: Document, Element, jQuery-Objekt oder
+// HTML-Text. Rückgabe {order: [Art, ...], prices: {Art: Cent}} oder null.
+function ebaParseShopPrices(docOrHtml) {
+  var root;
+  try {
+    root = (typeof docOrHtml === "string")
+      ? $(new DOMParser().parseFromString(docOrHtml, "text/html"))
+      : $(docOrHtml);
+  } catch (err) { return null; }
+  var res = null;
+  root.filter("table.liste").add(root.find("table.liste")).each(function() {
+    if (res || $(this).parents("table.liste").length) { return; }
+    var order = [], prices = {}, bad = false;
+    $(this).find("tr").each(function() {
+      var tds = $(this).children("td");
+      if (tds.length < 2) { return; }
+      var name = $.trim(tds.eq(0).text().replace(/[\s ]+/g, " "));
+      var m = /^([\d.]+,\d{1,2})\s*€$/.exec($.trim(tds.eq(1).text().replace(/[\s ]+/g, " ")));
+      var v = m ? parseDeNumber(m[1]) : null;
+      if (!name || v === null) { bad = true; return; }
+      name = ebaStockName(name);
+      if (!prices.hasOwnProperty(name)) { order.push(name); }
+      prices[name] = Math.round(v * 100);
+    });
+    if (order.length && !bad) { res = { order: order, prices: prices }; }
+  });
+  return res;
+}
+
+// Preise (HTML-Text oder Document/Element) für den aktuellen Tick speichern, höchstens
+// eine Zeile je Tick. true, wenn geschrieben wurde.
+function ebaShopPriceRecord(docOrHtml) {
+  if (!GM_getValue("eba_enable_shop_price_history", false)) { return false; }
+  var parsed = ebaParseShopPrices(docOrHtml);
+  if (!parsed) { return false; }
+  var tk = getTickInfo();
+  var tickMin = (tk.done ? tk.nowTick : tk.nowTick - getTickMinutes() * 60000) / 60000;
+  if (ebaSeriesHasTick("shopprice", tickMin)) { return false; }
+  var names = parsed.order.slice().sort();
+  var f = $.map(names, function(n) { return n + "=" + parsed.prices[n]; }).join("\t");
+  var key = histKey("shopprice");
+  var saved = GM_getValue(key, "") || histHead("shopprice", "cent");
+  GM_setValue(key, compactHistory(saved + "\n" + tickMin + "\t" + f));
+  return true;
+}
+
+// Lesen: {Art: [[tMs, Cent], ...]} chronologisch aufsteigend
+function ebaShopPriceSeries() {
+  var out = {}, saved = GM_getValue(histKey("shopprice"), "");
+  if (typeof saved !== "string" || !saved) { return out; }
+  var ls = saved.split("\n"), rows = [];
+  for (var i = 1; i < ls.length; i++) {
+    var f = ls[i].split("\t"), t = parseFloat(f[0]);
+    if (isNaN(t)) { continue; }
+    rows.push([t * 60000, f]);
+  }
+  rows.sort(function(a, b) { return a[0] - b[0]; });
+  $.each(rows, function(i, r) {
+    for (var j = 1; j < r[1].length; j++) {
+      var p = r[1][j].lastIndexOf("=");
+      if (p < 1) { continue; }
+      var v = parseFloat(r[1][j].substr(p + 1));
+      if (isNaN(v)) { continue; }
+      var n = r[1][j].substr(0, p);
+      (out[n] || (out[n] = [])).push([r[0], v]);
+    }
+  });
+  return out;
+}
+
+// Kennzahlen einer Reihe [[t, Cent]]: {min, max, span (Cent), n}, null ohne Werte
+function ebaShopPriceStats(points) {
+  if (!points || !points.length) { return null; }
+  var mn = Infinity, mx = -Infinity;
+  $.each(points, function(i, p) { if (p[1] < mn) { mn = p[1]; } if (p[1] > mx) { mx = p[1]; } });
+  return { min: mn, max: mx, span: mx - mn, n: points.length };
+}
+function ebaShopEuro(cent) { return ebaFmtNum(cent / 100, 2) + " €"; }
+
+var EBA_SHOPPRICE_RANGE = "all";
+function ebaShopPriceRender(table) {
+  var ranges = [["24h", "24 Stunden", 86400000], ["7d", "7 Tage", 7 * 86400000],
+                ["30d", "30 Tage", 30 * 86400000], ["all", "Alles", 0]];
+  var span = 0, btns = "";
+  $.each(ranges, function(i, r) {
+    if (r[0] === EBA_SHOPPRICE_RANGE) { span = r[2]; }
+    btns += "<button type='button' class='eba_spr' data-range='" + r[0] + "'"
+      + (r[0] === EBA_SHOPPRICE_RANGE ? " disabled" : "") + ">" + r[1] + "</button> ";
+  });
+  var box = $("#eba_shopprice_box");
+  if (!box.length) { box = $("<div id='eba_shopprice_box' style='margin:12px 0;text-align:left'></div>"); table.after(box); }
+  box.empty().off("click");
+  box.append("<style>.eba_spg{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px}"
+    + ".eba_spg>div{min-width:0}.eba_spg svg{height:auto}"
+    + "@media (max-width:959px){.eba_spg{grid-template-columns:1fr}}</style>");
+  box.append("<b>Preisverlauf (eigene Messungen)</b><div style='margin:4px 0'>Zeitraum: " + btns + "</div>");
+  box.on("click", ".eba_spr", function() { EBA_SHOPPRICE_RANGE = $(this).attr("data-range"); ebaShopPriceRender(table); });
+  var parsed = ebaParseShopPrices(table);
+  var series = ebaShopPriceSeries();
+  var names = parsed ? parsed.order.slice() : [];
+  var since = span ? getServerNow() - span : 0;
+  var grid = $("<div class='eba_spg'></div>");
+  box.append(grid);
+  $.each(names, function(i, n) {
+    var pts = ebaSeriesSince(series[n] || [], since);
+    var cell = $("<div class='eba_spc'></div>");
+    cell.append($("<b></b>").text(n));
+    var holder = $("<div></div>");
+    cell.append(holder);
+    grid.append(cell);
+    var st = ebaShopPriceStats(pts);
+    if (!st) {
+      holder.text("Im gewählten Zeitraum noch keine Messwerte.");
+      return;
+    }
+    var eur = $.map(pts, function(p) { return [[p[0], p[1] / 100]]; });
+    var info = ebaDrawLineChart(holder, eur, { width: 336, height: 170, tooltip: true, unit: "€",
+      fmt: function(v) { return ebaFmtNum(v, 2); } });
+    if (!info) {
+      // ein einzelner Messwert: Punkt statt Linie
+      holder.append('<svg xmlns="http://www.w3.org/2000/svg" width="336" height="60" viewBox="0 0 336 60" '
+        + 'style="display:block;background:#0f2a17;border-radius:3px;max-width:100%"><circle cx="168" cy="30" r="4" fill="#3CAC56"/></svg>');
+      holder.append($("<div class='eba_spone' style='font-size:0.9em;color:#a8d5b3'></div>")
+        .text("noch zu wenige Messwerte (" + ebaFmtDate(pts[0][0]) + ")"));
+    }
+    cell.append($("<div class='eba_spstat' style='font-size:0.9em'></div>").text(
+      "min. " + ebaShopEuro(st.min) + " · max. " + ebaShopEuro(st.max) + " · Spanne: " + ebaShopEuro(st.span)));
+  });
+}
+
+// Option: auf shop.php?cat=99 erfassen und unter der Kurstabelle anzeigen. Die
+// Erfassung beim stündlichen Abruf der Menüanzeige hängt in alwaysShowShopPrices().
+function ebaShopPriceHistory() {
+  if (!/shop\.php$/.test(location.pathname) || !/(^|[?&])cat=99(&|$)/.test(location.search)) { return; }
+  var table = $("table.liste").filter(function() { return !!ebaParseShopPrices(this); }).first();
+  if (!table.length) { return; }
+  try { ebaShopPriceRecord(table); } catch (err) { /* Anzeige trotzdem versuchen */ }
+  ebaShopPriceRender(table);
+}
+
+// Zwischenspeicher für die Seitenleiste: "<Marke in Tick-Minuten>\n<JSON>".
+// Die Marke ist der Tick, dessen Ende der Stand abbildet (bei laufendem Tick der
+// vorige), so dass nach Tickende neu geholt wird.
+function ebaStockCacheKey() { return "eba_inventory_" + srvKey(); }
+function ebaStockCacheRead() {
+  var raw = GM_getValue(ebaStockCacheKey(), "");
+  if (typeof raw !== "string") { return null; }
+  var p = raw.indexOf("\n");
+  if (p < 1) { return null; }
+  try {
+    var t = parseFloat(raw.substr(0, p)), s = JSON.parse(raw.substr(p + 1));
+    if (isNaN(t) || !s || typeof s !== "object" || !s.food || !s.acc || !s.nest || !s.furn || !s.ants) { return null; }
+    return { t: t, stock: s };
+  } catch (err) { return null; }
+}
+
+function ebaStockHistoryOn() { return !!GM_getValue("eba_enable_stock_history", false); }
+function ebaStockInventoryOn() { return !!GM_getValue("eba_enable_show_inventory", false); }
+
+// Pro Tick und Server höchstens EIN Scan des Lagers (Lagerseite, Hintergrundabruf,
+// mehrere Tabs, Seitenleiste: egal, der erste Stand gewinnt). Gescannt wird nur
+// nach Tickende. Ein Scan zählt, sobald er beansprucht ist (ebaStockClaimScan);
+// Fehlversuche des Hintergrundabrufs zählen nicht, werden aber begrenzt.
+var EBA_STOCK_MAX_TRIES = 3;         // Abrufversuche je Tick (ein Fehlversuch ist kein Scan)
+function ebaStockScanKey() { return "eba_inventory_" + srvKey() + "scan"; }
+function ebaStockScanned(tickMin) { return parseFloat(GM_getValue(ebaStockScanKey(), 0)) === tickMin; }
+
+// Neuen Lagerstand verarbeiten: Reihen (nur bei aktivierter Option) und
+// Zwischenspeicher der Seitenleiste. Läuft nur nach Tickende und nur einmal je Tick.
+function ebaStockApply(stock) {
+  var tk = getTickInfo();
+  var tickMin = tk.nowTick / 60000;
+  if (ebaStockHistoryOn() && tk.done) { ebaStockStore(stock, tickMin); }
+  if (ebaStockInventoryOn()) {
+    var mark = tk.done ? tickMin : tickMin - getTickMinutes();
+    GM_setValue(ebaStockCacheKey(), mark + "\n" + JSON.stringify(stock));
+  }
+  $.each(ebaStockListeners, function(i, fn) { try { fn(stock); } catch (err) { /* Anzeige darf nichts blockieren */ } });
+}
+
+// Hintergrundabruf der Lagerseite. Der Versuchszähler (GM-Wert, alle Tabs) hat die
+// Form "<Tick-Minuten>|<Versuche>|<Serverzeit ms>|<Kennung>" und wird VOR dem Request
+// geschrieben; wer die Kennung beim Zurücklesen nicht mehr findet, hat das Rennen
+// gegen einen anderen Tab verloren. Wartezeit nach einem Versuch: 10 Minuten.
+function ebaStockFetch(tickMin) {
+  var lockKey = "eba_inventory_" + srvKey() + "lock";
+  var now = getServerNow(), count = 0; // Serverzeit: der Zähler wird zwischen Tabs/Geräten verglichen
+  var p = ("" + GM_getValue(lockKey, "")).split("|");
+  if (p.length >= 4 && parseFloat(p[0]) === tickMin) {
+    var last = parseFloat(p[2]);
+    count = parseInt(p[1], 10) || 0;
+    if (count >= EBA_STOCK_MAX_TRIES) { return; }
+    if (!isNaN(last) && Math.abs(now - last) < EBA_STOCK_RETRY_MS) { return; }
+  }
+  var token = now + "." + Math.random();
+  var mine = tickMin + "|" + (count + 1) + "|" + now + "|" + token;
+  GM_setValue(lockKey, mine);
+  if (GM_getValue(lockKey, "") !== mine) { return; }
+  var fail = function() { /* Zähler bleibt: Wiederholung frühestens nach 10 Minuten */ };
+  try {
+    GM_xmlhttpRequest({
+      method: "GET",
+      url: location.origin + "/ameisenzimmer.php?cat=2",
+      overrideMimeType: "text/html; charset=windows-1252",
+      timeout: 20000,
+      onload: function(response) {
+        try {
+          if (response.status && response.status !== 200) { fail(); return; }
+          var stock = ebaParseStock(response.responseText);
+          if (!stock) { fail(); return; }
+          // Hat inzwischen ein anderer Weg (Lagerseite in einem Tab) den Tick
+          // gescannt, gewinnt dessen Stand.
+          if (ebaStockScanned(tickMin) || getTickInfo().nowTick / 60000 !== tickMin) { return; }
+          GM_setValue(ebaStockScanKey(), tickMin);
+          ebaStockApply(stock);
+        } catch (err) { fail(); }
+      },
+      onerror: fail,
+      ontimeout: fail
+    });
+  } catch (err) { fail(); }
+}
+
+// Einstieg, einmal je Seitenaufruf (Option "Lagerbestand je Tick festhalten"
+// und Seitenleiste rufen beide hierher). Nach Tickende und nur wenn dieser Tick
+// noch nicht gescannt ist: auf der Lagerseite direkt der Seiteninhalt (kein
+// Request), sonst ein Hintergrundabruf. Bei laufendem Tick gibt es keinen Scan
+// (auch nicht beim allerersten Mal ohne Zwischenspeicher): die Lagerseite füllt
+// dann nur die Anzeige.
+function ebaStockRun() {
+  if (ebaStockStarted || !(ebaStockHistoryOn() || ebaStockInventoryOn())) { return; }
+  ebaStockStarted = true;
+  if (!$("div#status").length) { return; }
+  var tk = getTickInfo();
+  var tickMin = tk.nowTick / 60000;
+  if (!tk.done) {
+    if (ebaStockEarly) { $.each(ebaStockListeners, function(i, fn) { try { fn(ebaStockEarly); } catch (err) { } }); }
+    return;
+  }
+  if (ebaStockScanned(tickMin)) { return; }
+  if (ebaStockEarly) {
+    GM_setValue(ebaStockScanKey(), tickMin);
+    ebaStockApply(ebaStockEarly);
+    return;
+  }
+  ebaStockFetch(tickMin);
+}
+function ebaStockHistory() { ebaStockRun(); }
+// Muss vor allen Features laufen: "Ameisen im Lager zusammenfassen" und die
+// Sortierung bauen die Tabellen um.
+function ebaStockSnapshotEarly() {
+  if (!(ebaStockHistoryOn() || ebaStockInventoryOn())) { return; }
+  if (!$("h3:contains('Dein Lager')").length) { return; }
+  ebaStockEarly = ebaParseStock(document);
 }
 
 // ---------------------------------------------------------------------------
@@ -1099,8 +1868,9 @@ function rowTimeValue(row) {
   var m = /(\d{1,2})\.(\d{1,2})\.(\d{2,4})(?:[\s,]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/.exec(row);
   if (m) {
     var y = m[3].length == 2 ? 2000 + parseInt(m[3], 10) : parseInt(m[3], 10);
-    return new Date(y, parseInt(m[2], 10) - 1, parseInt(m[1], 10),
-                    parseInt(m[4] || "0", 10), parseInt(m[5] || "0", 10), parseInt(m[6] || "0", 10)).getTime();
+    // Datumsangaben der Seite sind Berliner Wanduhr
+    return ebaBerlinToEpoch(y, parseInt(m[2], 10), parseInt(m[1], 10),
+                    parseInt(m[4] || "0", 10), parseInt(m[5] || "0", 10), parseInt(m[6] || "0", 10));
   }
   var t = /(\d{1,2}):(\d{2}):(\d{2})/.exec(row);
   if (t) { return (parseInt(t[1], 10) * 3600 + parseInt(t[2], 10) * 60 + parseInt(t[3], 10)) * 1000; }
@@ -1172,6 +1942,7 @@ function captureSearchRows(kind, tbl, bySet) {
     oldContent.push(lines[i].substr(lines[i].indexOf("\t") + 1));
   }
   var fresh;
+  var gone = ebaRowDelSet(); // vom Nutzer gelöschte Ergebniszeilen nicht erneut erfassen
   if (bySet) {
     var known = {};
     for (var o = 0; o < oldContent.length; o++) { known["C " + oldContent[o]] = true; }
@@ -1183,6 +1954,8 @@ function captureSearchRows(kind, tbl, bySet) {
   } else {
     fresh = mergeRollingRows(oldContent, rows);
   }
+
+  fresh = $.grep(fresh, function(r) { return gone[key + "\t" + r] !== true; });
 
   // Spaltenbelegung geändert? Kopfzeile aktualisieren und den Wechsel als
   // Marker festhalten, damit ältere Zeilen weiterhin deutbar bleiben.
@@ -1316,6 +2089,7 @@ function renderSearchHistoryFor(kind, tbl) {
     var head = tbl.find("tr").first().children("td,th").map(function() { return $.trim($(this).text()); }).get();
     var htr = $("<tr class='liste'>");
     $.each(head, function(j, h) { htr.append($("<td class='liste'>").text(h)); });
+    if (ebaTickEdit()) { htr.append("<td class='liste'></td>"); }
     t.append(htr);
     var start = st.page * SEARCH_VIEW_PAGE_SIZE, n = 0;
     $.each(rows.slice(start, start + SEARCH_VIEW_PAGE_SIZE), function(i, r) {
@@ -1323,6 +2097,16 @@ function renderSearchHistoryFor(kind, tbl) {
       $.each(r.cells, function(j, v) {
         row.append($("<td class='liste'>").text(v).css(j === 0 ? {textAlign: "left"} : {}));
       });
+      var delLink = $("<a href='#' class='eba_rowdel' title='Zeile l\u00F6schen' style='text-decoration:none'>\uD83D\uDDD1</a>");
+      delLink.on("click", function(e) {
+        e.preventDefault();
+        if (!window.confirm("Gespeicherte Zeile l\u00F6schen?\n\n" + r.cells.join(" | ") + "\n\n"
+          + "Betrifft nur die gespeicherte Historie (nicht die Spieltabelle). Das l\u00E4sst sich nicht r\u00FCckg\u00E4ngig machen; "
+          + "mit WebDAV-Abgleich wird die L\u00F6schung auf die anderen Ger\u00E4te \u00FCbertragen.")) { return; }
+        ebaRowDelRemove([[histKey(kind), r.cells.join("\t")]]);
+        rerender();
+      });
+      if (ebaTickEdit()) { row.append($("<td class='liste'>").append(delLink)); }
       t.append(row);
     });
     cont.append($("<center>").append(t));
@@ -1528,12 +2312,273 @@ function migrateMisfiledSearches() {
 }
 
 // ---------------------------------------------------------------------------
+// Sammlung (Spielhilfe, Reiter "Sammlung"): Status je Ameisenart zum Abhaken
+//
+// Schlüssel eba_collection_<srv>ants (Normal- und Speedserver getrennt), Text:
+//   Kopfzeile "eba_collection<TAB>1", dann je Art "<Art><TAB><Status><TAB><Zeit>".
+//   Status: open | ready | active | done; Zeit = Serverzeit in ms beim Setzen.
+// Je Art gewinnt der spätere Zeitstempel (last-write-wins), bei Gleichstand der
+// größere Statusname. Das ist idempotent, kommutativ und assoziativ, die Ausgabe
+// ist kanonisch (nach Art sortiert) - Grundlage für Import und WebDAV-Abgleich.
+// Arten ohne Zeile gelten als "open".
+// ---------------------------------------------------------------------------
+
+var EBA_COLL_STATES = ["open", "ready", "active", "done"];
+var EBA_COLL_MAX = 2000;
+function ebaCollKey() { return "eba_collection_" + srvKey() + "ants"; }
+function ebaIsCollKey(k) { return typeof k === "string" && /^eba_collection_(speed_|test_|testspeed_)?ants$/.test(k); }
+
+// Zeilen aus text in die Map dict ("k"+Art -> {name, st, ts}) einarbeiten
+function ebaCollParseInto(dict, text) {
+  if (typeof text !== "string") { return dict; }
+  var ls = text.replace(/\r/g, "").split("\n");
+  for (var i = 0; i < ls.length && i <= EBA_COLL_MAX; i++) {
+    var f = ls[i].split("\t");
+    if (f.length !== 3 || !f[0] || f[0].length > 80 || $.inArray(f[1], EBA_COLL_STATES) < 0 || !/^\d{1,15}$/.test(f[2])) { continue; }
+    var ts = parseInt(f[2], 10), cur = dict["k" + f[0]];
+    if (!cur || ts > cur.ts || (ts === cur.ts && f[1] > cur.st)) { dict["k" + f[0]] = { name: f[0], st: f[1], ts: ts }; }
+  }
+  return dict;
+}
+function ebaCollText(dict) {
+  var list = [];
+  for (var k in dict) { if (Object.prototype.hasOwnProperty.call(dict, k)) { list.push(dict[k]); } }
+  if (!list.length) { return ""; }
+  list.sort(function(a, b) { return a.name < b.name ? -1 : (a.name > b.name ? 1 : 0); });
+  var out = ["eba_collection\t1"];
+  for (var i = 0; i < list.length; i++) { out.push(list[i].name + "\t" + list[i].st + "\t" + list[i].ts); }
+  return out.join("\n");
+}
+function ebaCollMerge(a, b) { return ebaCollText(ebaCollParseInto(ebaCollParseInto({}, a), b)); }
+// Gespeicherter Stand dieses Servers als Map "k"+Art -> {name, st, ts}
+function ebaCollLoad() { return ebaCollParseInto({}, GM_getValue(ebaCollKey(), "")); }
+// Status je Art: {Art: "open"|...}; fehlende Arten fehlen auch hier
+function ebaCollGet() {
+  var d = ebaCollLoad(), out = {};
+  for (var k in d) { if (Object.prototype.hasOwnProperty.call(d, k)) { out[d[k].name] = d[k].st; } }
+  return out;
+}
+// Status setzen. changes = {Art: Status}; geschrieben wird nur, was sich ändert.
+// Rückgabe: Anzahl geänderter Arten.
+function ebaCollSet(changes) {
+  var d = ebaCollLoad(), now = getServerNow(), n = 0;
+  for (var name in changes) {
+    if (!Object.prototype.hasOwnProperty.call(changes, name) || $.inArray(changes[name], EBA_COLL_STATES) < 0) { continue; }
+    var cur = d["k" + name];
+    if ((cur ? cur.st : "open") === changes[name]) { continue; } // unverändert (fehlende Art = open)
+    d["k" + name] = { name: name, st: changes[name], ts: Math.max(now, cur ? cur.ts + 1 : 0) };
+    n++;
+  }
+  if (n) { GM_setValue(ebaCollKey(), ebaCollText(d)); }
+  return n;
+}
+
+// ---------------------------------------------------------------------------
 // Export und Import (JSON)
 // ---------------------------------------------------------------------------
 
 // Zeitreihen-Schlüssel: werden beim Import verschmolzen statt überschrieben
 function isHistoryKey(k) {
-  return k.indexOf("eba_hist_") === 0 || k.indexOf("eba_statistic_") === 0 || k.indexOf("eba_food_") === 0;
+  return k.indexOf("eba_hist_") === 0 || k.indexOf("eba_statistic_") === 0 || k.indexOf("eba_food_") === 0
+    || k.indexOf("eba_rowdel_") === 0;
+}
+
+// ---------------------------------------------------------------------------
+// Zeilen-Tombstones: gelöschte Zeilen einer Zeitreihe
+//
+// Wer eine falsche Zeile löscht, würde sie beim WebDAV-Abgleich (Zwei-Wege-
+// Verschmelzen = Vereinigung) sofort von einem anderen Gerät oder der Datei
+// zurückbekommen. Deshalb merkt sich eba_rowdel_<srv>list die gelöschten Zeilen:
+//   Kopfzeile "eba_rowdel<TAB>1", dann je Zeile "<Speicherschlüssel><TAB><Zeilenschlüssel>".
+// Zeilenschlüssel = der Zeitpunkt der Zeile, bei Suchen deren Inhalt:
+//   eba_hist_*money/points/tickdur, eba_hist_*stock_*, eba_food_*  Tick-Beginn in Minuten seit Epoch
+//   eba_statistic_*                                              ebenfalls absolute Minuten (Basis-Stunde + Zeit)
+//   eba_hist_*foodsearch/antsearch                               Inhalt der Zeile (ohne Erfassungszeit)
+// Die Datei ist eine Menge (sortiert, ohne Doppelte): Vereinigung ist idempotent,
+// kommutativ und assoziativ, die Geräte konvergieren. Sie wird wie eine Zeitreihe
+// per WebDAV abgeglichen (Dateiname eba_rowdel_<srv>list.tsv). Ältere Skript-
+// versionen kennen die Datei nicht und ignorieren sie; neue Geräte filtern alles,
+// was ein altes Gerät zurückbringt, beim Verschmelzen wieder heraus.
+// Ein Tombstone gilt dauerhaft: auch die laufende Erfassung schreibt diesen
+// Zeitpunkt nicht noch einmal.
+// ---------------------------------------------------------------------------
+// Zeilen löschen / Tick neu erfassen sind ausgeblendet. Einblenden in der
+// Browser-Konsole (F12) auf eatenbyants.de: localStorage.setItem("eba_tickedit", "1")
+// Ausblenden: localStorage.removeItem("eba_tickedit"). Bereits gelöschte Zeilen
+// bleiben gelöscht, der Abgleich der Löschliste läuft immer.
+function ebaTickEdit() {
+  try { return window.localStorage.getItem("eba_tickedit") === "1"; } catch (e) { return false; }
+}
+function ebaRowDelKey() { return "eba_rowdel_" + srvKey() + "list"; }
+var EBA_ROWDEL_CACHE = { raw: null, set: {} };
+
+// Text -> Menge {"Schlüssel\tZeile": true}. Ungültige Zeilen fallen weg.
+function ebaRowDelParse(text) {
+  var set = {}, n = 0, dropped = 0;
+  if (typeof text !== "string") { return { set: set, dropped: 0 }; }
+  var lines = text.replace(/\r/g, "").split("\n");
+  for (var i = 0; i < lines.length; i++) {
+    var l = lines[i];
+    if (!l || l === "eba_rowdel\t1") { continue; }
+    var tab = l.indexOf("\t");
+    var k = tab > 0 ? l.substr(0, tab) : "";
+    if (!k || tab === l.length - 1 || !isHistoryKey(k) || k.indexOf("eba_rowdel_") === 0
+        || keyServer(k) !== srvKey() || !/^[a-z0-9_]+$/.test(k) || ++n > 20000) { dropped++; continue; }
+    set[l] = true;
+  }
+  return { set: set, dropped: dropped };
+}
+function ebaRowDelText(set) {
+  var ks = [];
+  for (var k in set) { if (Object.prototype.hasOwnProperty.call(set, k)) { ks.push(k); } }
+  if (!ks.length) { return ""; }
+  ks.sort();
+  return "eba_rowdel\t1\n" + ks.join("\n");
+}
+// Vereinigung zweier Texte, kanonisch
+function ebaRowDelMerge(a, b) {
+  var s = ebaRowDelParse(a).set, t = ebaRowDelParse(b).set;
+  for (var k in t) { if (Object.prototype.hasOwnProperty.call(t, k)) { s[k] = true; } }
+  return ebaRowDelText(s);
+}
+function ebaRowDelSet() {
+  var raw = GM_getValue(ebaRowDelKey(), "");
+  if (typeof raw !== "string") { raw = ""; }
+  if (EBA_ROWDEL_CACHE.raw !== raw) { EBA_ROWDEL_CACHE = { raw: raw, set: ebaRowDelParse(raw).set }; }
+  return EBA_ROWDEL_CACHE.set;
+}
+// Wurde diese Zeile (Zeilenschlüssel als Text) gelöscht?
+function ebaRowDelHas(key, rowKey) {
+  return ebaRowDelSet()[key + "\t" + rowKey] === true;
+}
+
+// Zeilenschlüssel einer Datenzeile; null = keine Datenzeile
+function ebaRowDelRowKey(kind, base, line) {
+  if (kind === "search") {
+    var tab = line.indexOf("\t");
+    return (isNaN(parseFloat(line)) || tab < 0) ? null : line.substr(tab + 1);
+  }
+  var t = parseFloat(line);
+  if (isNaN(t)) { return null; }
+  if (kind === "formi") { return isNaN(base) ? null : "" + Math.round((base + t) * 60); }
+  return "" + t;
+}
+// Alle Zeilenschlüssel einer Reihe (für Tabellen und "alle Reihen dieses Zeitpunkts")
+function ebaRowDelKeysOf(key, text) {
+  var out = [];
+  if (typeof text !== "string" || !text) { return out; }
+  var kind = davKind(key), lines = text.split("\n");
+  var base = kind === "formi" ? parseInt(lines[0], 10) : NaN;
+  for (var i = kind === "food" ? 0 : 1; i < lines.length; i++) {
+    if (!lines[i] || (kind === "search" && lines[i].indexOf("H\t") === 0)) { continue; }
+    var k = ebaRowDelRowKey(kind, base, lines[i]);
+    if (k !== null) { out.push(k); }
+  }
+  return out;
+}
+
+// Gelöschte Zeilen aus einer Reihe entfernen. Gibt denselben String zurück,
+// wenn nichts zu entfernen ist.
+function ebaRowDelFilter(key, text, set) {
+  if (typeof text !== "string" || !text) { return text; }
+  set = set || ebaRowDelSet();
+  var prefix = key + "\t", has = false;
+  for (var s in set) { if (set.hasOwnProperty(s) && s.indexOf(prefix) === 0) { has = true; break; } }
+  if (!has) { return text; }
+  var kind = davKind(key), lines = text.split("\n"), out = [], changed = false, base = NaN, start = 1;
+  if (kind === "formi") { base = parseInt(lines[0], 10); if (isNaN(base)) { return text; } }
+  if (kind === "food") { start = 0; }
+  for (var h = 0; h < start; h++) { out.push(lines[h]); }
+  for (var i = start; i < lines.length; i++) {
+    var line = lines[i];
+    if (!line || (kind === "search" && line.indexOf("H\t") === 0)) { out.push(line); continue; }
+    var rk = ebaRowDelRowKey(kind, base, line);
+    if (rk !== null && (set[prefix + rk] === true || set[prefix + rk + "#" + ebaRowContentHash(kind, line)] === true)) { changed = true; continue; }
+    out.push(line);
+  }
+  return changed ? out.join("\n") : text;
+}
+// Inhalts-Fingerabdruck einer Zeile (ohne Zeitspalte; bei Kolonien auch ohne
+// Uhrzeit am Ende). Ein Tombstone "Zeitpunkt#Hash" entfernt nur genau diese
+// Fassung der Zeile, eine neu erfasste andere Zeile zum selben Tick bleibt.
+function ebaRowContentHash(kind, line) {
+  var tab = line.indexOf("\t");
+  var rest = tab >= 0 ? line.substr(tab + 1) : line;
+  if (kind === "formi") { var c = rest.lastIndexOf("\t"); if (c > 0) { rest = rest.substr(0, c); } }
+  var h = 5381;
+  for (var i = 0; i < rest.length; i++) { h = ((h * 33) ^ rest.charCodeAt(i)) >>> 0; }
+  return h.toString(36);
+}
+// Aktuellen Tick der Kolonien neu erfassen: die Zeilen dieses Ticks (Statistik
+// und Futter) werden per Inhalts-Tombstone verworfen (auch auf anderen Geräten
+// per WebDAV), danach lädt die Seite neu und erfasst den Tick frisch.
+function ebaRecaptureTick(ids) {
+  var tk = getTickInfo(), entries = [];
+  $.each(ids, function(i, id) {
+    var key = "eba_statistic_" + srvKey() + id, saved = GM_getValue(key, "");
+    if (typeof saved === "string" && saved) {
+      var lines = saved.split("\n"), base = parseInt(lines[0], 10);
+      if (!isNaN(base)) {
+        var nowEl = elapsedHours(base, tk.nowTick);
+        for (var q = 1; q < lines.length; q++) {
+          if (Math.abs(parseFloat(lines[q]) - nowEl) < 0.005) {
+            entries.push([key, ebaRowDelRowKey("formi", base, lines[q]) + "#" + ebaRowContentHash("formi", lines[q])]);
+          }
+        }
+      }
+    }
+    var fkey = "eba_food_" + srvKey() + id, fsaved = GM_getValue(fkey, "");
+    if (typeof fsaved === "string" && fsaved) {
+      var tm = "" + (tk.nowTick / 60000);
+      $.each(fsaved.split("\n"), function(j, l) {
+        if (l && l.split("\t")[0] === tm) { entries.push([fkey, tm + "#" + ebaRowContentHash("food", l)]); }
+      });
+    }
+  });
+  if (entries.length) { ebaRowDelRemove(entries); }
+  return entries.length;
+}
+
+// Alle lokalen Reihen dieses Servers bereinigen (nach Löschen, Abgleich, Import)
+function ebaRowDelApplyAll() {
+  var set = ebaRowDelSet(), n = 0;
+  $.each(GM_listValues(), function(i, k) {
+    if (!isHistoryKey(k) || k.indexOf("eba_rowdel_") === 0 || keyServer(k) !== srvKey()) { return; }
+    var v = GM_getValue(k, "");
+    if (typeof v !== "string") { return; }
+    var nv = ebaRowDelFilter(k, v, set);
+    if (nv !== v) { GM_setValue(k, nv); n++; }
+  });
+  return n;
+}
+// Zeilen löschen: entries = [[Speicherschlüssel, Zeilenschlüssel], ...]
+function ebaRowDelRemove(entries) {
+  var set = $.extend({}, ebaRowDelSet());
+  $.each(entries, function(i, e) { set[e[0] + "\t" + e[1]] = true; });
+  GM_setValue(ebaRowDelKey(), ebaRowDelText(set));
+  return ebaRowDelApplyAll();
+}
+// Reihen dieses Servers (ohne Suchen), die eine Zeile zu diesem Zeitpunkt (Minuten) haben
+function ebaRowDelSeriesAt(minute) {
+  var out = [], want = "" + minute;
+  $.each(GM_listValues(), function(i, k) {
+    if (!isHistoryKey(k) || k.indexOf("eba_rowdel_") === 0 || keyServer(k) !== srvKey()) { return; }
+    if (davKind(k) === "search") { return; }
+    if ($.inArray(want, ebaRowDelKeysOf(k, GM_getValue(k, ""))) >= 0) { out.push(k); }
+  });
+  out.sort();
+  return out;
+}
+// Lesbarer Name einer Reihe für Rückfragen
+function ebaRowDelLabel(key) {
+  var rest = key.replace(/^eba_(hist|statistic|food)_(testspeed_|speed_|test_)?/, "");
+  if (key.indexOf("eba_hist_") === 0) {
+    var names = { money: "Geld", points: "Punkte", tickdur: "Ticklänge", foodsearch: "Futtersuchen", antsearch: "Ameisensuchen",
+      stock_food: "Lager Futter", stock_acc: "Lager Zubehör", stock_nest: "Lager Nester", stock_furn: "Lager Möbel", stock_ants: "Lager Ameisen", shopprice: "Ankaufspreise" };
+    return names[rest] || rest;
+  }
+  if (/^\d+$/.test(rest)) { return (key.indexOf("eba_food_") === 0 ? "Futter " : "") + "Kolonie " + rest; }
+  return rest;
 }
 
 // ---------------------------------------------------------------------------
@@ -1710,9 +2755,10 @@ function mergeFormiHistory(a, b) {
   //     die dem Tickbeginn am nächsten liegt (= die zuerst erfasste). Die Zeilen
   //     mit 0/0 sind Aufrufe NACH dem Füttern. Unlesbarer Hunger zählt als -1.
   //  2. kleinerer Dedup-Schlüssel: Zeit + alle Felder OHNE das letzte. Das letzte
-  //     Feld ist timeStr aus formatStatTime(), das über getDate()/getHours() von
-  //     Zeitzone und Sommerzeit des Geräts abhängt - bei identischen Messwerten
-  //     ist es ein Artefakt und entscheidet nicht über die Identität.
+  //     Feld ist timeStr aus formatStatTime(). Es ist inzwischen immer
+  //     Berliner Zeit, hing bei älteren Versionen aber von Zeitzone und
+  //     Sommerzeit des Geräts ab - bei identischen Messwerten ist es ein
+  //     Artefakt und entscheidet nicht über die Identität.
   //  3. kleinere Gesamtzeile.
   for (var i = 0; i < all.length; i++) {
     var line = all[i][0] + "\t" + all[i][1];
@@ -1757,7 +2803,7 @@ function exportHistoryJSON(onlyThisServer) {
   var out = {
     format: "openEBA-history",
     schema: EBA_SCHEMA_VERSION,
-    exported: new Date().getTime(),
+    exported: getServerNow(),
     server: srvKey(),
     onlyServer: !!onlyThisServer,
     values: {}
@@ -1808,15 +2854,23 @@ function importHistoryJSON(text) {
     // WebDAV-Abgleichs setzen - sonst ließen sich die Historien umleiten.
     if (davIsOwnKey(k)) { return; }
     if (k.indexOf("eba_formi_active_") === 0) { return; } // Zustand der Übersicht dieses Geräts
-    if (isHistoryKey(k) && typeof v === "string") {
+    if (ebaIsCollKey(k) && typeof v === "string") {
+      // Sammlung: je Art gewinnt der spätere Zeitstempel; unplausible Zeitstempel fliegen raus
+      GM_setValue(k, ebaCollMerge(GM_getValue(k, ""), ebaCollClean(v).text));
+      merged++;
+    } else if (isHistoryKey(k) && typeof v === "string") {
       var mine = GM_getValue(k, "");
       var res;
-      if (k.indexOf("eba_statistic_") === 0) {
+      if (k.indexOf("eba_rowdel_") === 0) {
+        res = ebaRowDelMerge(mine, v);
+      } else if (k.indexOf("eba_statistic_") === 0) {
         res = mergeFormiHistory(mine, v);
       } else if (k.indexOf("eba_food_") === 0) {
         res = mergeFoodHistory(mine, v);
       } else if (/_(foodsearch|antsearch)$/.test(k)) {
         res = mergeSeries(mine, v, true, true);
+      } else if (davKind(k) === "stock") {
+        res = mergeStockHistory(mine, v);
       } else {
         res = mergeSeries(mine, v, true, false);
       }
@@ -1831,6 +2885,7 @@ function importHistoryJSON(text) {
   // Schema 1 wäre danach nie migriert worden. Stattdessen wird die lokale
   // Version auf den Stand der Importdaten zurückgesetzt (nur nach unten) und
   // die Migration regulär angestoßen.
+  ebaRowDelApplyAll(); // importierte Zeilen, die hier gelöscht wurden, wieder entfernen
   var incoming = parseInt(data.schema, 10);
   if (!isNaN(incoming) && incoming < EBA_SCHEMA_VERSION) { GM_setValue(schemaKey(), incoming); }
   migrateHistorySchema();
@@ -1896,6 +2951,35 @@ function ebaPointsPerTickSeries() {
   return out;
 }
 
+// Punktezuwachs je Tick eines Formicariums, gleiche Rechnung wie
+// ebaPointsPerTickSeries(): je Zeile (Punkte - vorherige Punkte) / Ticks seit der
+// vorherigen Zeile (Lücke = Durchschnitt), mehrere Zeilen im selben Tick: die letzte zählt.
+// Rückgabe: {series: [[tMs, wert, ticks], ...], stagnant: Ticks seit dem letzten Zuwachs
+// (null = weniger als zwei Messwerte), lastT, points, queens}
+function ebaFormiPointsPerTick(id) {
+  var tickMs = getTickMinutes() * 60000;
+  var keys = [], byTick = {}, queens = null;
+  $.each(ebaFormiRows(id), function(i, r) {
+    if (r.queens != null) { queens = r.queens; }
+    if (r.points == null) { return; }
+    var k = Math.floor(r.t / tickMs);
+    if (byTick[k] === undefined) { keys.push(k); }
+    byTick[k] = r;
+  });
+  keys.sort(function(a, b) { return a - b; });
+  var out = [], lastGrow = null;
+  for (var i = 1; i < keys.length; i++) {
+    var n = keys[i] - keys[i - 1];
+    var cur = byTick[keys[i]], prev = byTick[keys[i - 1]];
+    out.push([cur.t, (cur.points - prev.points) / n, n]);
+    if (cur.points > prev.points) { lastGrow = keys[i]; }
+  }
+  if (keys.length < 2) { return {series: out, stagnant: null, queens: queens}; }
+  var last = byTick[keys[keys.length - 1]];
+  return {series: out, queens: queens, points: last.points, lastT: last.t,
+          stagnant: keys[keys.length - 1] - (lastGrow != null ? lastGrow : keys[0]), neverGrew: lastGrow == null};
+}
+
 // IDs aller Formicarien mit Historie auf dem aktuellen Server
 function ebaFormiIds() {
   var pre = "eba_statistic_" + srvKey();
@@ -1903,7 +2987,7 @@ function ebaFormiIds() {
   $.each(GM_listValues(), function(i, k) {
     if (k.indexOf(pre) !== 0) { return; }
     var rest = k.substr(pre.length);
-    if (/^\d+$/.test(rest)) { out.push(rest); } // filtert auf dem Normalserver die speed_-Schlüssel
+    if (/^\d+$/.test(rest)) { out.push(rest); } // filtert auf den anderen Servern deren Präfix-Schlüssel
   });
   return out;
 }
@@ -2075,6 +3159,71 @@ function enableSoundOnJobEnd() {
     }
   });
 }
+// Ausbruchschutz in der Formicarien-Übersicht. Die Übersicht des Spiels zeigt ihn
+// nicht; er stammt aus der Futter-Historie (4. Feld, siehe ebaFoodSeries()), die
+// beim Hintergrundabruf bzw. beim Öffnen der Detailseite je Tick gefüllt wird.
+// Die Zeile wird direkt unter der Zeile mit span[id^=proteinhunger] eingefügt (heißt
+// je nach Art "Hunger (Proteine)" oder "Pilzstatus"). Idempotent über .eba_escape_row.
+// Der Balken nutzt die Spiel-Grafiken wie jsProgressBar: 100 x 9 px, Hintergrund-
+// position -120 + Wert; "100 % = gut" -> Farbreihenfolge back4 (0-25) bis back1 (75-100).
+function ebaNoop() {}
+function showOverviewEscape() {
+  if (!$("h3:contains('Deine Formicarien')").length) { return; }
+  var apply = function() {
+    try {
+      var tk = getTickInfo();
+      var bar = GM_getValue("eba_enable_overview_escape_bar", false);
+      var optTip = "noch kein Wert erfasst (Option 'Futterbestand und Ausbruchschutz pro Tick festhalten')";
+      $("div[id='shopitem']:contains('Larven')").each(function() {
+        try {
+          var div = $(this);
+          var span = div.find("div[id='group'] table.inner span[id^='proteinhunger']").first();
+          if (!span.length) { return; }
+          var id = (span.attr("id") || "").substr(13);
+          if (!/^\d+$/.test(id)) { return; }
+          var tr = span.closest("tr");
+          if (!tr.length) { return; }
+          var series = ebaFoodSeries(id);
+          var last = series.length ? series[series.length - 1] : null;
+          var pending = !!foodPending[srvKey() + id + "_" + (tk.nowTick / 60000)];
+          var wait = " – wird aktualisiert …";
+          var hg = pending ? " <span title='wird aktualisiert …'>\u23f3</span>" : "";
+          var html;
+          if (!last || (last.escape && last.escapePct == null)) {
+            html = "<span class='eba_escape_txt' title=\"" + (pending ? "wird aktualisiert …" : optTip) + "\">&ndash;</span>" + hg;
+          } else if (!last.escape) {
+            html = "<span class='eba_escape_txt' title='Stand: " + ebaFmtDate(last.t, "short") + " " + ebaFmtDate(last.t, "time") + "'>keiner</span>" + (last.t < tk.nowTick ? hg : "");
+          } else {
+            var v = Math.max(0, Math.min(100, last.escapePct));
+            var img = v < 25 ? 4 : v < 50 ? 3 : v < 75 ? 2 : 1;
+            var old = last.t < tk.nowTick;
+            var stale = old; // immer blass/kursiv, solange der Wert nicht aus dem aktuellen Tick stammt
+            var col = v < 10 ? "#ff5a5a" : v < 20 ? "#ff9a5c" : "";
+            var txt = ebaFmtPct(last.escapePct) + " %";
+            var typ = last.escapeType ? " (" + $("<div>").text(last.escapeType).html().replace(/'/g, "&#39;") + ")" : "";
+            var tip = "Stand: " + ebaFmtDate(last.t, "short") + " " + ebaFmtDate(last.t, "time") + (stale ? " (älter als der aktuelle Tick)" : "") + typ;
+            html = (bar ? "<img class='percentImage' src='img/percentbar/percentImage.png' title='" + ebaFmtPct(last.escapePct) + "%'"
+                 + " style='width:100px;height:9px;background-position:" + (-120 + v) + "px 50%;background-image:url(img/percentbar/percentImage_back" + img + ".png)'>" : "")
+                 + "<span class='eba_escape_txt' title='" + tip + "' style='"
+                 + (col ? "color:" + col + ";" : "") + (stale ? "opacity:0.6;font-style:italic;" : "") + "'>" + (bar ? " " : "") + txt + "</span>" + (stale ? hg : "");
+          }
+          var sig = html;
+          var oldRow = div.find("tr.eba_escape_row");
+          if (oldRow.length && oldRow.attr("data-sig") === sig) { return; }
+          oldRow.remove();
+          var row = $("<tr class='eba_escape_row'><td style='vertical-align:middle;white-space:nowrap;'>Ausbruchschutz: </td>"
+                    + "<td style='vertical-align:middle;white-space:nowrap;'>" + html + "</td></tr>");
+          row.attr("data-sig", sig);
+          tr.after(row);
+        } catch (err) {}
+      });
+    } catch (err) {}
+  };
+  apply();
+  $(document).on("eba_food_changed", apply); // neuer Snapshot bzw. Abruf beendet
+  // Die Übersicht wird nach dem Füttern teils per AJAX neu aufgebaut; apply() ist idempotent.
+  new MutationObserver(apply).observe(document.body, {childList: true, subtree: true});
+}
 function copyHungerPercentages() {
   if (!($("h3:contains('Formicarium')").length || $("h3:contains('Deine Formicarien')").length) || ($("h3:contains('einrichten')").length)) {return;}
 //  $("div[id='shopitem']").css("width", 650);
@@ -2114,6 +3263,44 @@ function enableKeyNavi() {
       $("select[name='foodid']").eq(1).parent().submit();
     }
     if (link!=null) window.location.href = link;
+  });
+}
+// Profilseite profil.php?id=N: aktuelle ID oder null
+function ebaProfileId() {
+  if (!/\/profil\.php$/.test(window.location.pathname)) { return null; }
+  var m = /[?&]id=(\d+)/.exec(window.location.search);
+  return m ? parseInt(m[1], 10) : null;
+}
+// Links "vorherige ID" / "nächste ID" links und rechts neben dem Spielernamen (nur Navigation, keine Abrufe).
+// Beschriftung mit (Q)/(E) nur, wenn die Tasten-Option aktiv ist.
+function ebaProfileNav() {
+  var id = ebaProfileId();
+  if (id === null) { return; }
+  var h2 = $("#text h2").first();
+  if (!h2.length || $(".eba-prof-nav").length) { return; }
+  var keys = !!GM_getValue("eba_enable_profile_hotkeys", false);
+  var go = function(n) { return "profil.php?id=" + n; };
+  var st = "style='font-size:1.15em;white-space:nowrap'";
+  var prev = id > 1 ? "<a class='eba-prof-prev' " + st + " href='" + go(id - 1) + "'>&larr; " + (keys ? "(Q) " : "") + "vorherige ID</a>" : "";
+  var next = "<a class='eba-prof-next' " + st + " href='" + go(id + 1) + "'>n&auml;chste ID " + (keys ? "(E) " : "") + "&rarr;</a>";
+  var box = $("<div class='eba-prof-nav' style='display:flex;flex-wrap:wrap;align-items:baseline;justify-content:center;gap:0.4em 1.5em'></div>");
+  h2.before(box);
+  box.append(prev).append(h2).append(next);
+  h2.css("margin", "0.3em 0");
+}
+// Entwickler-Werkzeug: auf profil.php?id=N mit Q / E zu N-1 / N+1 blättern (nur Navigation, keine Abrufe)
+function ebaProfileHotkeys() {
+  var id = ebaProfileId();
+  if (id === null) { return; }
+  var go = function(n) { return "profil.php?id=" + n; };
+  $(document).on("keydown", function(e) {
+    if (e.ctrlKey || e.altKey || e.metaKey) { return; }
+    var t = e.target, tag = t && t.tagName ? t.tagName.toLowerCase() : "";
+    if (tag === "input" || tag === "textarea" || tag === "select" || (t && (t.isContentEditable || t.contentEditable === "true"))) { return; }
+    var k = (e.key || "").toLowerCase(), n = 0;
+    if (k === "q") { n = id - 1; } else if (k === "e") { n = id + 1; } else { return; }
+    if (n < 1) { return; }
+    window.location.href = go(n);
   });
 }
 function processSingleFormicariumView() {
@@ -2550,18 +3737,212 @@ function insertNote() {
     GM_setValue("eba_note", $(this).val());
   }).val(GM_getValue("eba_note", ""));
 }
+// Basiszeit für Endzeit-Anzeigen: Serverzeit, bzw. Ende der laufenden Aktion (Header-Countdown), falls vorhanden.
+function ebaActionBaseTime() {
+  var starttime = getServerNow(); // Serverzeit (echte Epoch)
+  var to = $("#headercountdown span").text();
+  if (to!="") {
+    // "bis TT.MM.JJJJ HH:MM:SS" ist Berliner Wanduhr
+    var result = /(\d+).(\d+).(\d+) (\d+):(\d+):(\d+)/.exec(to.substring(4));
+    if (result) {
+      starttime = ebaBerlinToEpoch(parseInt(result[3], 10), parseInt(result[2], 10), parseInt(result[1], 10),
+        parseInt(result[4], 10), parseInt(result[5], 10), parseInt(result[6], 10));
+    }
+  }
+  return starttime;
+}
+// Suchseiten (draussen.php cat=1/2): Endzeit hinter jede Dauer-Option schreiben ("8:00:00 → morgen 07:53").
+function ebaSearchEndTimes() {
+  var sels = $("form select[name=dauer]");
+  if (!sels.length) { return; }
+  var wd = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
+  var apply = function() {
+    var base = getServerNow(); // immer ab Seitenaufruf/jetzt: es läuft nur eine Aktion, Einreihen gibt es nicht
+    var today = ebaBerlinDay(base);
+    sels.find("option").each(function() {
+      var opt = $(this);
+      var min = parseInt(opt.val(), 10);
+      if (isNaN(min)) { return; }
+      var orig = opt.attr("data-eba-orig");
+      if (orig === undefined) { orig = opt.text(); opt.attr("data-eba-orig", orig); }
+      var endMs = base + min * 60000, end = ebaBerlinParts(endMs);
+      var days = ebaBerlinDay(endMs) - today;
+      var day = days === 0 ? "heute" : days === 1 ? "morgen" : days === 2 ? "\u00fcbermorgen" : wd[end.wd];
+      opt.text(orig + " \u2192 " + day + " " + ("0" + end.h).slice(-2) + ":" + ("0" + end.mi).slice(-2));
+    });
+  };
+  apply();
+  window.setInterval(apply, 60000);
+}
+// Suchorte (draussen.php?cat=1) -> Fundort-Schlüssel der Spielhilfe (Blatt Ameisen, Spalte Fundorte)
+function ebaSearchPlaceKey(name) {
+  var n = $.trim(name).toLowerCase();
+  if (/mars/.test(n)) { return "Südamerika: Mars-Plateau"; }
+  if (/kaiserstuhl/.test(n)) { return "Kaiserstuhl"; }
+  if (/bulgarien|balkan/.test(n)) { return "Bulgarien"; }
+  if (/frankreich|normandie/.test(n)) { return "Frankreich"; }
+  if (/spanien|sierra/.test(n)) { return "Spanien"; }
+  if (/orient|t\u00fcrkei|syrien/.test(n)) { return "Orient"; }
+  if (/costa rica|corcovado/.test(n)) { return "Südamerika: Costa Rica"; }
+  if (/s\u00fcd-ost|indonesi/.test(n)) { return "Süd-Ost Asien"; }
+  if (/arizona/.test(n)) { return "Amerika: Arizona"; }
+  if (/australien|down under/.test(n)) { return "Australien"; }
+  if (n === "stadt") { return "Stadt"; }
+  if (n === "wiese") { return "Wiese"; }
+  if (n === "wald") { return "Wald"; }
+  return null;
+}
+// Art -> Fundorte (ebaShAnts, Spielhilfe): { Fundort: [{ n: Art, shop: bool, hid: bool }] }, Reihenfolge nach Kategorie, dann Name
+function ebaSearchSpeciesMap() {
+  var map = {}, names = [];
+  $.each(ebaShAnts, function(name) { names.push(name); });
+  names.sort(function(a, b) { return ((antcat[a] || 0) - (antcat[b] || 0)) || (a < b ? -1 : a > b ? 1 : 0); });
+  $.each(names, function(i, name) {
+    $.each(String(ebaShAnts[name][2] || "").split(", "), function(j, place) {
+      place = $.trim(place);
+      if (!place) { return; }
+      (map[place] = map[place] || []).push({ n: name, shop: shopPriceLimits[name] != null, hid: $.inArray(name, ebaShHidden) >= 0 });
+    });
+  });
+  return map;
+}
+// Gemeinsamer Tooltip im Stil der openEBA-Einstellungsseite (Spiel-CSS "a.tooltip"): Auslöser mit aufklappendem <span>.
+// ebaTip(label, html, asHtml): label = Text des Auslösers, html = Inhalt (Text; mit asHtml=true HTML-String).
+// Rückgabe: jQuery-Element (asHtml=true: HTML-String zum Einbetten, ohne Klick-Handler). Klick springt nicht nach oben.
+function ebaTip(label, html, asHtml) {
+  var a = $("<a class='tooltip' href='#'></a>").text(label).append($("<span></span>")[asHtml === true ? "html" : "text"](html));
+  if (asHtml === true) { return a.prop("outerHTML"); }
+  a.on("click", function(e) { e.preventDefault(); });
+  return a;
+}
+// "Ameisen suchen": je Suchort eine Zeile "Findbare Arten: ..." zwischen Beschreibung und "Dauer:"
+function ebaSearchSpecies() {
+  if (location.pathname !== "/draussen.php") { return; }
+  var map = ebaSearchSpeciesMap();
+  $("form").each(function() {
+    var form = $(this);
+    if (form.find(".eba-species").length || !form.find("input[name=taketask]").length || form.find("input[name=cat]").val() !== "1") { return; }
+    var key = ebaSearchPlaceKey(form.find("b").first().text()), list = key ? map[key] : null;
+    if (!list || !list.length) { return; }
+    var dauer = form.contents().filter(function() { return this.nodeType === 3 && /^\s*Dauer/.test(this.nodeValue); }).first();
+    if (!dauer.length) { return; }
+    var tip = "versteckte Art. Diese Art wird im Lexikon erst angezeigt, nachdem man sie gefunden hat.";
+    var part = function(shop) {
+      var out = $("<span></span>");
+      $.each($.grep(list, function(a) { return a.shop === shop; }), function(i, a) {
+        out.append(i ? ", " : "", $("<span></span>").text(a.n).append(a.hid ? ebaTip("*", tip).addClass("eba-species-hid") : ""));
+      });
+      return out.contents().length ? out.contents() : null;
+    };
+    var el = $("<div class='eba-species' style='font-size:0.85em;margin:0 0 0.6em 0' title='Quelle: Community-Spielhilfe, nicht vom Spielbetreiber'><b>Findbare Arten:</b></div>");
+    var line = function(label, nodes) {
+      if (nodes) { el.append($("<div style='margin-left:1.2em'></div>").append($("<b></b>").text(label), " ", nodes)); }
+    };
+    line("auch im Shop:", part(true));
+    line("nicht im Shop:", part(false));
+    dauer.before(el);
+  });
+}
+// Lexikon Futter (lexikon.php?cat=4): Zeile "Haltbarkeit" unter "Zersetzungsrate".
+// Je Tick werden die Zersetzungsrate-Prozentpunkte abgezogen: Ticks = aufrunden(100 / Rate).
+function ebaFoodLifeText(ticks, tickMin) {
+  var m = ticks * tickMin, d = Math.floor(m / 1440), h = Math.floor(m % 1440 / 60), mi = Math.round(m % 60), t = [];
+  if (d) { t.push(d + " T"); }
+  if (h) { t.push(h + " h"); }
+  if (mi) { t.push(mi + " min"); }
+  return t.join(" ") || "0 h";
+}
+function ebaLexikonFoodLife() {
+  if (!/lexikon\.php$/.test(location.pathname) || !/(^|[?&])cat=4(&|$)/.test(location.search)) { return; }
+  var speed = isSpeedServer(), tickMin = getTickMinutes();
+  $("div#shopitem table.liste").each(function() {
+    var tbl = $(this);
+    if (tbl.find(".eba-foodlife").length) { return; }
+    var row = tbl.find("tr").filter(function() { return /^\s*Zersetzungsrate/.test($(this).find("td").first().text()); }).first();
+    if (!row.length) { return; }
+    var rate = parseFloat($.trim(row.find("td").last().text()).replace(",", ".").replace("%", ""));
+    if (!(rate > 0)) { return; }
+    var ticks = Math.ceil(Math.round(100 / rate * 1e6) / 1e6);
+    var other = ebaFoodLifeText(ticks, speed ? 60 : 12);
+    var tip = "100 % / " + String(rate).replace(".", ",") + " % je Tick = " + ticks + " Ticks; 1 Tick = " + tickMin + " min (" + (speed ? "Speedserver" : "Normalserver") + "). "
+      + (speed ? "Normalserver" : "Speedserver") + ": " + other;
+    var tr = $("<tr class='eba-foodlife'></tr>").addClass(row.hasClass("color1") ? "color2" : "color1").attr("title", tip);
+    tr.append($("<td class='liste'></td>").text("Haltbarkeit: "))
+      .append($("<td class='liste' style='text-align:right'></td>").text(ebaFoodLifeText(ticks, tickMin)));
+    row.after(tr);
+    // Zebra neu durchnummerieren (im Spiel sind mehrere Zeilen color1), Bezeichnung vereinheitlichen
+    tbl.find("tr").each(function(i) { $(this).removeClass("color1 color2").addClass(i % 2 ? "color2" : "color1"); });
+    tbl.find("td").filter(function() { return /^schon züchtbar/.test($(this).text()); }).each(function() {
+      $(this).text($(this).text().replace(/^schon/, "Schon"));
+    });
+  });
+}
+// Spielhilfe-Link in der Seitenleiste jeder Seite (nicht auf lexikon.php, dort fügt enableSpielhilfe ihn ein)
+function ebaSpielhilfeEverywhere() {
+  if (/lexikon\.php$/.test(location.pathname) || !GM_getValue("eba_enable_spielhilfe", false)) { return; }
+  var host = $("#shopmenucats").first();
+  if (!host.length || $("#eba_sh_start").length) { return; }
+  host.append("<hr style='margin:6px 0'>").append("<a id='eba_sh_start' href='/lexikon.php#eba-spielhilfe'>openEBA: Spielhilfe</a>");
+}
+// Stundenlohn aus Lohn in Cent und Dauer in Sekunden (wie bisher bei den Angeboten: auf Cent abgeschnitten)
+function ebaHourlyWage(cents, sec) { return parseFloat(parseInt(cents / (sec / 3600))) / 100; }
+function ebaEndText(ms) {
+  var weekday = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"];
+  var end = ebaBerlinParts(ms);
+  return " [Endet " + weekday[end.wd] + ", " + ("0" + end.h).slice(-2) + ":" + ("0" + end.mi).slice(-2) + "]";
+}
+// Feste Jobdauer in Sekunden aus der Spielhilfe (ebaShJobs, nach Jobname); Speedserver = 1/5; null = unbekannt
+function ebaJobDuration(name) {
+  var n = $.trim(name || "").toLowerCase(), found = null;
+  var sec = function(j) {
+    if (j[2] === "tick") { return getTickMinutes() * 60; }
+    return typeof j[2] === "number" ? j[2] * 3600 / (isSpeedServer() ? 5 : 1) : null;
+  };
+  $.each(ebaShJobs, function(i, fam) {
+    $.each(fam[1], function(k, j) {
+      var s = sec(j);
+      if (s === null) { return true; }
+      if (found === null && n && (n.indexOf(fam[0].toLowerCase()) >= 0 || n.indexOf(j[0].toLowerCase()) >= 0)) { found = s; }
+    });
+  });
+  return found;
+}
+// Laufende Aktion (internet.php: Startseite, Forschung, Arbeitsamt): "[Endet ...]" neben den Countdown,
+// bei laufendem Job zusätzlich "[Stundenlohn ...]" hinter den Lohn.
+function ebaRunningAction() {
+  if (!/internet\.php$/.test(location.pathname)) { return; }
+  var base = getServerNow(); // Restsekunden des taskcounter gelten ab Seitenaufruf
+  $("form").each(function() {
+    var form = $(this), tc = form.find("#taskc").first();
+    if (!tc.length || form.find(".eba-runend").length) { return; }
+    var rest = null;
+    form.find("script").each(function() {
+      var m = /taskcounter\(\s*(["'])taskc\1\s*,\s*(["'])(?:(?!\2)[^\\]|\\.)*\2\s*,\s*(\d+)/.exec(this.text || this.textContent || "");
+      if (m) { rest = parseInt(m[3], 10); return false; }
+    });
+    if (rest === null) { return; }
+    var end = $("<span class='eba-runend'></span>").text(ebaEndText(base + rest * 1000));
+    tc.css("display", "inline").after(end);
+    var next = end.nextAll("script").last();
+    (next.length ? next : end).after("<br class='eba-runend-br'>");
+    // Stundenlohn nur bei laufendem Job (Lohn statt Kosten)
+    var lohn = form.contents().filter(function() { return this.nodeType === 3 && /Lohn:\s*[\d.]*\d,\d\d/.test(this.nodeValue); }).first();
+    if (!lohn.length) { return; }
+    var r = /Lohn:\s*([\d.]*\d),(\d\d)/.exec(lohn[0].nodeValue);
+    var cents = parseInt(r[1].replace(/\./g, ""), 10) * 100 + parseInt(r[2], 10);
+    var sec = ebaJobDuration(form.find("b").first().text());
+    if (!(sec > 0)) { return; }
+    lohn[0].nodeValue = lohn[0].nodeValue.replace(/\s*$/, "") + " [Stundenlohn " + ebaHourlyWage(cents, sec) + "] ";
+  });
+}
 function processJobOffers() {
+  ebaSearchEndTimes();
+  ebaRunningAction();
   if(!($("h3:contains('Aktionen')").length || $("h3:contains('Forschung')").length || $("h3:contains('Arbeitsamt')").length)) {return}
   const weekday = new Array("Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag");
   //start from now
-  var starttime = new Date().getTime();
-  //start from end of current if any
-  var to = $("#headercountdown span").text();
-  if (to!="") {
-    var result = /(\d+).(\d+).(\d+) (\d+):(\d+):(\d+)/.exec(to.substring(4));
-    var runTo = new Date(result[3], result[2]-1, result[1], result[4], result[5], result[6]);
-    starttime = runTo.getTime();
-  }
+  //start from end of current if any, else from now
+  var starttime = ebaActionBaseTime();
   $("form:contains('Dauer')").each(function() {
     var form = $(this);
     var nodes = form.contents().filter(function() {
@@ -2572,15 +3953,16 @@ function processJobOffers() {
       return result;
     }).get();
     if (nodes.length!=2) return true; //not found correctly => try next
+    if (nodes[0].nodeValue.indexOf("[Endet")>=0) return true; //schon angereichert
     //duration nodes[0]
     var result = /(\d+):(\d+):(\d+)/.exec(nodes[0].nodeValue.substring(7));
     var sec = parseInt(result[1])*60*60 + parseInt(result[2])*60 + parseInt(result[3]);
-    var end = new Date(starttime+sec*1000);
-    var target = " [Endet "+weekday[end.getDay()]+", ";
-    if (end.getHours()<10) target += "0";
-    target += end.getHours() + ":";
-    if (end.getMinutes()<10) target += "0";
-    target += end.getMinutes() + "]";
+    var end = ebaBerlinParts(starttime+sec*1000); // Anzeige in Berliner Zeit
+    var target = " [Endet "+weekday[end.wd]+", ";
+    if (end.h<10) target += "0";
+    target += end.h + ":";
+    if (end.mi<10) target += "0";
+    target += end.mi + "]";
     nodes[0].nodeValue = nodes[0].nodeValue+target;
     //earnings nodes[1], only with "Lohn"
     if (nodes[1].nodeValue.indexOf(" Lohn")==0) {
@@ -2614,7 +3996,14 @@ function statBeautify() {
 }
 function insertPointsDiff() {
   //determine current hours
-  var hours = parseInt((new Date().getTime()) / (1000*60*60));
+  var hours = parseInt(getServerNow() / (1000*60*60));
+  // Einmalige Umstellung der Stundenfenster von PC-Stunden auf Serverzeit-Stunden:
+  // alte Fenster verwerfen (sie würden sonst bis zu ±14 h falsch verglichen); sie füllen sich neu.
+  var winMark = "eba_points_" + srvKey() + "t";
+  if (GM_getValue(winMark, "") !== "s") {
+    $.each([1, 2], function(i, n) { GM_deleteValue(pointsWindowKey(n)); GM_deleteValue(hoursWindowKey(n)); });
+    GM_setValue(winMark, "s");
+  }
   //find current value
   //div#status => Punkte xxx => first group => remove points => parseInt
   var status = $("div#status");
@@ -2674,10 +4063,7 @@ function resetStoredValues(onlyThisServer) {
 // Königinnen bleiben gleich. Die Historie der kleineren (alten) ID wird hier mit den
 // normalen Merge-Funktionen in die größere (neue) ID verschmolzen; die kleinere ID wird vergessen.
 // ---------------------------------------------------------------------------
-function ebaColonyFmtTime(ms) {
-  var d = new Date(ms), p = function(n) { return (n < 10 ? "0" : "") + n; };
-  return p(d.getDate()) + "." + p(d.getMonth() + 1) + "." + d.getFullYear() + " " + p(d.getHours()) + ":" + p(d.getMinutes());
-}
+function ebaColonyFmtTime(ms) { return formatStatTime(ms); }
 // Kurzbeschreibung einer Historie für Auswahllisten
 function ebaColonyDescribe(id) {
   var rows = ebaFormiRows(id);
@@ -2822,6 +4208,7 @@ function enableConfig() {
   if (!$("#shopmenu:contains('Statistik')").length) {return}
   //$("#shopmenucats").append("<a href='/stats.php?limitplayers=14'>14-Tage-Statistik</a>");
   $("#shopmenucats").append("<hr><a id='eba_config_start' href='javascript:void(0)'>openEBA</a>");
+  ebaPlaceVerlaufLink();
   $("#eba_config_start").on("click", function(e) {
     if($("#eba_config_cancel").length) {
       return;
@@ -2830,10 +4217,11 @@ function enableConfig() {
     //show config
     mainArea.empty();
     var configHTML = "<div id='shopitem'>";
+    configHTML += "<h3 id='eba_version' style='margin:0 0 0.8em 0;padding-bottom:0.3em;border-bottom:1px solid #bbb;font-weight:bold;color:#555'>openEBA Version " + ebaShE(ebaScriptVersion()) + "</h3>";
     $.each(configItems, function(k, v) {
-      configHTML += "<input type='checkbox' id='"+k+"'>"+v[1];
+      configHTML += (EBA_CONFIG_SUB[k] ? "<span style='display:inline-block;width:1.6em'></span>" : "") + "<input type='checkbox' id='"+k+"'>"+v[1];
       if (v[2]) {
-        configHTML+= " (<a class='tooltip' href='#'>Mehr Info<span>"+v[2]+"</span></a>)";
+        configHTML+= " (" + ebaTip("Mehr Info", v[2], true) + ")";
       }
       configHTML+="<br>";
     });
@@ -2858,6 +4246,10 @@ function enableConfig() {
     $.each(configItems, function(k) {
       $("#"+k).prop("checked", GM_getValue(k, false)).change(function() {
         GM_setValue(k, $("#"+k).prop("checked"));
+        // Abhängigkeit: "überall" setzt "im Lexikon" voraus
+        var on = $("#"+k).prop("checked"), a = "eba_enable_spielhilfe", b = "eba_enable_spielhilfe_everywhere";
+        if (k === b && on && !$("#"+a).prop("checked")) { $("#"+a).prop("checked", true); GM_setValue(a, true); }
+        if (k === a && !on && $("#"+b).prop("checked")) { $("#"+b).prop("checked", false); GM_setValue(b, false); }
       });
     });
     $("#eba_shopfilter").val(GM_getValue("eba_shopfilter", "")).on("blur", function() {
@@ -2900,7 +4292,7 @@ function enableConfig() {
     //Reset: beide Varianten fragen vorher nach, weil hier Monate an Historie hängen
     $("#eba_config_reset").on("click", function(e) {
       if (!window.confirm("ALLE gespeicherten openEBA-Daten werden unwiderruflich gelöscht - "
-        + "und zwar für BEIDE Server (Normalserver UND Speedserver), weil der Speicher "
+        + "und zwar für ALLE Server (Normal, Speed, Test), weil der Speicher "
         + "für alle eatenbyants.de-Adressen derselbe ist.\n\n"
         + "Betroffen sind sämtliche Historien (Formicarien, Futter, Geld, Punkte, "
         + "Ticklänge, Suchen) sowie alle Optionen, Filter, Bookmarks und Notizen.\n\n"
@@ -3072,6 +4464,59 @@ function ebaPointsHost(td) {
   return (kids.length == 1) ? kids.last() : td;
 }
 
+// Punktezuwachs eines Formicariums im letzten Tick aus der Formi-Statistik:
+// Differenz der beiden jüngsten Zeilen. Liegt dazwischen mehr als ein Tick, ist es
+// der Durchschnitt je Tick (avg = true). Ist der jüngste Tick schon abgeschlossen,
+// aber (noch) nicht erfasst, zählt der aktuelle Punktestand der Seite als jüngste
+// Zeile. null = zu wenige Daten.
+function ebaPointsDelta(id, pagePoints) {
+  var rows = [];
+  $.each(ebaFormiRows(id), function(i, r) { if (r.points != null) { rows.push(r); } });
+  if (!rows.length) { return null; }
+  var tickMs = getTickMinutes() * 60000;
+  var tk = getTickInfo();
+  var last = rows[rows.length - 1];
+  if (tk.done && isFinite(pagePoints) && last.t < tk.nowTick - 1000) {
+    rows.push({t: tk.nowTick, points: pagePoints, time: formatStatTime(tk.nowTick)});
+  }
+  if (rows.length < 2) { return null; }
+  var a = rows[rows.length - 2], b = rows[rows.length - 1];
+  var ticks = Math.max(1, Math.round((b.t - a.t) / tickMs));
+  var raw = (b.points - a.points) / ticks;
+  var delta = (raw < 0 ? -1 : 1) * Math.round(Math.abs(raw));
+  var when = (b.time || formatStatTime(b.t)).replace(/^(\d\d\.\d\d)\.\d{4}/, "$1.");
+  return {delta: delta, ticks: ticks, avg: ticks > 1, when: when};
+}
+
+// Id des Formicariums: aus dem Hunger-Balken (Übersicht und Einzelansicht),
+// sonst aus der Adresse der Einzelansicht.
+function ebaColonyId(div) {
+  var sp = div.find("span[id^='sugarhunger']").first();
+  if (sp.length && /^\d+$/.test(sp.attr("id").substr(11))) { return sp.attr("id").substr(11); }
+  var m = /[?&]id=(\d+)/.exec(location.search);
+  return m ? m[1] : "";
+}
+
+// "+37" hinter Punkte/Maximum (vor der Prozentklammer), idempotent. Aufrufer
+// ist showMaxPoints() und showGrowthPercent(), je nachdem, welche Option an ist.
+function ebaShowPointsDelta(div, td, points) {
+  if (td.find("span.eba_ptdelta").length) { return; }
+  var id = ebaColonyId(div);
+  if (!id) { return; }
+  var d = ebaPointsDelta(id, points);
+  if (!d) { return; }
+  var txt = d.delta > 0 ? "+" + d.delta : (d.delta < 0 ? "−" + (-d.delta) : "±0");
+  if (d.avg) { txt += "⌀"; }
+  var color = d.delta > 0 ? "#6cc070" : (d.delta < 0 ? "#ff9a5c" : "#808080");
+  var tip = d.avg ? "Punkte je Tick, Ø über " + d.ticks + " Ticks (bis " + d.when + ")"
+                  : "Punkte im letzten Tick (" + d.when + ")";
+  var span = $("<span class='eba_ptdelta' style='white-space:nowrap'></span>")
+    .css("color", color).text(" " + txt).attr("title", tip);
+  var g = td.find("span.eba_growth").first();
+  var m = td.find("span.eba_maxpt").first();
+  if (g.length) { g.before(span); } else if (m.length) { m.after(span); } else { ebaPointsHost(td).append(span); }
+}
+
 // Hinter den Punkten jedes Formicariums das Maximum anzeigen: "12.340 / 50.000".
 // Die Prozentzahl steht absichtlich NICHT in der Spalte (zu schmal), sondern im
 // Tooltip des eigenen <span>. Das Tooltip hängt am <span> und nicht am <td>,
@@ -3138,12 +4583,13 @@ function showMaxPoints() {
         // Steht die Prozentklammer (showGrowthPercent) schon da, davor einsetzen.
         var td = c["Punkte"];
         var maxHtml = " <span class='eba_maxpt' style='color:#808080'>/ "
-                    + (max.unknown ? "?" : ebaFmtInt(max.points)) + "</span>";
+                    + (max.unknown ? "?" : max.points) + "</span>";
         var gSpan = td.find("span.eba_growth").first();
         if (gSpan.length) { gSpan.before(maxHtml); } else { ebaPointsHost(td).append(maxHtml); }
         // title per attr() statt inline, damit der Artname aus dem DOM nicht
         // escaped werden muss.
         div.find("span.eba_maxpt").last().attr("title", tip.join("\n"));
+        ebaShowPointsDelta(div, td, points);
       } catch (err) {}
     });
   } catch (err) {}
@@ -3362,10 +4808,12 @@ function showGrowthPercent() {
           var td = c["Punkte"];
           if (!td) { return; }
           var mSpan = td.find("span.eba_maxpt").first();
-          if (mSpan.length) { mSpan.after(html); } else { ebaPointsHost(td).append(html); }
+          var pSpan = td.find("span.eba_ptdelta").first();
+          if (pSpan.length) { pSpan.after(html); } else if (mSpan.length) { mSpan.after(html); } else { ebaPointsHost(td).append(html); }
           var gs = td.find("span.eba_growth").first();
           gs.attr("title", ebaGrowthTip(g, kind, workers, nestLabel, nestName, formiName, srv, space));
           if (warnTip) { gs.find("span.eba_nestwarn").attr("title", warnTip); }
+          ebaShowPointsDelta(div, td, parseInt(("" + td.text()).replace(/\./g, ""), 10));
         } catch (err) {}
       });
     } catch (err) {}
@@ -3374,6 +4822,92 @@ function showGrowthPercent() {
   // Die Einzelansicht wird nach dem Füttern per AJAX neu aufgebaut, daher nach
   // jeder DOM-Änderung erneut anwenden. apply() ist idempotent.
   if (!overview) { new MutationObserver(apply).observe(document.body, {childList: true, subtree: true}); }
+}
+
+// ---------------------------------------------------------------------------
+// Einzelansicht: höchstens nötiges Formicarium / Nest
+//
+// Unter "Formicarium wechseln" und "Nest wechseln" je eine dezente Zeile
+// "höchstens nötig: <Vorschlag>" (Regalrechnung ebaShRegal() der Spielhilfe, bei
+// polygynen Arten mit der Königinnenzahl der Kolonie hochgerechnet). ✓, wenn das
+// aktuelle Formicarium bzw. Nest schon reicht. Unbekannte Art -> keine Zeile.
+// ---------------------------------------------------------------------------
+
+// Reine Rechnung ohne DOM. Rückgabe null bei unbekannter Art, sonst
+// { key, g (ebaShRegal), q (Königinnen für die Rechnung), ants (max. Arbeiterinnen), note, polyNote, excel, alt }
+function ebaMaxHabitatCalc(kind, queens, speed) {
+  var key = null, nk = ebaAntmaxNorm(kind);
+  $.each(ebaShAnts, function(k) { if (ebaAntmaxNorm(k) === nk) { key = k; return false; } });
+  var e = key ? antmax[key] : null;
+  if (!e) { return null; }
+  var fac = 1, q = (isFinite(queens) && queens >= 1) ? Math.floor(queens) : null, note = "", ants = e.a;
+  if (e.poly) {
+    var mp = q != null ? ebaMaxPoints(key, q, speed) : null;
+    if (mp && !mp.unknown && mp.ants > 0) { fac = mp.ants / e.a; ants = mp.ants; if (q === 1) { note = " (bei 1 Königin)"; } }
+    else { note = " (für 1 Königin)"; q = 1; }
+  }
+  var g = ebaShRegal(key, fac);
+  if (!g) { return null; }
+  var a = ebaShAnts[key], excel = null;
+  if (!g.formNest && !g.alt && ebaShNestIdx(a[1]) > ebaShNestIdx(g.nest)) { excel = a[1]; }
+  return { key: key, g: g, q: q, ants: ants, poly: !!e.poly, note: note, excel: excel };
+}
+
+function showMaxHabitat() {
+  if (!$("h3:contains('Formicarium')").length || $("h3:contains('einrichten')").length) { return; }
+  var apply = function() {
+    try {
+      var forms = $("form").filter(function() { return $(this).find("input[name=action]").val() === "changeformi" || $(this).find("input[name=action]").val() === "changenest"; });
+      if (!forms.length) { return; }
+      var box = $("div[data-formi='stats']").first();
+      var c = box.length ? ebaColonyCells(box) : {};
+      var kind = c["Art"] ? $.trim(c["Art"].text()) : ebaDetailKind(box);
+      if (!kind) { return; }
+      var qRaw = c["Königinnen"] ? parseInt(("" + c["Königinnen"].text()).replace(/\./g, ""), 10) : NaN;
+      var r = ebaMaxHabitatCalc(kind, qRaw, isSpeedServer());
+      if (!r) { return; }
+      var g = r.g;
+      var nestCur = c["Nest"] ? $.trim(c["Nest"].text()) : "";
+      var hazel = /haselnuss/i.test(nestCur); // Nest ist eine Haselnuss: dann gilt die Mini Arena als passend
+      var multi = r.poly && isFinite(qRaw) && qRaw > 1;
+      forms.each(function() {
+        var form = $(this), isNest = form.find("input[name=action]").val() === "changenest";
+        if (form.next(".eba_maxhab").length) { return; }
+        var cur = $.trim(form.closest("td").find("b").first().text().replace(/^[^:]*:\s*/, ""));
+        var formiFirst = !isNest || g.formNest;
+        var name = isNest ? g.nest : g.form, extra = "";
+        var need = isNest ? g.nestNeed : g.formNeed;
+        var target = name; // Vorschlag, gegen den "größer als nötig" gemessen wird
+        if (isNest && g.formNest) { extra = " (als Nestbecken)"; }
+        if (g.alt) {
+          if (isNest) { extra += " (oder Haselnuss)"; }
+          else { extra += " (mit Haselnuss: " + g.alt.form + ")"; if (hazel) { target = g.alt.form; need = Math.min(need, ebaHousingCap(g.alt.form, true) || need); } }
+        }
+        if (isNest && r.excel) { extra += " (empfohlen: " + r.excel + ")"; }
+        var cap = ebaHousingCap(cur, formiFirst), capTarget = ebaHousingCap(target, formiFirst);
+        var sym = null; // {ch, color, tip}
+        if (isNest && g.alt && /haselnuss/i.test(cur)) { sym = null; }
+        else if (multi) {
+          sym = { ch: "?", color: "#999", tip: "Bei mehreren K\u00F6niginnen h\u00E4ngt der Bedarf von ihrer Zahl ab. Vermutlich n\u00F6tig: " + name + " (gerechnet mit " + ebaFmtInt(Math.round(r.ants)) + " max. Arbeiterinnen" + (r.note ? r.note : " bei " + r.q + " K\u00F6niginnen") + ")." };
+        } else if (cap != null && cap < need) {
+          sym = { ch: "\u2191", color: "#6ab0f3", tip: "Dein " + (isNest ? g.nestWord : "Formicarium") + " (" + cur + ") ist kleiner als n\u00F6tig. Ein Upgrade auf " + target + " wird empfohlen." };
+        } else if (cap != null && capTarget != null && cap > capTarget) {
+          sym = { ch: "\u26A0", color: "#f2c230", tip: "Dein " + (isNest ? g.nestWord : "Formicarium") + " (" + cur + ") ist gr\u00F6\u00DFer als n\u00F6tig" + (formiFirst ? " und belegt unn\u00F6tig Regalpl\u00E4tze." : ".") };
+        }
+        var tip = (isNest ? g.nestWord : "Formicarium") + " " + name + ": " + g.calc + "."
+          + (r.poly ? " Polygyn: gerechnet mit " + ebaFmtInt(Math.round(r.ants)) + " max. Arbeiterinnen" + (r.note ? r.note : " bei " + r.q + " K\u00F6niginnen") + "." : "")
+          + (cap != null ? " Aktuell: " + cur + " (Kapazit\u00E4t " + ebaFmtInt(cap) + ", Bedarf " + ebaFmtInt(Math.round(need)) + ")." : "")
+          + (isNest && !g.formNest ? " Brut nicht eingerechnet." : "");
+        var el = $("<div class='eba_maxhab' style='font-size:0.8em;opacity:0.8;margin-top:0.3em'></div>").append($("<span></span>").text("h\u00F6chstens n\u00F6tig: " + name + extra + (r.note || "")));
+        if (sym) { el.append(" ", $("<span class='eba_maxhab_sym' style='font-weight:bold'></span>").css("color", sym.color).append(ebaTip(sym.ch, sym.tip).css("color", sym.color))); }
+        el.append(" ", ebaTip("Rechnung", tip));
+        form.after(el);
+      });
+    } catch (err) {}
+  };
+  apply();
+  // Die Einzelansicht wird nach dem Füttern per AJAX neu aufgebaut; apply() ist idempotent.
+  new MutationObserver(apply).observe(document.body, {childList: true, subtree: true});
 }
 
 // ---------------------------------------------------------------------------
@@ -3426,6 +4960,40 @@ var EBA_DAV_MAX_412 = 3;              // Wiederholungen bei konkurrierendem Schr
 var EBA_DAV_NEW_BUDGET = 40;          // zusätzliche Requests pro Auto-Lauf, solange noch nie abgeglichene Reihen anstehen
 var EBA_DAV_INV_INTERVAL = 1800000;   // ms: so selten fragt der Auto-Lauf das Server-Inventar neu ab
 var EBA_DAV_IDX_MAX = 5000;           // Zeilen der Index-Datei, mehr werden verworfen
+
+// ---------------------------------------------------------------------------
+// Zeitbasis des Abgleichs: Serverzeit statt PC-Uhr
+//
+// davNow(): Sperren, Wartezeiten, Inventar-Zeitpunkt und Statuszeile. Diese
+//   Werte bleiben im Browser (GM-Speicher), es zählt nur, dass alle Tabs
+//   dieselbe Uhr benutzen: getServerNow().
+// davStamp(): Zeitstempel der Lösch-Marker in der Index-Datei. Sie werden
+//   zwischen Geräten verglichen (größerer gewinnt), brauchen also eine Uhr, die
+//   auf allen Geräten gleich läuft - unabhängig von PC-Uhr UND PC-Zeitzone.
+//   Das ist die echte Epoch der Serveruhr, also genau getServerNow() (bis
+//   Version 33.8 rechnete davStamp() die damalige Wanduhr-Epoch hier selbst nach
+//   Europe/Berlin um; das Ergebnis ist dasselbe). Damit liegt der Wert im selben
+//   Bereich wie die PC-ms (Date.now()), die ältere Skriptversionen schreiben und
+//   die schon im Index stehen; Unterschiede sind nur Fehler der PC-Uhr. Format
+//   und Bedeutung der Index-Datei bleiben deshalb unverändert (ältere Parser
+//   verwerfen Zeilen mit zusätzlichen Spalten und schreiben den Index ohne sie
+//   zurück - eine Formatkennung würde zwischen alten und neuen Geräten hin- und
+//   herkippen).
+// Ältere Skriptversionen (oder Tabs, die seit dem Update nicht neu geladen
+// wurden) schreiben Sperren und Wartezeiten noch in PC-Zeit. Damit eine
+// falsch gehende PC-Uhr daraus keine Dauersperre macht, gelten solche Werte
+// nur innerhalb ihres Zeitfensters, gemessen in beide Richtungen (davWithin,
+// Obergrenze beim Backoff).
+// ---------------------------------------------------------------------------
+function davNow() { return getServerNow(); }
+function davStamp() { return getServerNow(); }
+// Liegt der gespeicherte Zeitpunkt t (davNow-ms) weniger als win ms entfernt?
+// Auch nach vorn begrenzt: ein Wert weit in der Zukunft stammt von einer
+// vorgehenden PC-Uhr und gilt als abgelaufen.
+function davWithin(t, win) {
+  t = parseInt(t, 10) || 0;
+  return t > 0 && Math.abs(davNow() - t) < win;
+}
 
 // Schlüssel des Abgleichs selbst. Gelten für beide Server (ein Zugang für
 // Normal- und Speedserver) und werden weder exportiert noch importiert:
@@ -3506,18 +5074,36 @@ function davRequest(method, url, body, headers, cb) {
 
 // Welche Merge-Funktion gehört zu einem Schlüssel? Gleiche Zuordnung wie im Import.
 function davKind(key) {
+  if (ebaIsCollKey(key)) { return "coll"; }
+  if (key.indexOf("eba_rowdel_") === 0) { return "rowdel"; }
   if (key.indexOf("eba_statistic_") === 0) { return "formi"; }
   if (key.indexOf("eba_food_") === 0) { return "food"; }
   if (/_(foodsearch|antsearch)$/.test(key)) { return "search"; }
+  if (/^eba_hist_(speed_|test_|testspeed_)?(stock_(food|acc|nest|furn|ants)|shopprice)$/.test(key)) { return "stock"; }
   return "hist";
 }
-function davMerge(key, a, b) {
-  switch (davKind(key)) {
-    case "formi": return mergeFormiHistory(a, b);
-    case "food": return mergeFoodHistory(a, b);
-    case "search": return mergeSeries(a, b, true, true);
-    default: return mergeSeries(a, b, true, false);
+// Sammlung bereinigen: Zeilen mit unplausiblem Zeitstempel fliegen raus (Rückgabe kanonischer Text)
+function ebaCollClean(text) {
+  var d = ebaCollParseInto({}, text), good = {}, dropped = 0;
+  for (var k in d) {
+    if (!Object.prototype.hasOwnProperty.call(d, k)) { continue; }
+    if (ebaTimePlausible(d[k].ts)) { good[k] = d[k]; } else { dropped++; }
   }
+  return { text: ebaCollText(good), dropped: dropped };
+}
+function davMerge(key, a, b) {
+  var r;
+  switch (davKind(key)) {
+    case "coll": return ebaCollMerge(a, b);
+    case "rowdel": return ebaRowDelMerge(a, b);
+    case "formi": r = mergeFormiHistory(a, b); break;
+    case "food": r = mergeFoodHistory(a, b); break;
+    case "search": r = mergeSeries(a, b, true, true); break;
+    case "stock": r = mergeStockHistory(a, b); break;
+    default: r = mergeSeries(a, b, true, false);
+  }
+  // Gelöschte Zeilen (Tombstones) kommen auch von anderen Geräten nicht zurück.
+  return ebaRowDelFilter(key, r);
 }
 
 // Remote-Inhalt prüfen und filtern, ohne irgendetwas zu schreiben.
@@ -3530,6 +5116,23 @@ function davValidate(key, text) {
   if (text === "") { res.ok = true; return res; }
   if (/^\s*</.test(text)) { res.reason = "HTML statt Daten (Login-Seite oder Fehlerseite?)"; return res; }
   var kind = davKind(key);
+  if (kind === "coll") {
+    var hd = text.split("\n")[0];
+    if (hd !== "eba_collection\t1") {
+      res.newer = /^eba_collection\t\d+$/.test(hd) && parseInt(hd.split("\t")[1], 10) > 1;
+      res.reason = res.newer ? "Sammlung in neuerem Format - bitte openEBA aktualisieren" : "keine Sammlung (Kopfzeile)";
+      return res;
+    }
+    var cl = ebaCollClean(text);
+    res.ok = true; res.dropped = cl.dropped; res.text = cl.text;
+    return res;
+  }
+  if (kind === "rowdel") {
+    if (text.split("\n")[0] !== "eba_rowdel\t1") { res.reason = "keine L\u00F6schliste oder neueres Format"; return res; }
+    var pr = ebaRowDelParse(text);
+    res.ok = true; res.dropped = pr.dropped; res.text = ebaRowDelText(pr.set);
+    return res;
+  }
   var lines = text.split("\n");
   var out = [], start = 0;
   if (kind === "formi") {
@@ -3559,6 +5162,7 @@ function davValidate(key, text) {
     else if (kind === "search") { ms = t; }
     else { ms = t * 60000; }
     if (isNaN(t) || !ebaTimePlausible(ms)) { res.dropped++; continue; }
+    if (kind === "stock" && !/^\d+(\.\d+)?(\t[^\t=]+=\d+(\.\d+)?(\/\d+(\.\d+)?)?)*$/.test(line)) { res.dropped++; continue; }
     out.push(line);
   }
   res.ok = true;
@@ -3572,6 +5176,7 @@ function davValidate(key, text) {
 function davLocalReadable(key, text) {
   if (!text) { return true; }
   var kind = davKind(key);
+  if (kind === "rowdel" || kind === "coll") { return true; }
   if (kind === "formi") { return !isNaN(parseInt(text, 10)); }
   if (kind === "food") { return true; }
   return !isNaN(parseInt(text, 10));
@@ -3603,6 +5208,8 @@ function syncMergeOne(key, remoteText) {
   var body = davBody(key, merged);
   if (body === null) { res.reason = "verschmolzene Reihe ungültig"; return res; }
   if (merged !== mine) { GM_setValue(key, merged); res.changed = true; }
+  // Neue Tombstones von einem anderen Gerät: lokale Reihen sofort bereinigen
+  if (res.changed && davKind(key) === "rowdel") { ebaRowDelApplyAll(); }
   res.ok = true; res.local = merged; res.body = body;
   return res;
 }
@@ -3616,9 +5223,18 @@ function davState(key) {
   return { etag: "", len: -1 };
 }
 function davSetState(key, etag, len) { GM_setValue(davStateKey(key), JSON.stringify({ etag: etag || "", len: len })); }
+// Merkzahl des lokalen Stands. Zeitreihen wachsen nur, da genügt die Länge. In der
+// Sammlung ändert sich beim Statuswechsel oft nur der Inhalt (open -> done), daher
+// dort Länge plus Prüfsumme.
+function davSig(key, v) {
+  if (typeof v !== "string") { return -1; }
+  if (!ebaIsCollKey(key)) { return v.length; }
+  var h = 5381;
+  for (var i = 0; i < v.length; i++) { h = ((h * 33) ^ v.charCodeAt(i)) >>> 0; }
+  return v.length * 4294967296 + h;
+}
 function davDirty(key) {
-  var v = GM_getValue(key, "");
-  return (typeof v === "string" ? v.length : -1) !== davState(key).len;
+  return davSig(key, GM_getValue(key, "")) !== davState(key).len;
 }
 
 // Liste der Reihen mit ungültiger Remote-Datei (für "Remote-Dateien überschreiben")
@@ -3632,13 +5248,13 @@ function davSetBad(key, bad) {
 }
 
 // Schlüssel, der als Datei im Ordner liegen darf: Zeitreihe des aktuellen Servers.
-// (Präfix-Falle: eba_hist_ ist auch Präfix von eba_hist_speed_; der Name wird Dateiname.)
+// (Präfix-Falle: eba_hist_ ist auch Präfix von eba_hist_speed_/_test_/_testspeed_; der Name wird Dateiname.)
 function davKeyValid(k) {
-  return typeof k === "string" && isHistoryKey(k) && keyServer(k) === srvKey() && /^[a-z0-9_]+$/.test(k);
+  return typeof k === "string" && (isHistoryKey(k) || ebaIsCollKey(k)) && keyServer(k) === srvKey() && /^[a-z0-9_]+$/.test(k);
 }
 
 // ---------------------------------------------------------------------------
-// Index-Datei eba_index_<normal|speed>.tsv im Ordner
+// Index-Datei eba_index_<normal|speed|test|testspeed>.tsv im Ordner
 //
 // Sie hat zwei Aufgaben:
 //  1. Inventar, falls der Server PROPFIND (Dateiliste) nicht erlaubt: jedes
@@ -3650,10 +5266,12 @@ function davKeyValid(k) {
 //   a = angekündigt/vorhanden, f = vergessen. Je Schlüssel gewinnt der größere
 //   Zeitstempel, bei Gleichstand f. Das ist idempotent, kommutativ, assoziativ
 //   und kanonisch (sortiert) - die Geräte erreichen also einen Fixpunkt.
-//   "Wieder zulassen" schreibt a mit größerem Zeitstempel. Lokale Kopie:
+//   "Wieder zulassen" schreibt a mit größerem Zeitstempel. ms ist die Serverzeit
+//   (davStamp), bei älteren Skriptversionen die PC-Uhr des Geräts; beide
+//   liegen im selben Wertebereich und werden gleich behandelt. Lokale Kopie:
 //   eba_dav_idx_<srv>, Stand des Servers: eba_dav_idxst_<srv> {etag, text}.
 // ---------------------------------------------------------------------------
-function davSrvName() { return srvKey() ? "speed" : "normal"; }
+function davSrvName() { return ebaSrvFileName(srvKey()); }
 function davIndexUrl() { return davConf().url + "eba_index_" + davSrvName() + ".tsv"; }
 function davIdxKey() { return "eba_dav_idx_" + srvKey(); }
 function davIdxStateKey() { return "eba_dav_idxst_" + srvKey(); }
@@ -3677,7 +5295,7 @@ function davIdxParse(text) {
   if (/^\s*</.test(text)) { res.reason = "HTML statt Daten"; return res; }
   var lines = text.split("\n");
   if (lines[0] !== "eba_index\t1") { res.reason = "keine Index-Datei oder neueres Format"; return res; }
-  var maxMs = new Date().getTime() + 7 * 86400000, n = 0;
+  var maxMs = davStamp() + 7 * 86400000, n = 0;
   for (var i = 1; i < lines.length; i++) {
     if (!lines[i]) { continue; }
     var p = lines[i].split("\t");
@@ -3717,7 +5335,7 @@ function davIgnoreMap() {
 function davIgnoredCount() { var n = 0, m = davIgnoreMap(); for (var k in m) { if (m.hasOwnProperty(k)) { n++; } } return n; }
 // Reihen vergessen: lokaler Marker, geht beim nächsten Lauf in die Index-Datei.
 function davForget(keys) {
-  var m = davIdxMap(), now = new Date().getTime();
+  var m = davIdxMap(), now = davStamp();
   $.each(keys, function(i, k) {
     if (!davKeyValid(k)) { return; }
     davIdxPut(m, k, Math.max(now, (m[k] ? m[k].ms : 0) + 1), "f");
@@ -3726,7 +5344,7 @@ function davForget(keys) {
 }
 // Alle Marker aufheben; die Reihen werden wieder abgeglichen.
 function davRestoreIgnored() {
-  var m = davIdxMap(), now = new Date().getTime(), n = 0;
+  var m = davIdxMap(), now = davStamp(), n = 0;
   for (var k in m) {
     if (m.hasOwnProperty(k) && m[k].st === "f") { davIdxPut(m, k, Math.max(now, m[k].ms + 1), "a"); n++; }
   }
@@ -3748,6 +5366,10 @@ function davKeys(withRemote) {
   $.each(GM_listValues(), function(i, k) { add(k); });
   if (withRemote) { $.each(davInvList(), function(i, k) { add(k); }); }
   out.sort();
+  // Die Löschliste zuerst: ihre Tombstones wirken dann schon beim Verschmelzen
+  // der übrigen Reihen dieses Laufs.
+  var rd = ebaRowDelKey(), at = $.inArray(rd, out);
+  if (at > 0) { out.splice(at, 1); out.unshift(rd); }
   return out;
 }
 function davAllKeys() { return davKeys(true); }
@@ -3790,7 +5412,7 @@ function davIdxSync(announce, stats, cb, attempt, trail) {
     if (!rp.ok) { stats.skipped.push("Index-Datei: " + rp.reason); return cb(null); } // fremder Inhalt: nicht anfassen
     var merged = local, k;
     for (k in rp.map) { if (rp.map.hasOwnProperty(k)) { davIdxPut(merged, k, rp.map[k].ms, rp.map[k].st); } }
-    var now = new Date().getTime();
+    var now = davStamp();
     $.each(announce, function(i, key) { if (davKeyValid(key) && !merged[key]) { merged[key] = { ms: now, st: "a" }; } });
     var text = davIdxText(merged);
     davIdxSave(merged);
@@ -3870,7 +5492,7 @@ function davList(cb) {
 function davInvDue(manual) {
   if (manual) { return true; }
   var t = GM_getValue("eba_dav_inv_ms_" + srvKey(), 0);
-  return !t || new Date().getTime() - t > EBA_DAV_INV_INTERVAL || davIdxDirty();
+  return !davWithin(t, EBA_DAV_INV_INTERVAL) || davIdxDirty();
 }
 function davInventory(manual, stats, cb) {
   var tryPf = manual || GM_getValue("eba_dav_pf_" + srvKey(), "") !== "no";
@@ -3890,7 +5512,7 @@ function davInventory(manual, stats, cb) {
       arr.sort();
       if (listed || stats.idxOk) {
         GM_setValue(davInvKey(), arr.join("\n"));
-        GM_setValue("eba_dav_inv_ms_" + srvKey(), new Date().getTime());
+        GM_setValue("eba_dav_inv_ms_" + srvKey(), davNow());
       }
       stats.inv = (listed ? "PROPFIND ok (" + listed.length + " Dateien)" : (tryPf ? "PROPFIND nicht möglich (HTTP " + l.status + ")" : "PROPFIND aus"))
         + ", Index-Datei " + (stats.idxOk ? "ok" : "nicht lesbar") + ", " + arr.length + " Reihen bekannt";
@@ -3928,7 +5550,7 @@ function davSyncKey(key, stats, cb, attempt, trail) {
   var gh = {};
   // Auto-Läufe lassen eine Reihe, die gerade dauerhaft 412 liefert, eine Weile in Ruhe
   var stuckAt = parseInt(GM_getValue("eba_dav_stuck_" + key, 0), 10) || 0;
-  if (attempt === 0 && !stats.manual && stuckAt && new Date().getTime() - stuckAt < EBA_DAV_STUCK_PAUSE) {
+  if (attempt === 0 && !stats.manual && davWithin(stuckAt, EBA_DAV_STUCK_PAUSE)) {
     stats.skipped.push(key + ": pausiert nach 412");
     return cb(null);
   }
@@ -3953,12 +5575,12 @@ function davSyncKey(key, stats, cb, attempt, trail) {
     if (r.changed) { stats.pulled++; }
     if (r.body.length > EBA_DAV_WARN_CHARS) { stats.big.push(key); }
     if (remote === null && r.body === "") { // nichts anzulegen; als abgeglichen merken
-      davSetState(key, "", r.local.length);
+      davSetState(key, "", davSig(key, r.local));
       stats.equal++;
       return cb(null);
     }
     if (remote !== null && r.body === remote.replace(/\r/g, "")) {
-      davSetState(key, g.etag, r.local.length);
+      davSetState(key, g.etag, davSig(key, r.local));
       stats.equal++;
       return cb(null);
     }
@@ -3976,7 +5598,7 @@ function davSyncKey(key, stats, cb, attempt, trail) {
         if (uncond) { stats.uncond.push(key); }
         // ETag der neuen Fassung, falls der Server ihn mitliefert. Sonst holt
         // der nächste Lauf die Datei einmal vollständig.
-        davSetState(key, p.etag, r.local.length);
+        davSetState(key, p.etag, davSig(key, r.local));
         stats.pushed++;
         if (remote !== null && davSameLines(r.body, remote.replace(/\r/g, ""))) {
           stats.noChange++;
@@ -3993,7 +5615,7 @@ function davSyncKey(key, stats, cb, attempt, trail) {
         for (var t = 1; t < trail.length; t++) { if (davEtagCore(trail[t]) !== davEtagCore(trail[0])) { same = false; } }
         var stuck = same && trail.length >= EBA_DAV_MAX_412 && remote !== null && g.etag !== "";
         if (!uncond && (attempt + 1 < EBA_DAV_MAX_412 || stuck)) { return davSyncKey(key, stats, cb, attempt + 1, trail); }
-        GM_setValue("eba_dav_stuck_" + key, new Date().getTime());
+        GM_setValue("eba_dav_stuck_" + key, davNow());
         return cb({ kind: "412", msg: "Datei " + key + ".tsv lässt sich nicht bedingt schreiben (412) "
           + (same && remote !== null ? "- der Server lehnt seinen eigenen ETag ab. " : "- andere Geräte schreiben gleichzeitig, neuer Versuch beim nächsten Lauf. ")
           + "Gesendet: If-Match " + (ph["If-Match"] || ph["If-None-Match"] || "-") + "; Server lieferte ETag "
@@ -4012,7 +5634,7 @@ function davSyncKey(key, stats, cb, attempt, trail) {
     stats.requests++;
     davRequest("GET", davFileUrl(key) + davBust(), undefined, {}, function(v) {
       if (v.status !== 200 || v.body.replace(/\r/g, "") !== remote.replace(/\r/g, "")) {
-        GM_setValue("eba_dav_stuck_" + key, new Date().getTime());
+        GM_setValue("eba_dav_stuck_" + key, davNow());
         stats.status = v.status;
         return cb({ kind: "412", msg: "Datei " + key + ".tsv lässt sich nicht bedingt schreiben (412) und ändert sich zugleich "
           + "laufend (oder wird zwischengespeichert); nichts überschrieben, neuer Versuch später." });
@@ -4047,7 +5669,7 @@ function davFailure(r, key) {
 
 // Statuszeile des letzten Laufs (pro Server)
 function davStatusKey() { return "eba_dav_status_" + srvKey(); }
-function davSaveStatus(o) { o.time = new Date().getTime(); GM_setValue(davStatusKey(), JSON.stringify(o)); }
+function davSaveStatus(o) { o.time = davNow(); GM_setValue(davStatusKey(), JSON.stringify(o)); }
 function davStatusText() {
   var s;
   try { s = JSON.parse(GM_getValue(davStatusKey(), "")); } catch (err) { s = null; }
@@ -4092,7 +5714,7 @@ function davRun(keysArg, budgetArg, manual, done, progress, pre) {
       if (fail.kind === "auth") { GM_setValue("eba_dav_halt", fail.msg); }
       if (fail.kind === "backoff") {
         var lvl = Math.min(GM_getValue("eba_dav_backoff_lvl", 0), EBA_DAV_BACKOFF.length - 1);
-        GM_setValue("eba_dav_backoff_until", new Date().getTime() + EBA_DAV_BACKOFF[lvl] * 60000);
+        GM_setValue("eba_dav_backoff_until", davNow() + EBA_DAV_BACKOFF[lvl] * 60000);
         GM_setValue("eba_dav_backoff_lvl", lvl + 1);
       }
       if (fail.kind === "quota" || fail.kind === "size") { GM_setValue("eba_dav_halt", fail.msg); }
@@ -4102,7 +5724,7 @@ function davRun(keysArg, budgetArg, manual, done, progress, pre) {
       if (manual) { GM_setValue("eba_dav_halt", ""); }
     }
     stats.left = keys.length - i;
-    if (manual && !fail && stats.left === 0) { GM_setValue("eba_dav_full_" + srvKey(), new Date().getTime()); }
+    if (manual && !fail && stats.left === 0) { GM_setValue("eba_dav_full_" + srvKey(), davNow()); }
     davSaveStatus(stats);
     GM_setValue("eba_dav_busy", 0);
     if (done) { done(stats); }
@@ -4120,7 +5742,7 @@ function davRun(keysArg, budgetArg, manual, done, progress, pre) {
       setTimeout(step, 300);
     });
   };
-  GM_setValue("eba_dav_busy", new Date().getTime());
+  GM_setValue("eba_dav_busy", davNow());
   var start = function(fail) {
     if (fail && fail.kind !== "other") { return finish(fail); }
     if (fail) { stats.skipped.push(fail.msg); }
@@ -4171,10 +5793,13 @@ function davAutoRun() {
   if (!GM_getValue("eba_dav_ok_ms", 0)) { return; }      // noch kein erfolgreicher Verbindungstest
   if (GM_getValue("eba_dav_halt", "")) { return; }       // nach 401/403/507/413 nur manuell
   if (GM_getValue("eba_enable_history_compaction", false)) { return; }
-  var now = new Date().getTime();
-  if (GM_getValue("eba_dav_backoff_until", 0) > now) { return; }
-  if (now - GM_getValue("eba_dav_busy", 0) < 60000) { return; } // anderer Tab gleicht gerade ab
-  if (now - GM_getValue("eba_dav_last_ms", 0) < 60000) { return; }
+  var now = davNow();
+  // Wartezeit nach Fehlern; ein Wert jenseits der längsten Stufe stammt von einer
+  // vorgehenden PC-Uhr (ältere Version) und wird ignoriert.
+  var until = parseInt(GM_getValue("eba_dav_backoff_until", 0), 10) || 0;
+  if (until > now && until - now <= EBA_DAV_BACKOFF[EBA_DAV_BACKOFF.length - 1] * 60000 + 60000) { return; }
+  if (davWithin(GM_getValue("eba_dav_busy", 0), 60000)) { return; } // anderer Tab gleicht gerade ab
+  if (davWithin(GM_getValue("eba_dav_last_ms", 0), 60000)) { return; }
   var tk = getTickInfo();
   if (!tk.done) { return; } // erst nach dem Tick, dann ist er erfasst
   var tickKey = "eba_dav_tick_" + srvKey();
@@ -4210,7 +5835,7 @@ function davTest(cb) {
       if (g.status === 401 || g.status === 403) { return cb("Anmeldung für Dateien abgelehnt (" + g.status + ")."); }
       if (g.status !== 200 && g.status !== 404) { return cb("Unerwartete Antwort " + g.status + " für " + probe + ".tsv"); }
       if (g.status === 200 && /^\s*</.test(g.body)) { return cb("Der Server liefert HTML statt Daten - leitet er auf eine Login-Seite um? URL prüfen."); }
-      GM_setValue("eba_dav_ok_ms", new Date().getTime());
+      GM_setValue("eba_dav_ok_ms", davNow());
       GM_setValue("eba_dav_halt", "");
       var msg = "Verbindung ok (Ordner HTTP " + f.status + ", " + probe + ".tsv HTTP " + g.status
         + (g.etag ? ", ETag " + g.etag : (g.status === 200 ? ", OHNE ETag - konkurrierendes Schreiben ist nicht abgesichert" : "")) + ").";
@@ -4240,7 +5865,7 @@ function davOverwriteBad(cb) {
     var body = davBody(key, local);
     if (body === null) { msgs.push(key + ": lokale Reihe ungültig"); return setTimeout(step, 300); }
     davRequest("PUT", davFileUrl(key), body, {}, function(p) {
-      if (p.ok) { okN++; davSetBad(key, false); davSetState(key, p.etag, local.length); }
+      if (p.ok) { okN++; davSetBad(key, false); davSetState(key, p.etag, davSig(key, local)); }
       else { msgs.push(key + ": HTTP " + p.status); }
       setTimeout(step, 300);
     });
@@ -4369,12 +5994,12 @@ function ebaPad2(n) { return (n < 10 ? "0" : "") + n; }
 
 // Datum/Uhrzeit deutsch: "26.10.2026 14:00" (mode "short": nur Datum, "time": nur Uhrzeit)
 function ebaFmtDate(t, mode) {
-  var d = new Date(t);
-  var date = ebaPad2(d.getDate()) + "." + ebaPad2(d.getMonth() + 1) + ".";
-  var time = ebaPad2(d.getHours()) + ":" + ebaPad2(d.getMinutes());
+  var d = ebaBerlinParts(t); // Berliner Zeit, unabhängig von der PC-Zeitzone
+  var date = ebaPad2(d.d) + "." + ebaPad2(d.mo) + ".";
+  var time = ebaPad2(d.h) + ":" + ebaPad2(d.mi);
   if (mode === "short") { return date; }
   if (mode === "time") { return time; }
-  return date + d.getFullYear() + " " + time;
+  return date + d.y + " " + time;
 }
 
 // Runde Achsenschritte: [Start, Ende, Schritt]
@@ -4394,7 +6019,9 @@ function ebaNiceScale(min, max, n) {
 //              tooltip (bool), unit, extra: [{points, color, name}] weitere Linien,
 //              yMin/yMax (feste Achsengrenzen), multiTip (Tooltip zeigt alle Linien
 //              zum Zeitpunkt; exactTip: nur exakt gleicher Zeitpunkt, sonst Strich), tipText(punkt)->Text (Zusatz im Tooltip),
-//              markFn(punkt)->bool (Punkt als Ring markieren)
+//              markFn(punkt)->bool (Punkt als Ring markieren), zeroLine (Nulllinie hervorheben),
+//              Linien in extra mit axis2: true laufen auf einer eigenen rechten y-Achse (Beschriftung
+//              in Linienfarbe, Format l.fmt), die Hauptlinie bleibt links
 // Rückgabe: {min, max, last, first, count, from, to} oder null bei <2 Punkten.
 function ebaDrawLineChart(container, points, opts) {
   opts = opts || {};
@@ -4404,22 +6031,32 @@ function ebaDrawLineChart(container, points, opts) {
   var fmt = opts.fmt || function(v) { return ebaFmtNum(v, 0); };
   var lines = [{ points: points, color: opts.color || "#3CAC56", name: opts.name || "" }];
   $.each(opts.extra || [], function(i, e) { lines.push(e); });
-  var tMin = Infinity, tMax = -Infinity, vMin = Infinity, vMax = -Infinity;
+  var tMin = Infinity, tMax = -Infinity, vMin = Infinity, vMax = -Infinity, v2Min = Infinity, v2Max = -Infinity;
+  var has2 = false;
   $.each(lines, function(li, l) {
     $.each(l.points || [], function(j, p) {
       if (p[0] < tMin) { tMin = p[0]; } if (p[0] > tMax) { tMax = p[0]; }
-      if (p[1] < vMin) { vMin = p[1]; } if (p[1] > vMax) { vMax = p[1]; }
+      if (l.axis2) {
+        has2 = true;
+        if (p[1] < v2Min) { v2Min = p[1]; } if (p[1] > v2Max) { v2Max = p[1]; }
+      } else {
+        if (p[1] < vMin) { vMin = p[1]; } if (p[1] > vMax) { vMax = p[1]; }
+      }
     });
   });
   if (opts.yMin != null) { vMin = opts.yMin; }
   if (opts.yMax != null) { vMax = opts.yMax; }
   var compact = !!opts.compact;
-  var ml = compact ? 6 : 64, mr = compact ? 6 : 14, mt = compact ? 6 : 12, mb = compact ? 6 : 26;
+  var ml = compact ? 6 : 64, mr = compact ? 6 : (has2 ? 64 : 14), mt = compact ? 6 : 12, mb = compact ? 6 : 26;
   var scale = compact ? (vMax > vMin ? [vMin, vMax, 0] : [vMin - 1, vMax + 1, 0]) : ebaNiceScale(vMin, vMax, 5);
   var y0 = scale[0], y1 = scale[1];
   var tSpan = (tMax > tMin) ? (tMax - tMin) : 1;
   var X = function(t) { return ml + (t - tMin) / tSpan * (W - ml - mr); };
   var Y = function(v) { return mt + (1 - (v - y0) / (y1 - y0)) * (H - mt - mb); };
+  var sc2 = has2 ? ebaNiceScale(v2Min, v2Max, 5) : null;
+  var Y2 = function(v) { return mt + (1 - (v - sc2[0]) / (sc2[1] - sc2[0])) * (H - mt - mb); };
+  var c2 = "#E8963C";
+  $.each(lines, function(li, l) { if (l.axis2) { c2 = l.color; } });
   var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H
     + '" style="display:block;background:#0f2a17;border-radius:3px;max-width:100%">';
   if (!compact) {
@@ -4428,6 +6065,16 @@ function ebaDrawLineChart(container, points, opts) {
       svg += '<line x1="' + ml + '" x2="' + (W - mr) + '" y1="' + yy.toFixed(1) + '" y2="' + yy.toFixed(1) + '" stroke="#2a5a36" stroke-width="1"/>';
       svg += '<text x="' + (ml - 6) + '" y="' + (yy + 4).toFixed(1) + '" text-anchor="end" font-size="11" fill="#a8d5b3">'
         + fmt(v) + '</text>';
+    }
+    if (has2 && sc2[2] > 0) {
+      for (var v2 = sc2[0]; v2 <= sc2[1] + sc2[2] / 2; v2 += sc2[2]) {
+        svg += '<text x="' + (W - mr + 6) + '" y="' + (Y2(v2) + 4).toFixed(1) + '" text-anchor="start" font-size="11" fill="' + c2 + '">'
+          + (opts.fmt2 || fmt)(v2) + '</text>';
+      }
+    }
+    if (opts.zeroLine && y0 < 0 && y1 > 0) {
+      svg += '<line x1="' + ml + '" x2="' + (W - mr) + '" y1="' + Y(0).toFixed(1) + '" y2="' + Y(0).toFixed(1)
+        + '" stroke="#e6f5ea" stroke-width="1.5" stroke-dasharray="4 3"/>';
     }
     var longRange = tSpan > 2 * 86400000;
     for (var i = 0; i <= 4; i++) {
@@ -4440,7 +6087,8 @@ function ebaDrawLineChart(container, points, opts) {
   $.each(lines, function(li, l) {
     if (!l.points || l.points.length < 2) { return; }
     var d = "";
-    $.each(l.points, function(i, p) { d += (i ? "L" : "M") + X(p[0]).toFixed(1) + " " + Y(p[1]).toFixed(1); });
+    var YY = l.axis2 ? Y2 : Y;
+    $.each(l.points, function(i, p) { d += (i ? "L" : "M") + X(p[0]).toFixed(1) + " " + YY(p[1]).toFixed(1); });
     svg += '<path d="' + d + '" fill="none" stroke="' + l.color + '" stroke-width="' + (compact ? 1.5 : 2) + '" stroke-linejoin="round"/>';
   });
   if (opts.markFn) {
@@ -4488,7 +6136,7 @@ function ebaDrawLineChart(container, points, opts) {
               + $("<div></div>").text((l.name ? l.name + ": " : "") + "\u2013").html();
           } else if (q) {
             h += '<br><span style="color:' + l.color + '">&#9632;</span> '
-              + $("<div></div>").text((l.name ? l.name + ": " : "") + fmt(q[1]) + u).html();
+              + $("<div></div>").text((l.name ? l.name + ": " : "") + (l.fmt || fmt)(q[1]) + (l.fmt ? "" : u)).html();
           }
         });
         tip.html(h).show();
@@ -4506,6 +6154,9 @@ function ebaDrawLineChart(container, points, opts) {
            last: points[points.length - 1][1], first: points[0][1], count: points.length,
            from: points[0][0], to: points[points.length - 1][0] };
 }
+
+function ebaMinOf(series) { var m = Infinity; $.each(series, function(i, p) { if (p[1] < m) { m = p[1]; } }); return m; }
+function ebaMaxOf(series) { var m = -Infinity; $.each(series, function(i, p) { if (p[1] > m) { m = p[1]; } }); return m; }
 
 // Nur Punkte ab tFrom (inklusive)
 function ebaSeriesSince(series, tFrom) {
@@ -4598,7 +6249,7 @@ function enableHistoryHeaderHover() {
     hide();
     var el = $(this), metric = el.attr("data-metric");
     var all = ebaGlobalSeries(metric);
-    var recent = ebaSeriesSince(all, new Date().getTime() - 7 * 86400000);
+    var recent = ebaSeriesSince(all, getServerNow() - 7 * 86400000);
     var pts = recent.length >= 2 ? recent : all;
     pop = $('<div class="eba_hist_pop" style="position:absolute;z-index:9999;width:260px;padding:6px 8px;background:#14391f;'
       + 'color:#e6f5ea;border:1px solid #3CAC56;border-radius:4px;font-size:11px;line-height:1.4;text-align:left;'
@@ -4639,6 +6290,7 @@ function enableHistoryPage() {
   if (!$("#eba_verlauf_start").length) {
     $("#shopmenucats").append("<a id='eba_verlauf_start' href='/stats.php#eba-verlauf'>openEBA-Verlauf</a>");
   }
+  ebaPlaceVerlaufLink();
   $("#eba_verlauf_start").on("click", function(e) {
     if (ebaIsStatsPage()) {
       e.preventDefault();
@@ -4646,7 +6298,25 @@ function enableHistoryPage() {
       renderHistoryPage();
     }
   });
-  if (location.hash === "#eba-verlauf" && ebaIsStatsPage()) { renderHistoryPage(); }
+  if (ebaHistHash() && ebaIsStatsPage()) { renderHistoryPage(); }
+}
+
+// "openEBA-Verlauf" gehört direkt unter "openEBA" (vor das <hr> der Bookmarks),
+// egal in welcher Reihenfolge die Menüpunkte eingefügt werden.
+function ebaPlaceVerlaufLink() {
+  var cfg = $("#eba_config_start"), v = $("#eba_verlauf_start");
+  if (!cfg.length || !v.length) { return; }
+  if (cfg.next().is("br.eba_verlauf_br") && cfg.next().next().is(v)) { return; }
+  v.prev("br.eba_verlauf_br").remove();
+  v.detach();
+  v.insertAfter(cfg);
+  $("<br class='eba_verlauf_br'>").insertBefore(v);
+}
+
+// Hash der Verlaufsseite: null oder {id} (id = Formicarium zum Aufklappen oder "")
+function ebaHistHash() {
+  var m = /^#eba-verlauf(?:-(\d+))?$/.exec(location.hash);
+  return m ? { id: m[1] || "" } : null;
 }
 
 function renderHistoryPage(rangeKey) {
@@ -4666,7 +6336,7 @@ function renderHistoryPage(rangeKey) {
   page.append("<h3>openEBA-Verlauf (" + srvName(srvKey()) + ")</h3><div>Zeitraum: " + btns + "</div>");
   mainArea.append(page);
   page.on("click", ".eba_range", function() { renderHistoryPage($(this).attr("data-range")); });
-  var since = span ? new Date().getTime() - span : 0;
+  var since = span ? getServerNow() - span : 0;
   var add = function(target, title, series, metric, extra, o) {
     o = o || {};
     var box = $("<div style='margin:10px 0'></div>");
@@ -4682,8 +6352,8 @@ function renderHistoryPage(rangeKey) {
     box.append(holder);
     target.append(box);
     var ex = [];
-    $.each(extra || [], function(i, e) { ex.push({ points: ebaSeriesSince(e.points, since), color: e.color, name: e.name }); });
-    var fmt = o.fmt || ebaMetricFmt(metric), unit = ebaMetricUnit(metric);
+    $.each(extra || [], function(i, e) { ex.push({ points: ebaSeriesSince(e.points, since), color: e.color, name: e.name, axis2: e.axis2, fmt: e.fmt }); });
+    var fmt = o.fmt || ebaMetricFmt(metric), unit = o.unit != null ? o.unit : ebaMetricUnit(metric);
     if (o.emptyHint && !series.length) {
       holder.text(o.emptyHint);
       return;
@@ -4692,11 +6362,12 @@ function renderHistoryPage(rangeKey) {
       color: o.color || "#3CAC56", fmt: fmt, unit: unit, tooltip: true, extra: ex }, o.chart || {}));
     if (!info) {
       holder.text("Im gewählten Zeitraum noch keine (ausreichenden) Daten.");
-    } else {
+    } else if (!o.noStats) {
       var u = unit ? " " + unit : "";
       box.append("<div style='font-size:0.9em'>Min " + fmt(info.min) + u + " &middot; Max " + fmt(info.max) + u
         + " &middot; Aktuell " + fmt(info.last) + u + " (" + info.count + " Messwerte)</div>");
     }
+    if (o.sub) { box.append("<div style='font-size:0.9em'>" + o.sub + "</div>"); }
   };
   add(page, "Geld (&euro;)", ebaGlobalSeries("money"), "money");
   add(page, "Punkte", ebaGlobalSeries("points"), "points");
@@ -4705,6 +6376,13 @@ function renderHistoryPage(rangeKey) {
     chart: { markFn: function(p) { return p[2] > 1; },
              tipText: function(p) { return p[2] > 1 ? "\u00D8 \u00FCber " + p[2] + " Ticks:" : ""; } } });
   add(page, "Tickl&auml;nge (Sekunden)", ebaGlobalSeries("tickdur"), "tickdur");
+  var open = ebaHistOpenLoad();
+  var jumpId = (ebaHistHash() || {}).id || "";
+  if (jumpId) { open[jumpId] = 1; ebaHistOpenSave(open); }
+  var hs = "style='cursor:pointer;background:#14391f;color:#e6f5ea;border:1px solid #3CAC56;border-radius:3px;"
+    + "padding:4px 8px;margin:4px 0;user-select:none'";
+  ebaHistStockSection(page, add, since, open, hs);
+  if (ebaTickEdit()) { ebaHistRowsSection(page, open, hs, function() { renderHistoryPage(cur); }); }
   var ids = ebaFormiIds();
   ids.sort(function(a, b) { return parseInt(a, 10) - parseInt(b, 10); });
   if (!ids.length) {
@@ -4712,9 +6390,6 @@ function renderHistoryPage(rangeKey) {
     return;
   }
   // Formicarien: je Gruppe eingeklappt, Diagramme werden erst beim Aufklappen gezeichnet
-  var open = ebaHistOpenLoad();
-  var hs = "style='cursor:pointer;background:#14391f;color:#e6f5ea;border:1px solid #3CAC56;border-radius:3px;"
-    + "padding:4px 8px;margin:4px 0;user-select:none'";
   var act = ebaFormiActiveIds();
   var activeList = [], formerList = [];
   $.each(ids, function(i, id) { ((act && $.inArray(id, act) < 0) ? formerList : activeList).push(id); });
@@ -4727,8 +6402,30 @@ function renderHistoryPage(rangeKey) {
   var drawGroup = function(g) {
     var id = g.attr("data-id"), body = g.find(".eba_formi_body");
     body.empty();
-    add(body, "Arbeiterinnen", ebaFormiSeries(id, "ants"), "count");
-    add(body, "Punkte", ebaFormiSeries(id, "points"), "points");
+    // Arbeiterinnen und Punkte wachsen proportional: eine Grafik, Punkte auf eigener rechter Achse
+    var ptsS = ebaFormiSeries(id, "points");
+    add(body, "Arbeiterinnen (gr&uuml;n, links) und Punkte (orange, rechts)", ebaFormiSeries(id, "ants"), "count",
+      [{ points: ptsS, color: "#E8963C", name: "Punkte", axis2: true, fmt: ebaMetricFmt("points") }],
+      { chart: { multiTip: true, name: "Arbeiterinnen" },
+        legend: [["Arbeiterinnen", "#3CAC56"], ["Punkte", "#E8963C"]] });
+    // Punktezuwachs je Tick: zeigt, ob eine noch nicht ausgewachsene Kolonie stagniert
+    var pt = ebaFormiPointsPerTick(id), subs = [];
+    var mx = ebaMaxPoints(ebaFormiKind(id), pt.queens, isSpeedServer());
+    if (pt.points != null && mx && !mx.unknown && mx.points != null) {
+      var rest = mx.points - pt.points;
+      subs.push(rest > 0 ? "Bis zum Maximum fehlen " + ebaFmtInt(rest) + " Punkte (Maximum " + ebaFmtInt(mx.points) + ")."
+                         : "Maximum von " + ebaFmtInt(mx.points) + " Punkten erreicht.");
+    }
+    if (pt.stagnant != null && pt.stagnant >= 2) {
+      var hrs = pt.stagnant * getTickMinutes() / 60;
+      subs.push((pt.neverGrew ? "Im gesamten Verlauf" : "Seit " + ebaFmtNum(hrs, hrs < 10 && hrs % 1 ? 1 : 0) + " h")
+        + " ohne Zuwachs (" + pt.stagnant + " Ticks).");
+    }
+    add(body, "Punktezuwachs je Tick", pt.series, "points", null, { color: "#E8963C", sub: subs.join(" "),
+      fmt: function(v) { return ebaFmtNum(v, 1); },
+      chart: { zeroLine: true, yMin: Math.min(0, ebaMinOf(pt.series)), yMax: Math.max(0, ebaMaxOf(pt.series)),
+               markFn: function(p) { return p[2] > 1; },
+               tipText: function(p) { return p[2] > 1 ? "\u00D8 \u00FCber " + p[2] + " Ticks:" : ""; } } });
     var bc = ebaBroodColors();
     add(body, "Brut", ebaFormiBroodSeries(id), "count", [
       { points: ebaFormiSeries(id, "eggs"), color: bc.eggs, name: "Eier" },
@@ -4768,10 +6465,11 @@ function renderHistoryPage(rangeKey) {
       + (kind ? " (" + $("<div>").text(kind).html() + ")" : "") + "</b>"
       + (cur.length ? " <span style='color:#a8d5b3;font-size:0.9em'>&ndash; " + cur.join(" &middot; ") + "</span>" : "")
       + (former ? " <button type='button' class='eba_formi_forget' data-id='" + id + "' style='float:right'>Vergessen</button>" : "")
+      + " <a href='javascript:void(0)' class='eba_formi_csv' data-id='" + id + "' style='float:right;margin-right:8px;color:inherit;font-size:0.9em'>CSV</a>"
       + "</div>");
     g.append("<div class='eba_formi_body' style='display:none;padding-left:8px'></div>");
     target.append(g);
-    if (!former && open[id]) { setGroup(g, true); }
+    if (open[id] && (!former || id === jumpId)) { setGroup(g, true); }
   };
   $.each(activeList, function(i, id) { addGroup(activeBox, id, false); });
   if (formerList.length) {
@@ -4815,10 +6513,278 @@ function renderHistoryPage(rangeKey) {
     ebaHistOpenSave(open);
     renderHistoryPage(cur);
   });
+  page.on("click", ".eba_formi_csv", function(e) {
+    e.stopPropagation();
+    e.preventDefault();
+    ebaDownloadFormiCsv($(this).attr("data-id"));
+  });
+  if (jumpId) {
+    var jg = page.find(".eba_formi_group[data-id='" + jumpId + "']").first();
+    if (jg.length) {
+      var fh = jg.closest(".eba_former");
+      if (fh.length && fh.attr("data-open") !== "1") { fh.find(".eba_former_head").first().click(); }
+      if (jg.attr("data-open") !== "1") { setGroup(jg, true); }
+      if (jg[0].scrollIntoView) { jg[0].scrollIntoView(); }
+    }
+  }
   page.on("click", ".eba_formi_all", function() {
     var o = $(this).attr("data-open") === "1";
     activeBox.find(".eba_formi_group").each(function() { setGroup($(this), o); });
   });
+}
+
+// Futtergruppen der Lager-Grafiken. Zuordnung nach Name; alles, was in keiner
+// Liste steht, zählt zum Protein (rest:true). Neue Sorten hier eintragen.
+function ebaStockFoodGroups() {
+  return [
+    { key: "sugar", name: "Zucker", color: "#F2D14B", items: ["gemixtes Zuckerwasser", "Zuckerwasser", "Honig"] },
+    { key: "protein", name: "Protein", color: "#E8963C", rest: true },
+    { key: "grain", name: "Körner", color: "#C77DFF", items: ["Löwenzahnsamen", "Grassamen"] },
+    { key: "leaf", name: "Blätter", color: "#3CAC56", items: ["Brombeerblätter"] }
+  ];
+}
+// Gruppenschlüssel zu einem Futternamen
+function ebaStockFoodGroupOf(name) {
+  var gs = ebaStockFoodGroups(), rest = null;
+  for (var i = 0; i < gs.length; i++) {
+    if (gs[i].rest) { rest = gs[i].key; }
+    else if ($.inArray(name, gs[i].items) >= 0) { return gs[i].key; }
+  }
+  return rest;
+}
+// Summe je Gruppe für eine Zeile aus ebaStockSeries("food"): {Gruppenschlüssel: Gramm}
+function ebaStockGroupSums(row) {
+  var sums = {};
+  $.each(ebaStockFoodGroups(), function(i, g) { sums[g.key] = 0; });
+  $.each(row.values, function(n, v) { sums[ebaStockFoodGroupOf(n)] += v; });
+  return sums;
+}
+// Einheit für Gramm-Diagramme: ab 5 kg im Maximum in kg, sonst Gramm.
+function ebaStockUnit(maxGram) {
+  if (maxGram >= 5000) { return { div: 1000, unit: "kg", fmt: function(v) { return ebaFmtNum(v, 1); } }; }
+  return { div: 1, unit: "g", fmt: function(v) { return ebaFmtNum(v, 0); } };
+}
+// Alle Namen einer Lagerreihe, alphabetisch
+function ebaStockNames(rows) {
+  var seen = {}, out = [];
+  $.each(rows, function(i, r) { $.each(r.values, function(n) { if (!seen[n]) { seen[n] = 1; out.push(n); } }); });
+  return out.sort();
+}
+
+// Bereich "Lager" der Verlaufsseite: Futter nach Art, Einzelsorten je Gruppe, Zubehör.
+// add = Zeichenfunktion aus renderHistoryPage, since = Zeitraum-Beginn (ms),
+// open = Auf/Zu-Zustand der Sitzung, hs = Stil der Kopfzeilen.
+function ebaHistStockSection(page, add, since, open, hs) {
+  var food = ebaStockSeries("food"), acc = ebaStockSeries("acc");
+  var sec = $("<div class='eba_lager' data-open='0' style='margin:12px 0'></div>");
+  page.append(sec);
+  if (!food.length && !acc.length) {
+    sec.append("<b>Lager</b><p>Noch keine Lagerdaten &ndash; Option &bdquo;Lagerbestand je Tick festhalten&ldquo; "
+      + "aktivieren und einmal die Lagerseite &ouml;ffnen.</p>");
+    return;
+  }
+  var groups = ebaStockFoodGroups();
+  var esc = function(t) { return $("<div>").text(t).html(); };
+  var sum = [];
+  if (food.length) {
+    var ls = ebaStockGroupSums(food[food.length - 1]);
+    $.each(groups, function(i, g) { sum.push(g.name + " " + ebaFmtNum(ls[g.key] / 1000, 1) + " kg"); });
+  }
+  var palette = ["#3CAC56", "#E8963C", "#5BC0EB", "#F2D14B", "#C77DFF", "#FF6B6B", "#4FC3F7", "#A5D6A7", "#FFB74D", "#BA68C8", "#90A4AE", "#F06292"];
+  // Mehrlinien-Diagramm der Werte einer Namensliste (nur Namen mit Bestand > 0 im Zeitraum)
+  var multi = function(target, title, rows, names, gram) {
+    var inR = $.grep(rows, function(r) { return r.t >= since; });
+    var list = [];
+    $.each(names, function(i, n) {
+      var mx = 0;
+      $.each(inR, function(j, r) { if ((r.values[n] || 0) > mx) { mx = r.values[n]; } });
+      if (mx > 0) { list.push({ name: n, max: mx }); }
+    });
+    list.sort(function(a, b) { return b.max - a.max; });
+    if (!list.length) { target.append("<p style='font-size:0.9em'>Im gew&auml;hlten Zeitraum kein Bestand.</p>"); return; }
+    var u = gram ? ebaStockUnit(list[0].max) : { div: 1, unit: "", fmt: function(v) { return ebaFmtNum(v, 0); } };
+    var lines = $.map(list, function(l, i) {
+      return { name: l.name, color: palette[i % palette.length], points: $.map(rows, function(r) { return [[r.t, (r.values[l.name] || 0) / u.div]]; }) };
+    });
+    var legend = $.map(lines, function(l) { return [[esc(l.name), l.color]]; });
+    add(target, title + (u.unit ? " (" + u.unit + ")" : ""), lines[0].points, "", lines.slice(1),
+      { color: lines[0].color, fmt: u.fmt, unit: u.unit, legend: legend, noStats: true, chart: { multiTip: true, name: lines[0].name, yMin: 0 } });
+  };
+  var drawSub = function(sub) {
+    var key = sub.attr("data-key"), body = sub.find(".eba_lager_sub_body");
+    body.empty();
+    if (key === "acc") { multi(body, "Zubeh&ouml;r (St&uuml;ck)", acc, ebaStockNames(acc), false); return; }
+    var names = [];
+    $.each(food, function(i, r) { $.each(r.values, function(n) { if (ebaStockFoodGroupOf(n) === key && $.inArray(n, names) < 0) { names.push(n); } }); });
+    var g = $.grep(groups, function(x) { return x.key === key; })[0];
+    multi(body, g.name + " nach Sorte", food, names, true);
+  };
+  var setSub = function(sub, isOpen) {
+    var key = sub.attr("data-key");
+    sub.find(".eba_lager_sub_arrow").text(isOpen ? "▾" : "▸");
+    sub.find(".eba_lager_sub_body").toggle(isOpen);
+    sub.attr("data-open", isOpen ? "1" : "0");
+    if (isOpen) { drawSub(sub); open["lager_" + key] = 1; } else { sub.find(".eba_lager_sub_body").empty(); delete open["lager_" + key]; }
+    ebaHistOpenSave(open);
+  };
+  var addSub = function(body, key, title) {
+    var sub = $("<div class='eba_lager_sub' data-key='" + key + "' data-open='0'></div>");
+    sub.append("<div class='eba_lager_sub_head' " + hs + "><span class='eba_lager_sub_arrow'>▸</span> <b>" + title + "</b></div>");
+    sub.append("<div class='eba_lager_sub_body' style='display:none;padding-left:8px'></div>");
+    body.append(sub);
+    if (open["lager_" + key]) { setSub(sub, true); }
+  };
+  var drawMain = function() {
+    var body = sec.find(".eba_lager_body").empty();
+    if (food.length) {
+      var rows = $.grep(food, function(r) { return r.t >= since; });
+      var mx = 0, per = {};
+      $.each(groups, function(i, g) { per[g.key] = []; });
+      $.each(rows, function(i, r) {
+        var sm = ebaStockGroupSums(r);
+        $.each(groups, function(j, g) { per[g.key].push([r.t, sm[g.key]]); if (sm[g.key] > mx) { mx = sm[g.key]; } });
+      });
+      var u = ebaStockUnit(mx);
+      var sc = function(pts) { return $.map(pts, function(p) { return [[p[0], p[1] / u.div]]; }); };
+      add(body, "Futtervorrat nach Art (" + u.unit + ")", sc(per[groups[0].key]), "", $.map(groups.slice(1), function(g) {
+        return { points: sc(per[g.key]), color: g.color, name: g.name };
+      }), { color: groups[0].color, fmt: u.fmt, unit: u.unit, noStats: true,
+            legend: $.map(groups, function(g) { return [[g.name, g.color]]; }),
+            chart: { multiTip: true, name: groups[0].name, yMin: 0 } });
+      $.each(groups, function(i, g) { addSub(body, g.key, g.name + " nach Sorte"); });
+    }
+    if (acc.length) { addSub(body, "acc", "Zubeh&ouml;r"); }
+  };
+  sec.append("<div class='eba_lager_head' " + hs + "><span class='eba_lager_arrow'>▸</span> <b>Lager</b>"
+    + (sum.length ? " <span style='color:#a8d5b3;font-size:0.9em'>&ndash; " + sum.join(" &middot; ") + "</span>" : "") + "</div>");
+  sec.append("<div class='eba_lager_body' style='display:none;padding-left:8px'></div>");
+  var setMain = function(isOpen) {
+    sec.attr("data-open", isOpen ? "1" : "0");
+    sec.find(".eba_lager_arrow").text(isOpen ? "▾" : "▸");
+    sec.find(".eba_lager_body").toggle(isOpen);
+    if (isOpen) { drawMain(); open.lager = 1; } else { sec.find(".eba_lager_body").empty(); delete open.lager; }
+    ebaHistOpenSave(open);
+  };
+  sec.on("click", ".eba_lager_head", function() { setMain(sec.attr("data-open") !== "1"); });
+  sec.on("click", ".eba_lager_sub_head", function() {
+    var sub = $(this).closest(".eba_lager_sub");
+    setSub(sub, sub.attr("data-open") !== "1");
+  });
+  if (open.lager) { setMain(true); }
+}
+
+// Datentabellen: die Zeilen der globalen Reihen (Geld, Punkte, Tickdauer, Suchen,
+// Lager), neueste zuerst, je Zeile mit Papierkorb. Eine falsche Zeile (z.B. ein
+// Fehlaufruf mit falschen Werten) lässt sich so entfernen; ein Tombstone sorgt
+// dafür, dass sie der WebDAV-Abgleich nicht zurückholt (siehe ebaRowDelRemove()).
+var EBA_ROWS_STATE = { sel: null, all: true, n: 30 };
+function ebaHistRowsSection(page, open, hs, rerender) {
+  var defs = [["money", "Geld"], ["points", "Punkte"], ["tickdur", "Tickl\u00E4nge"], ["foodsearch", "Futtersuchen"],
+    ["antsearch", "Ameisensuchen"], ["stock_food", "Lager Futter"], ["stock_acc", "Lager Zubeh\u00F6r"],
+    ["stock_nest", "Lager Nester"], ["stock_furn", "Lager M\u00F6bel"], ["stock_ants", "Lager Ameisen"],
+    ["shopprice", "Ankaufspreise"]];
+  var avail = $.grep(defs, function(d) {
+    var v = GM_getValue(histKey(d[0]), "");
+    return typeof v === "string" && v.indexOf("\n") >= 0;
+  });
+  if (!avail.length) { return; }
+  var st = EBA_ROWS_STATE;
+  if (!st.sel || !$.grep(avail, function(d) { return d[0] === st.sel; }).length) { st.sel = avail[0][0]; }
+  var sec = $("<div class='eba_rows' data-open='0' style='margin:12px 0'></div>");
+  page.append(sec);
+  sec.append("<div class='eba_rows_head' " + hs + "><span class='eba_rows_arrow'>\u25B8</span> <b>Datentabellen</b> "
+    + "<span style='color:#a8d5b3;font-size:0.9em'>&ndash; Zeilen ansehen und falsche Zeilen l&ouml;schen</span></div>");
+  var body = $("<div class='eba_rows_body' style='display:none;padding-left:8px'></div>");
+  sec.append(body);
+  var rowsOf = function(name) {
+    var key = histKey(name), kind = davKind(key), out = [];
+    var lines = ("" + GM_getValue(key, "")).split("\n");
+    for (var i = 1; i < lines.length; i++) {
+      var line = lines[i];
+      if (!line || (kind === "search" && line.indexOf("H\t") === 0)) { continue; }
+      var rk = ebaRowDelRowKey(kind, NaN, line);
+      if (rk === null) { continue; }
+      var f = line.split("\t"), t = parseFloat(f[0]), text;
+      if (kind === "search") { text = f.slice(1).join(" | "); }
+      else {
+        t = t * 60000;
+        if (kind === "stock") { text = f.slice(1).join(", ") || "(leer)"; }
+        else {
+          var v = parseFloat(f[1]);
+          text = isNaN(v) ? f.slice(1).join(" ") : ebaMetricFmt(name)(v) + (ebaMetricUnit(name) ? " " + ebaMetricUnit(name) : "");
+        }
+      }
+      out.push({ rk: rk, t: t, text: text });
+    }
+    out.reverse(); // neueste zuerst
+    return out;
+  };
+  var draw = function() {
+    body.empty();
+    var name = st.sel, key = histKey(name), kind = davKind(key);
+    var label = $.grep(avail, function(d) { return d[0] === name; })[0][1];
+    var sel = $("<select class='eba_rows_sel'></select>");
+    $.each(avail, function(i, d) { sel.append($("<option></option>").attr("value", d[0]).text(d[1]).prop("selected", d[0] === name)); });
+    sel.on("change", function() { st.sel = $(this).val(); st.n = 30; draw(); });
+    body.append($("<div style='margin:4px 0'></div>").append("Reihe: ").append(sel));
+    if (kind !== "search") {
+      var cb = $("<input type='checkbox' class='eba_rows_all'>").prop("checked", st.all).on("change", function() { st.all = this.checked; });
+      body.append($("<div style='margin:4px 0;font-size:0.9em'></div>").append($("<label></label>").append(cb)
+        .append(" Beim L&ouml;schen alle Reihen dieses Servers zu genau diesem Zeitpunkt l&ouml;schen "
+          + "(Geld, Punkte, Tickl&auml;nge, Lager, Kolonien &ndash; ein Fehlaufruf betrifft meist alle)")));
+    }
+    var rows = rowsOf(name);
+    if (!rows.length) { body.append("<p>Keine Zeilen.</p>"); return; }
+    var tbl = $("<table class='liste' style='border-collapse:collapse;font-size:0.9em'></table>");
+    tbl.append("<tr class='liste'><td class='liste'>Zeitpunkt</td><td class='liste'>" + (kind === "search" ? "Ergebnis" : "Wert")
+      + "</td><td class='liste'></td></tr>");
+    $.each(rows.slice(0, st.n), function(i, row) {
+      var tr = $("<tr></tr>").addClass(i % 2 ? "color2" : "color1");
+      tr.append($("<td class='liste'></td>").text(formatStatTime(row.t)));
+      tr.append($("<td class='liste' style='text-align:left;word-break:break-word'></td>").text(row.text));
+      var del = $("<a href='javascript:void(0)' class='eba_rowdel' title='Zeile l\u00F6schen' style='text-decoration:none'>\uD83D\uDDD1</a>");
+      del.on("click", function(ev) {
+        ev.preventDefault();
+        var targets = [key], names = label;
+        if (kind !== "search" && st.all) {
+          var at = ebaRowDelSeriesAt(row.rk);
+          if (at.length && $.inArray(key, at) >= 0) {
+            targets = at;
+            names = $.map(at, function(k) { return ebaRowDelLabel(k); }).join(", ");
+          }
+        }
+        var msg = "Zeile l\u00F6schen?\n\nZeitpunkt: " + formatStatTime(row.t) + "\n" + label + ": " + row.text + "\n\n"
+          + (targets.length > 1 ? "Gel\u00F6scht wird dieser Zeitpunkt in " + targets.length + " Reihen: " + names + "."
+                                : "Gel\u00F6scht wird nur diese Zeile der Reihe " + label + ".")
+          + "\n\nDas l\u00E4sst sich nicht r\u00FCckg\u00E4ngig machen. Mit WebDAV-Abgleich wird die L\u00F6schung auf die anderen Ger\u00E4te \u00FCbertragen.";
+        if (!window.confirm(msg)) { return; }
+        var entries = [];
+        $.each(targets, function(j, k) { entries.push([k, row.rk]); });
+        ebaRowDelRemove(entries);
+        open.rows = 1;
+        ebaHistOpenSave(open);
+        rerender();
+      });
+      tr.append($("<td class='liste'></td>").append(del));
+      tbl.append(tr);
+    });
+    body.append($("<div style='overflow-x:auto'></div>").append(tbl));
+    if (rows.length > st.n) {
+      body.append($("<a href='javascript:void(0)'></a>").text("weitere anzeigen (" + st.n + " von " + rows.length + ")")
+        .on("click", function(ev) { ev.preventDefault(); st.n += 100; draw(); }));
+    } else {
+      body.append("<div style='font-size:0.9em;margin-top:2px'>" + rows.length + " Zeilen</div>");
+    }
+  };
+  var setOpen = function(isOpen) {
+    sec.attr("data-open", isOpen ? "1" : "0");
+    sec.find(".eba_rows_arrow").text(isOpen ? "\u25BE" : "\u25B8");
+    body.toggle(isOpen);
+    if (isOpen) { draw(); open.rows = 1; } else { body.empty(); delete open.rows; }
+    ebaHistOpenSave(open);
+  };
+  sec.on("click", ".eba_rows_head", function() { setOpen(sec.attr("data-open") !== "1"); });
+  if (open.rows) { setOpen(true); }
 }
 
 // Auf/Zu-Zustand der Formi-Gruppen nur für die Sitzung (sessionStorage), nicht dauerhaft
@@ -4836,10 +6802,1659 @@ function ebaHistOpenSave(o) {
 }
 
 $(window).on("hashchange", function() {
-  if (location.hash === "#eba-verlauf" && ebaIsStatsPage() && GM_getValue("eba_enable_history_charts", false)) {
+  if (EBA_HOST_OK && ebaHistHash() && ebaIsStatsPage() && GM_getValue("eba_enable_history_charts", false)) {
     renderHistoryPage();
   }
 });
+
+// Daten der Spielhilfe, abgeleitet aus dem Community-Excel (Blätter Ameisen, Shopameisen,
+// Wohnungen, Forschungsbaum) und den Lexikon-Tabellen (Entwicklungszeiten, Shop-Preis, Futter).
+// Lexikon-Felder wie "Schon_findbar" werden nicht ausgewertet.
+// ebaShAnts:  Art -> [min. Formicarium, min. Nest, Fundorte, Futter, ASW-Punkte, Verkaufspreis (Text),
+//                     Shop-Preis Lexikon, "Ei/Larve/Puppe" in Stunden oder null]
+//             (Punkte, Koloniegröße, Platzbedarf, Polygynie stehen in antmax; Kategorie in antcat)
+// ebaShShop:  Art -> [Auswachszeit in Tagen, Regalplätze, Verkaufserlös min, Verkaufserlös max]
+//             (Ankaufspreise je Ameise stehen in shopPriceLimits)
+// ebaShWohn:  [Name, Regalplätze, Preis, benötigte Punkte, Bildkürzel]; Reihenfolge = Spielreihenfolge (Plätze und Preis steigen
+//             gleichermaßen; das Excel ordnet nach benötigten Punkten)
+// ebaShFood:  [Name, Preis, Menge, Art, Zersetzung %, Vermehrung, züchtbar]
+// ebaShTree:  [id, Titel, Voraussetzung, Hinweis, Stufen]; Stufe = [Bezeichnung, Punkte, Kosten,
+//             Dauer in Minuten (Normalserver; Speed = Minuten * 12 Sekunden), Voraussetzung, Sonstiges]
+const ebaShAnts = {"Camponotus herculeanus":["mittlere Anlage","mittleres Ytong","Wald, Kaiserstuhl, Bulgarien","Zucker/ Protein",27,null,null,"20/35/18"],"Camponotus ligniperda":["mittlere Anlage","mittleres Ytong","Wald, Kaiserstuhl","Zucker/ Protein",25,"396,50-423",29.99,"20/35/18"],"Formica fusca":["großes Formi","großes Nest","Stadt, Wiese, Wald, Kaiserstuhl","Zucker/ Protein",17,"160,20-170,30",19.99,"13/20/14"],"Formica sanguinea":["mittlere Anlage","mittleres Ytong","Wald","Zucker/ Protein",34,null,null,"14/25/15"],"Lasius emarginatus":["mittlere Anlage","mittleres Ytong","Wiese, Kaiserstuhl","Zucker/ Protein",39,null,null,"10/16/10"],"Lasius flavus":["mittlere Anlage","mittleres Ytong","Stadt, Wiese, Wald, Kaiserstuhl","Zucker/ Protein",36,"753-800,50",9.99,"11/16/12"],"Lasius fuliginosus":["riesige Anlage","riesiges Ytong","Stadt, Wiese, Wald","Zucker/ Protein",135,null,null,"15/20/18"],"Lasius niger":["mittlere Anlage","mittleres Ytong","Stadt, Wiese, Wald, Kaiserstuhl, Bulgarien","Zucker/ Protein",27,"486-516,50",5.0,"10/15/8"],"Myrmica rubra":["mittlere Anlage","mittleres Ytong","Stadt, Wiese, Wald, Kaiserstuhl","Zucker/ Protein",25,"395-420,50",12.99,"12/17/13"],"Myrmica ruginodis":["große Anlage","großes Ytong","Wiese, Wald, Kaiserstuhl","Zucker/ Protein",49,null,null,"13/18/14"],"Ponera coarctata":["Mini Arena","Reagenzglas","Stadt, Wiese, Wald, Kaiserstuhl","Zucker/ Protein",21,null,null,null],"Solenopsis fugax":["große Anlage","großes Ytong","Stadt, Wiese, Kaiserstuhl","Zucker/ Protein",80,null,null,"13/18/14"],"Temnothorax nylanderi":["Mini Arena","Haselnuss","Wald","Zucker/ Protein",9,null,null,"13/18/14"],"Aphaenogaster senilis":["mittlere Anlage","mittleres Ytong","Bulgarien, Spanien","Zucker/ Protein",27,null,null,"12/25/14"],"Anochetus ghilianii":["kleines Formi","kleines Nest","Spanien","Zucker/ Protein",34,null,null,null],"Camponotus cruentatus":["große Anlage","großes Ytong","Spanien","Zucker/ Protein",65,null,null,"12/25/14"],"Camponotus lateralis":["mittlere Anlage","mittleres Ytong","Bulgarien, Frankreich, Spanien, Orient","Zucker/ Protein",67,null,null,null],"Cataglyphis velox":["mittlere Anlage","mittleres Ytong","Spanien, Orient","Zucker/ Protein",37,null,null,"14/27/18"],"Crematogaster scutellaris":["große Anlage","mittleres Ytong","Stadt, Bulgarien, Spanien","Zucker/ Protein",52,"1290-1370",49.99,"12/22/15"],"Lasius grandis":["mittlere Anlage","mittleres Ytong","Frankreich","Zucker/ Protein",69,null,null,"10/16/10"],"Messor barbarus":["große Anlage","großes Ytong","Frankreich, Spanien","Körner/ Protein",52,"1280-1370",39.99,"12/20/15"],"Messor structor":["große Anlage","großes Ytong","Kaiserstuhl, Bulgarien, Frankreich, Spanien","Körner/ Protein",56,null,null,"12/20/15"],"Pheidole pallidula":["große Anlage","großes Ytong","Bulgarien, Frankreich, Spanien, Orient","Zucker/ Protein",58,"1540-1640",59.99,"12/19/14"],"Plagiolepis pygmaea":["mittlere Anlage","mittleres Ytong","Spanien, Orient","Zucker/ Protein",74,null,null,"12/19/14"],"Acromyrmex spec.":["große Anlage","große Anlage","Südamerika: Costa Rica","Zucker/ Blätter",79,"????-2572,22",249.99,"13/25/15"],"Acromyrmex versicolor":["große Anlage","große Anlage","Amerika: Arizona","Zucker/ Blätter",86,null,null,"13/25/15"],"Camponotus sericeus":["große Anlage","großes Ytong","Süd-Ost Asien","Zucker/ Protein",104,null,null,null],"Camponotus substitutus":["große Anlage","großes Ytong","Südamerika: Costa Rica","Zucker/ Protein",69,"1950-2080",119.99,"13/25/14"],"Messor alexandri":["große Anlage","großes Ytong","Orient","Körner/ Protein",86,null,null,"12/20/15"],"Myrmecia chrysogaster":["mittleres Formi","mittleres Nest","Australien","Zucker/ Protein",65,null,null,"16/26/26"],"Myrmecia pavida":["mittleres Formi","mittleres Nest","Australien","Zucker/ Protein",58,null,null,"18/28/36"],"Myrmecocystus mexicanus":["große Anlage","großes Ytong","Amerika: Arizona","Zucker/ Protein",89,null,null,"13/25/15"],"Pheidologeton diversus":["große Anlage","großes Ytong","Süd-Ost Asien","Zucker/ Protein",82,null,null,"13/25/15"],"Polyrhachis dives":["große Anlage","große Anlage","Süd-Ost Asien","Zucker/ Protein",72,"~2200€",219.99,"13/25/15"],"Marsameise":["mittleres Formi","mittleres Nest","Südamerika: Mars-Plateau","Zucker/ Protein",58,null,null,null]};
+const ebaShShop = {"Camponotus ligniperda":[59,4,396.5,423],"Formica fusca":[50,3,160.2,170.3],"Lasius flavus":[75,4,753,800.5],"Lasius niger":[67,4,486,516.5],"Myrmica rubra":[83,4,395,420.5],"Crematogaster scutellaris":[85,6,1290,1370],"Messor barbarus":[76,6,1280,1370],"Pheidole pallidula":[70,6,1540,1640],"Acromyrmex spec.":[102,6,null,2572.22],"Camponotus substitutus":[89,6,1950,2080],"Polyrhachis dives":[108,6,2200,2200]};
+const ebaShWohn = [["Zimmer bei deinen Eltern",2,0,0,"Eltern"],["alter Schuppen",3,100,2000,"Schuppen"],["Dachboden bei Oma Gertrude",4,500,500,"Dachboden"],["Zimmerwohnung in Hochhaus",6,2000,50000,"Hochhaus"],["Haus",8,5000,5000,"Haus"],["Schloss",12,50000,1000000,"Schloss"]];
+const ebaShFood = [["Mehlwürmer",1.49,50,"Protein",1.2,0.3,1],["Maden",1.99,50,"Protein",1.1,null,0],["Grashüpfer",null,null,"Protein",0.95,null,0],["Regenwürmer",null,null,"Protein",0.85,null,0],["Baumwanzen",null,null,"Protein",0.75,null,0],["Käferlarven",null,null,"Protein",0.65,null,0],["Heimchen",5.99,50,"Protein",1.75,0.45,1],["Waldschaben",9.99,50,"Protein",2.5,0.6,1],["Zuckerwasser",0.99,50,"Zuckerhaltig",0.7,null,0],["gemixtes Zuckerwasser",null,null,"Zuckerhaltig",0.6,null,0],["Honig",2.99,200,"Zuckerhaltig",0.3,null,0],["Grassamen",5.99,100,"Körner",0.3,null,0],["Löwenzahnsamen",null,null,"Körner",0.5,null,0],["Brombeerblätter",null,null,"Blätter",2.0,null,0]];
+const ebaShTree = [["allg","Allgemeines über Ameisen","","",[["Erste Schritte",1,0.5,5,"",""],["Körperbau einer Ameise",2,1,13,"",""],["Ameisen als Haustiere",3,2,30,"","Schaltet frei: Einheimische Ameisenarten"],["verschiedene Haltungsmöglichkeiten",4,6,60,"","Schaltet frei: Ausbruchschutz"],["Wachstum einer Ameisenkolonie",6,10,120,"","Schaltet frei: Futtertiere"],["Organisation im Ameisenstaat (1/2)",10,15,240,"",""],["Organisation im Ameisenstaat (2/2)",16,20,600,"","Schaltet frei: Forschungsbonus: Lerne von den Ameisen"],["Aufbau und Systematik der Ameisen",22,25,800,"","Schaltet frei: Biologie der Ameisen und Ameisen finden und bestimmen"],["Ameisen in Europa",27,35,1000,"","Schaltet frei: südeuropäische Ameisenarten"],["Ameisen im Rest der Welt (1/2)",35,45,2000,"",""],["Ameisen im Rest der Welt (2/2)",45,60,3995,"","Schaltet frei: exotische Ameisenarten"]]],["ausb","Ausbruchschutz","Allgemeines über Ameisen Stufe 4","Prozentwerte beziehen sich auf die Grundwerte der Ausbruchschutzmittel.",[["Grundlagen des Ausbruchschutz",3,10,60,"","AS hält 5% länger"],["Talkum (1/2)",7,15,160,"","AS hält 9,75% länger"],["Talkum (2/2)",10,30,300,"","AS hält 14,26% länger; Talkum"],["Verbesserung des Ausbruchschutz",13,45,520,"Kolonie mit min. 50 Arbeiterinnen","AS hält 18,55% länger"],["PTFE (1/3)",16,50,700,"Kolonie mit min. 100 Arbeiterinnen","AS hält 22,62% länger"],["PTFE (2/3)",19,55,955,"Kolonie mit min. 200 Arbeiterinnen","AS hält 26,49% länger"],["PTFE (3/3)",22,65,1605,"Kolonie mit min. 400 Arbeiterinnen","AS hält 30,17% länger; PTFE"],["Verbesserung des Ausbruchschutz",25,75,1700,"Kolonie mit min. 800 Arbeiterinnen","AS hält 33,66% länger"],["Verbesserung des Ausbruchschutz",30,85,2100,"Kolonie mit min. 5000 Arbeiterinnen","AS hält 36,98% länger"]]],["futt","Futtertiere","Allgemeines über Ameisen Stufe 5","Prozentangaben beziehen sich auf die Grundwerte des Futters.",[["Futtertiere Grundlagen",2,7,80,"","Futter hält 5% länger; Futter: Grashüpfer"],["Futtertiere Abbrühen",5,15,180,"","Futter hält 9,75% länger; Futter: Maden; Aktion: Futtertiersuche (Futtertiere sammeln)"],["Inhaltsstoffe der Futtertiere",8,24,335,"","Futter hält 14,26% länger; Futter: Regenwürmer"],["Weiterbildung",15,30,650,"","Futter hält 18,55% länger; Futter: Löwenzahnsamen"],["Weiterbildung",30,46,1200,"","Futter hält 22,62% länger; Futter: Baumwanzen"],["Weiterbildung",50,60,1510,"","Futter hält 26,49% länger; Futter: Honig; Aktion: Samensuche (Körner und Samen sammeln); Zuckerwasserherstellung (Biologie der Ameise Stufe 6)"],["Weiterbildung",75,90,1705,"","Futter hält 30,17% länger; Futter: Käferlarven"],["Weiterbildung",100,130,1910,"","Futter hält 33,66% länger; Futter: Heimchen"],["Weiterbildung",150,190,2180,"","Futter hält 36,98% länger; Futter: Waldschaben"],["Weiterbildung",200,250,2510,"","Futter hält 40,13% länger; Aktion: Futtertierzucht"]]],["einh","Einheimische Ameisenarten","Allgemeines über Ameisen Stufe 3","",[["Lasius flavus",1,1,90,"","Lasius flavus (im Shop)"],["Formica fusca",2,3,150,"","Formica fusca (im Shop), Temnothorax nylanderi (nicht im Shop)"],["Myrmica rubra",3,6,300,"","Myrmica rubra (im Shop)"],["Campontus ligniperda",6,10,600,"","Camponotus ligniperda (im Shop)"],["Arten in freier Wildbahn",10,16,1000,"","Myrmica ruginodis (nicht im Shop)"],["Arten in freier Wildbahn",15,20,1400,"","Camponotus herculeanus (nicht im Shop)"],["Arten in freier Wildbahn",30,30,1600,"","Lasius emarginatus (nicht im Shop)"],["Arten in freier Wildbahn",40,40,1800,"","Solenopsis fugax (nicht im Shop)"],["Arten in freier Wildbahn",45,55,2000,"","Lasius fuliginosus (nicht im Shop), Messor structor (nicht im Shop)"],["Arten in freier Wildbahn",20,30,700,"","Formica sanguinea (nicht im Shop)"]]],["sued","Südeuropäische Ameisenarten","Allgemeines über Ameisen Stufe 9 und einheimische Arten Stufe 2","",[["Messor barbarus",3,20,160,"","Messor barbarus (im Shop), Messor structor (nicht im Shop)"],["Crematogaster scutellaris",7,30,260,"","Crematogaster scutellaris (im Shop)"],["Pheidole pallidula",15,40,400,"min. 40 einheimische Ameisen","Pheidole pallidula (im Shop)"],["Arten in freier Wildbahn",20,50,520,"min. 100 einheimische Ameisen","Aphaenogaster senilis (nicht im Shop); wird benötigt für Exotische Ameisenarten"],["Arten in freier Wildbahn",25,60,700,"min. 200 einheimische Ameisen","Camponotus cruentatus (nicht im Shop)"],["Arten in freier Wildbahn",30,70,900,"min. 500 einheimische Ameisen","Cataglyphis velox (nicht im Shop)"],["Arten in freier Wildbahn",35,80,1100,"min. 1000 einheimische Ameisen","Plagiolepis pygmaea (nicht im Shop)"],["Arten in freier Wildbahn",40,100,1300,"min. 2500 einheimische Ameisen","Lasius grandis (nicht im Shop)"],["Arten in freier Wildbahn",45,120,1550,"min. 5000 einheimische Ameisen","noch keine weiteren Arten"]]],["exot","Exotische Ameisenarten","Allgemeines über Ameisen Stufe 11 und südeuropäische Ameisen Stufe 4","",[["Camponotus substitutus",23,40,190,"","Camponotus substitutus (im Shop)"],["Exotische Ameisenarten",27,45,260,"","Polyrhachis dives (im Shop)"],["Exotische Ameisenarten",35,50,300,"40 südeuropäische Ameisen","Acromyrmex spec. (im Shop); Blättersammeln (mit Futtertiere Stufe 10)"],["Exotische Ameisenarten",50,70,520,"100 südeuropäische Ameisen","Messor alexandri (nicht im Shop), Myrmecia pavida (nicht im Shop)"],["Exotische Ameisenarten",55,90,600,"200 südeuropäische Ameisen","Pheidologeton diversus (nicht im Shop)"],["Exotische Ameisenarten",60,100,900,"500 südeuropäische Ameisen","Acromyrmex versicolor (nicht im Shop)"],["Exotische Ameisenarten",75,110,1300,"1000 südeuropäische Ameisen","Myrmecocystus mexicanus (nicht im Shop)"],["Exotische Ameisenarten",80,130,1500,"2500 südeuropäische Ameisen","Myrmecia chrysogaster (nicht im Shop)"],["Exotische Ameisenarten",95,150,1750,"5000 südeuropäische Ameisen","Camponotus sericeus (nicht im Shop), Marsameise (erst mit Finden und Bestimmen Stufe 16 findbar)"]]],["bio","Biologie der Ameisen","Allgemeines über Ameisen Stufe 8","",[["Körperbau",3,20,200,"",""],["Duftdrüsen",6,25,295,"",""],["Systematik der Ameisen",10,35,350,"Kolonie mit 125 Ameisen",""],["",15,50,560,"Kolonie mit 250 Ameisen","Job (20h 50€ Betreuer bei studentischer Biologie Exkursion)"],["",21,60,855,"Kolonie mit 500 Ameisen","Polygynie"],["",27,70,940,"Kolonie mit 1000 Ameisen","Zuckerwasser selbst herstellen (mit Futtertiere Stufe 6)"],["",35,90,1115,"Kolonie mit 2000 Ameisen","Ameisenwachstum"]]],["find","Ameisen finden und bestimmen","Allgemeines über Ameisen Stufe 8","Die Stufen 4 bis 16 schalten neue Fundorte frei.",[["Grundlagen des Ameisensammelns",3,10,60,"einheimische Ameisen Stufe 3","Stadtsuche"],["Ameisen im Wald",6,15,160,"einheimische Ameisen Stufe 4","Waldsuche"],["Ameisen in der Wiese",10,22,300,"","Wiesensuche"],["Wo sind die besten Chancen?",14,30,520,"einheimische Ameisen Stufe 5","Süddeutschland: Kaiserstuhl; Job ( 3h 8€ Myrmekologe gesucht )"],["Wo sind die besten Chancen?",18,43,1000,"einheimische Ameisen Stufe 6","Bulgarien: Balkangebirge (südeuropäische Ameisen Stufe 3)"],["Wo sind die besten Chancen?",23,55,1200,"einheimische Ameisen Stufe 7","Frankreich: Normandie (wird mit südeuropäische Ameisen Stufe 3 freigeschaltet)"],["Wo sind die besten Chancen?",28,70,1400,"einheimische Ameisen Stufe 8","Spanien: Sierra Morena (wird mit südeuropäische Ameisen Stufe 1 freigeschaltet)"],["Wo sind die besten Chancen?",35,85,1600,"einheimische Ameisen Stufe 9","Orient: Südtürkei und Syrien (wird mit exotische Ameisen Stufe 4 freigeschaltet)"],["Wo sind die besten Chancen?",45,95,1800,"südeuropäische Ameisen Stufe 5","Südamerika: Corcovado National Park, Costa Rica (wird mit exotische Ameisen Stufe 1 freigeschaltet)"],["Wo sind die besten Chancen?",55,110,2000,"südeuropäische Ameisen Stufe 6","Süd-Ost Asien: indonesischer Regenwald ( wird mit exotische Ameisen Stufe 2 freigeschaltet )"],["Wo sind die besten Chancen?",70,125,2200,"südeuropäische Ameisen Stufe 7","Amerika: Wüstentrip durch Arizona (wird mit exotische Ameisen Stufe 4 freigeschaltet)"],["Wo sind die besten Chancen?",90,145,2400,"südeuropäische Ameisen Stufe 8","Australien: down under (wird mit exotische Ameisen Stufe 4 freigeschaltet)"],["Wo sind die besten Chancen?",115,165,2600,"südeuropäische Ameisen Stufe 9",""],["Wo sind die besten Chancen?",140,185,2800,"exotische Ameisen Stufe 6",""],["Wo sind die besten Chancen?",180,205,3000,"exotische Ameisen Stufe 7",""],["Wo sind die besten Chancen?",220,225,3200,"exotische Ameisen Stufe 8","Südamerika: Mars-Plateau in Brasilien (benötigt exotische Ameisen Stufe 9)"]]],["bonus","Forschungsbonus: Lerne von den Ameisen","Allgemeines über Ameisen Stufe 7","",[["Lerne von den Ameisen",3,5,215,"","Forschungen kosten 5% weniger"],["Lerne von den Ameisen",6,9.5,495,"","Forschungen kosten 10% weniger"],["Lerne von den Ameisen",9,18,750,"","Forschungen kosten 15% weniger"],["Lerne von den Ameisen",12,34,960,"","Forschungen kosten 20% weniger"],["Lerne von den Ameisen",50,48,1255,"","Forschungen kosten 25% weniger"],["Lerne von den Ameisen",100,67.5,2540,"","Forschungen kosten 30% weniger"],["Lerne von den Ameisen",150,84,4500,"","Forschungen kosten 35% weniger"],["Lerne von den Ameisen",200,90.99,8000,"","Forschungen kosten 40% weniger"],["Lerne von den Ameisen",250,102,11000,"","Forschungen kosten 45% weniger"],["Lerne von den Ameisen",300,110,16000,"","Forschungen kosten 50% weniger"]]],["poly","Polygynie","Biologie der Ameisen Stufe 5","",[["Grundlagen der Polygynie",3,100,960,"",""],["Adoption neuer Königinnen",6,30,400,"",""],["Adoption neuer Königinnen",10,40,500,"",""],["Adoption neuer Königinnen",14,50,600,"",""],["Adoption neuer Königinnen",18,60,1020,"",""],["Adoption neuer Königinnen",23,80,2040,"",""],["Adoption neuer Königinnen",28,100,3080,"",""],["Adoption neuer Königinnen",35,125,4005,"",""],["Adoption neuer Königinnen",45,140,5050,"",""],["Adoption neuer Königinnen",55,155,5505,"",""],["Adoption neuer Königinnen",55,170,6005,"",""],["Adoption neuer Königinnen",55,190,6505,"",""],["Adoption neuer Königinnen",55,210,7000,"",""],["Adoption neuer Königinnen",55,230,7550,"",""],["Adoption neuer Königinnen",55,250,8000,"",""],["Adoption neuer Königinnen",55,270,8505,"",""]]],["hand","Handwerkliches Geschick","1000 Gesamtpunkte","",[["Werkeug kaufen",20,99.99,45,"",""],["Wie bediene ich mein Werkzeug?",35,40,480,"","Formicarienbau Stufe 1 und Nestbau Stufe 1"]]],["form","Formicarienbau","Handwerkliches Geschick Stufe 2 und Biologie der Ameisen Stufe 3","",[["Miniformicarium bauen",30,30,240,"","Miniarena bauen (0:45:00 1€ bietet 30 Platz und braucht 0,5 Regalplätze)"],["Schlauch-Technik",40,50,340,"","mittlere Anlage bauen (1:30:00 10€ 2 mittlere Formicarien; bietet 15.000 Platz und braucht 4 Regalplätze)"],["Schlauch-Technik",50,80,440,"","große Anlage bauen (2:30:00 20€ 2 große Formicarien; bietet 100.000 Platz und braucht 6 Regalplätze)"]]],["nest","Nestbau","Handwerkliches Geschick Stufe 2 und Biologie der Ameisen Stufe 4","",[["YTong Nester bauen",30,25,280,"",""],["YTong Nester bauen",40,45,400,"","mittleres YTong Nest bauen (3:00:00 30€; bietet 15.000 Platz)"],["YTong Nester bauen",50,65,600,"","großes YTong Nest bauen (4:00:00 50€; bietet 100.000 Platz)"]]],["wachs","Ameisenwachstum","Biologie der Ameisen Stufe 7","Je höher die Stufe, desto schneller entwickeln sich die Ameisen, pro Stufe 2 %.",[["Wie werden die Kleinen schneller groß?",3,50,300,"",""],["Wie werden die Kleinen schneller groß?",6,90,400,"",""],["Wie werden die Kleinen schneller groß?",10,150,500,"",""],["Wie werden die Kleinen schneller groß?",14,190,600,"",""],["Wie werden die Kleinen schneller groß?",18,220,1020,"",""],["Wie werden die Kleinen schneller groß?",23,250,1340,"",""],["Wie werden die Kleinen schneller groß?",28,280,1680,"",""],["Wie werden die Kleinen schneller groß?",35,315,1905,"",""],["Wie werden die Kleinen schneller groß?",45,350,2250,"",""],["Wie werden die Kleinen schneller groß?",55,400,2505,"",""],["Wie werden die Kleinen schneller groß?",70,450,2805,"",""],["Wie werden die Kleinen schneller groß?",90,500,3105,"",""],["Wie werden die Kleinen schneller groß?",110,550,3400,"",""],["Wie werden die Kleinen schneller groß?",140,600,3700,"",""],["Wie werden die Kleinen schneller groß?",180,650,4000,"",""],["Wie werden die Kleinen schneller groß?",220,700,4605,"",""]]],["jk","Jobverbesserung: Kloputz-Ausrüstung","200 Klos geputzt","",[["Pümpel",5,19.99,15,"","Klo Job bringt nun 4€ statt 3€ je Stunde und der Pizzajob bringt 25€ statt 20€ Euro je fünf Stunden"]]],["jv","Jobverbesserung: Verhaltensforscher für Studie","150-mal den Museumsjob gemacht und Allgemeines über Ameisen Stufe 11","",[["Lehrbücher kaufen",50,29.99,30,"",""],["Lehrbücher auswendig lernen",70,0,720,"",""],["Prüfung ablegen",30,0,120,"","Neuer Job: Verhaltensforscher für Studie gesucht (Dauer: 12:00:00 Verdienst: 30€)"]]],["jf","Jobverbesserung: Online-Fahrschule","75 Regale eingeräumt","",[["Gabelstaplerschein",5,20,300,"","Regale einräumen bringt nun 20 € pro 8 h"]]],["zucht","Futtertierzucht","Futtertiere Stufe 10","",[["Grundlagen der Futtertierzucht",50,100,45,"2000 gefundene Futtertiere",""],["Wie züchte ich Mehlwürmer?",100,150,145,"",""],["Wie züchte ich Heimchen?",150,230,380,"",""],["Wie züchte ich Schaben?",250,300,480,"",""]]],["samen","Samensammeln","5000 gefundene Samen und Futtertiere Stufe 10","Erhöht nur den Ertrag der Aktion „Körner und Samen sammeln“. Die Aktion selbst gibt es schon mit Futtertiere Stufe 6 (Aktion: Samensuche).",[["Ertrag erhöhen",100,70,120,"",""],["Ertrag erhöhen",200,140,180,"",""],["Ertrag erhöhen",300,210,240,"",""],["Ertrag erhöhen",400,280,300,"",""],["Ertrag erhöhen",500,400,400,"",""]]],["blaetter","Blättersammeln","2000 gefundene Blätter, Exotische Ameisen Stufe 3 und Futtertiere Stufe 10","",[["Werkzeug kaufen",100,99.99,40,"",""],["Ertrag erhöhen",200,50,200,"",""],["Ertrag erhöhen",300,100,300,"",""],["Ertrag erhöhen",400,200,400,"",""]]],["zucker","Zuckerwasser selbst herstellen","Futtertiere Stufe 6 und Biologie der Ameisen Stufe 6","",[["Mixer kaufen",25,49.99,15,"","Zuckerwasser: 0:01:00 (Speed 0:00:12)1 €--> 500 Gramm Zuckerwasser mit 0,6% Zersetzung"],["Massenproduktion",10,10,120,"","Zuckerwasser Massenproduktion: 0:20:00 (Speed 0:04:00) 18€--> 10000 Gramm Zuckerwasser mit 0,6% Zersetzung"]]],["asw","Ameisenschutzwarte (ASW)","Job \"Ameisenschutzwarte sucht Freiwillige\" dreimal annehmen; erscheint nach einem Tick mit 5 % Wahrscheinlichkeit (Biologie der Ameisen Stufe 4)","",[["Aufnahme in die ASW",100,0,120,"Ameisenschutzwarte sucht Freiwillige","Mit der Mitgliedschaft in der ASW sind riesige Ytong-Nester und riesige Anlagen baubar."]]]];
+
+// ---------------------------------------------------------------------------
+// openEBA: Spielhilfe (Lexikon)
+//
+// Zeigt unter lexikon.php eine eigene Ansicht mit den Daten der Community-
+// Spielhilfe (Excel von Mr_kokonut, Arthuriel u.a., siehe Reiter "Info") und den
+// Lexikon-Tabellen (Entwicklungszeiten, Futter). Das sind Drittanbieter-Daten
+// und KEINE Angaben des Spielbetreibers; das steht im Menüeintrag und im Kopf
+// der Ansicht. Die Excel-Dateien liegen nicht im Repo, die Daten sind als
+// kompakte JS-Konstanten abgeleitet (ebaShAnts, ebaShShop, ebaShWohn, ebaShTree,
+// ebaShFood). Wiederverwendet werden antmax, antcat und shopPriceLimits.
+//
+// Einhängen (echte Struktur von lexikon.php): Menü in div#shopmenucats, der Eintrag
+// kommt abgesetzt (<hr>) ans Ende; Inhalt in td[width=700px] > div#shopinfo, der
+// durch die Ansicht ersetzt wird. Fallbacks: Menü #shopmenu, sonst Linkleiste oben im
+// Inhaltsbereich; Inhaltsbereich td[width='700px'], #content/#main, zuletzt ein
+// Container am Anfang von <body>. Aufruf auch direkt über lexikon.php#eba-spielhilfe[:reiter].
+//
+// Bilder kommen zur Laufzeit vom Spielserver (nichts im Repo): Ameisen
+// /img/ants/<Art>_shop.jpg, dann <Art>1.jpg, sonst Platzhalter; Wohnungen
+// /img/items/Wohnung_*.jpg; Forschung /img/tasks/research_*.jpg; Jobs
+// /img/tasks/*.jpg. Fehlschläge fängt ein Capture-Listener ab (error bubbelt
+// nicht). Es wird nur der sichtbare Reiter gerendert, die Bilder laden lazy;
+// die Entwicklungsstufen-Galerie erst auf Klick.
+// ---------------------------------------------------------------------------
+
+var ebaShState = { tab: "ameisen", speed: null, cat: 0, shop: false, poly: false, hid: false, q: "", sort: "name", shopSort: "gpd", shopDir: "desc", vmode: "all", vcat: 0, sortDir: null, open: {}, wsort: "spiel", fsort: "def", fdir: "asc", fart: "", fshop: "all", fzucht: false };
+var ebaShTabs = [["ameisen", "Ameisen"], ["shop", "Vergleich"], ["wohn", "Wohnungen"], ["baum", "Forschungsbaum"],
+                 ["ziele", "Ziele &amp; Bonus"], ["jobs", "Jobs"], ["asw", "ASW"], ["futter", "Futter"], ["samm", "Sammlung"], ["abz", "Abzeichen"], ["info", "Info"]];
+var ebaShCatNames = { 1: "Einheimisch", 2: "Südeuropäisch", 3: "Exotisch" };
+// Arten, die laut Spielhilfe "versteckt" (gelb markiert) sind.
+var ebaShHidden = ["Ponera coarctata", "Anochetus ghilianii", "Camponotus lateralis"];
+
+function ebaShE(s) { return ("" + s).replace(/[&<>"']/g, function(c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+// Deutsche Zahl, höchstens d Nachkommastellen (ohne überflüssige Nullen)
+function ebaShN(n, d) {
+  if (n == null || isNaN(n)) { return "&ndash;"; }
+  var v = Math.abs(+(+n).toFixed(d || 0)), p = ("" + v).split(".");
+  p[0] = p[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return (n < 0 && v ? "-" : "") + p.join(",");
+}
+function ebaShEuro(n) { return n == null ? "&ndash;" : ebaShN(n, 2) + "&nbsp;&euro;"; }
+// Dauer aus Minuten (Normalserver); Speedserver = 1/5 (Spielhilfe: Minuten * 12 Sekunden)
+function ebaShDur(min, speed) {
+  var s = Math.round(speed ? min * 12 : min * 60), d = Math.floor(s / 86400), h, m;
+  s -= d * 86400; h = Math.floor(s / 3600); s -= h * 3600; m = Math.floor(s / 60); s -= m * 60;
+  return (d ? d + "&nbsp;T " : "") + h + ":" + ebaPad2(m) + (s ? ":" + ebaPad2(s) : "") + "&nbsp;h";
+}
+function ebaShSpeed() { return ebaShState.speed == null ? isSpeedServer() : ebaShState.speed; }
+function ebaShSec(id) {
+  for (var i = 0; i < ebaShTree.length; i++) { if (ebaShTree[i][0] === id) { return ebaShTree[i]; } }
+  return null;
+}
+// Summe der Stufen 1..upTo (ohne upTo: alle) eines Zweigs
+function ebaShSum(id, upTo) {
+  var s = ebaShSec(id), r = { n: 0, pts: 0, cost: 0, min: 0 };
+  $.each(s[4], function(i, l) {
+    if (upTo && i >= upTo) { return false; }
+    r.n++; r.pts += l[1]; r.cost += l[2]; r.min += l[3];
+  });
+  return r;
+}
+// Bildkette: img mit data-chain (|-getrennt), error-Handler schaltet weiter, am Ende Platzhalter
+function ebaShImg(chain, cls, alt) {
+  var ph = ebaShE((alt || "?").charAt(0));
+  return "<img class='" + cls + "' src='" + chain[0] + "' data-chain='" + chain.join("|") + "' data-i='0' data-ph='" + ph
+    + "' alt='" + ebaShE(alt || "") + "' loading='lazy'>";
+}
+function ebaShAntBase(name) { return name.replace(/\./g, "").replace(/\s+/g, "_"); }
+// Bestätigte Bildpfade je Art (Scan-Ergebnis, img/ants/) in Stufenreihenfolge (Bildnummer steigt mit der
+// Koloniegröße, "_shop" am Ende); [vollständig?, Pfade ab /img/]. Die letzte Datei ist das Hauptbild. false = Lücken
+// in der Nummerierung oder keine Stufenbilder (der Scan ist abgeschlossen, die Lücken sind echt; alle Listen gelten als vollständig).
+// Temnothorax nylanderi: Stufe 1 = items/item_haselnuss.jpg.
+const ebaShAntImgs = {
+  "Camponotus herculeanus": [true, ["ants/Camponotus_herculeanus1.jpg", "ants/Camponotus_herculeanus2.jpg", "ants/Camponotus_herculeanus_shop.jpg"]],
+  "Camponotus ligniperda": [true, ["ants/Camponotus_ligniperda1.jpg", "ants/Camponotus_ligniperda2.jpg", "ants/Camponotus_ligniperda3.jpg", "ants/Camponotus_ligniperda_shop.jpg"]],
+  "Formica fusca": [true, ["ants/Formica_fusca1.jpg", "ants/Formica_fusca2.jpg", "ants/Formica_fusca3.jpg", "ants/Formica_fusca5.jpg", "ants/Formica_fusca6.jpg", "ants/Formica_fusca7.jpg", "ants/Formica_fusca8.jpg", "ants/Formica_fusca9.jpg", "ants/Formica_fusca10.jpg", "ants/Formica_fusca11.jpg", "ants/Formica_fusca_shop.jpg"]],
+  "Formica sanguinea": [true, ["ants/Formica_sanguinea1.jpg", "ants/Formica_sanguinea2.jpg", "ants/Formica_sanguinea3.jpg", "ants/Formica_sanguinea_shop.jpg"]],
+  "Lasius emarginatus": [true, ["ants/Lasius_emarginatus1.jpg", "ants/Lasius_emarginatus_shop.jpg"]],
+  "Lasius flavus": [true, ["ants/Lasius_flavus1.jpg", "ants/Lasius_flavus2.jpg", "ants/Lasius_flavus3.jpg", "ants/Lasius_flavus4.jpg", "ants/Lasius_flavus5.jpg", "ants/Lasius_flavus6.jpg", "ants/Lasius_flavus_shop.jpg"]],
+  "Lasius fuliginosus": [true, ["ants/Lasius_fuliginosus1.jpg", "ants/Lasius_fuliginosus3.jpg", "ants/Lasius_fuliginosus4.jpg", "ants/Lasius_fuliginosus5.jpg", "ants/Lasius_fuliginosus6.jpg", "ants/Lasius_fuliginosus_shop.jpg"]],
+  "Lasius niger": [true, ["ants/Lasius_niger1.jpg", "ants/Lasius_niger2.jpg", "ants/Lasius_niger3.jpg", "ants/Lasius_niger4.jpg", "ants/Lasius_niger5.jpg", "ants/Lasius_niger6.jpg", "ants/Lasius_niger7.jpg", "ants/Lasius_niger8.jpg", "ants/Lasius_niger9.jpg", "ants/Lasius_niger10.jpg", "ants/Lasius_niger_shop.jpg"]],
+  "Myrmica rubra": [true, ["ants/Myrmica_rubra1.jpg", "ants/Myrmica_rubra2.jpg", "ants/Myrmica_rubra3.jpg", "ants/Myrmica_rubra4.jpg", "ants/Myrmica_rubra_shop.jpg"]],
+  "Myrmica ruginodis": [true, ["ants/Myrmica_ruginodis1.jpg", "ants/Myrmica_ruginodis2.jpg", "ants/Myrmica_ruginodis_shop.jpg"]],
+  "Ponera coarctata": [true, ["ants/Ponera_coarctata1.jpg", "ants/Ponera_coarctata_shop.jpg"]],
+  "Solenopsis fugax": [true, ["ants/Solenopsis_fugax_shop.jpg"]],
+  "Temnothorax nylanderi": [true, ["items/item_haselnuss.jpg", "ants/Temnothorax_nylanderi2.jpg", "ants/Temnothorax_nylanderi3.jpg", "ants/Temnothorax_nylanderi4.jpg", "ants/Temnothorax_nylanderi5.jpg", "ants/Temnothorax_nylanderi_shop.jpg"]],
+  "Anochetus ghilianii": [true, ["ants/Anochetus_ghilianii1.jpg", "ants/Anochetus_ghilianii_shop.jpg"]],
+  "Aphaenogaster senilis": [true, ["ants/Aphaenogaster_senilis_shop.jpg"]],
+  "Camponotus cruentatus": [true, ["ants/Camponotus_cruentatus1.jpg", "ants/Camponotus_cruentatus2.jpg", "ants/Camponotus_cruentatus3.jpg", "ants/Camponotus_cruentatus4.jpg", "ants/Camponotus_cruentatus_shop.jpg"]],
+  "Camponotus lateralis": [true, ["ants/Camponotus_lateralis1.jpg", "ants/Camponotus_lateralis2.jpg", "ants/Camponotus_lateralis3.jpg"]],
+  "Cataglyphis velox": [true, ["ants/Cataglyphis_velox2.jpg", "ants/Cataglyphis_velox3.jpg", "ants/Cataglyphis_velox_shop.jpg"]],
+  "Crematogaster scutellaris": [true, ["ants/Crematogaster_scutellaris1.jpg", "ants/Crematogaster_scutellaris2.jpg", "ants/Crematogaster_scutellaris3.jpg", "ants/Crematogaster_scutellaris4.jpg", "ants/Crematogaster_scutellaris5.jpg", "ants/Crematogaster_scutellaris_shop.jpg"]],
+  "Lasius grandis": [true, ["ants/Lasius_grandis1.jpg", "ants/Lasius_grandis_shop.jpg"]],
+  "Messor barbarus": [true, ["ants/Messor_barbarus1.jpg", "ants/Messor_barbarus2.jpg", "ants/Messor_barbarus3.jpg", "ants/Messor_barbarus_shop.jpg"]],
+  "Messor structor": [true, ["ants/Messor_structor1.jpg", "ants/Messor_structor2.jpg", "ants/Messor_structor3.jpg", "ants/Messor_structor4.jpg", "ants/Messor_structor5.jpg", "ants/Messor_structor_shop.jpg"]],
+  "Pheidole pallidula": [true, ["ants/Pheidole_pallidula1.jpg", "ants/Pheidole_pallidula2.jpg", "ants/Pheidole_pallidula_shop.jpg"]],
+  "Plagiolepis pygmaea": [true, ["ants/Plagiolepis_pygmaea1.jpg", "ants/Plagiolepis_pygmaea2.jpg", "ants/Plagiolepis_pygmaea3.jpg", "ants/Plagiolepis_pygmaea4.jpg", "ants/Plagiolepis_pygmaea5.jpg", "ants/Plagiolepis_pygmaea6.jpg", "ants/Plagiolepis_pygmaea_shop.jpg"]],
+  "Acromyrmex spec.": [true, ["ants/Acromyrmex_spec3.jpg", "ants/Acromyrmex_spec4.jpg", "ants/Acromyrmex_spec5.jpg", "ants/Acromyrmex_spec_shop.jpg"]],
+  "Acromyrmex versicolor": [true, ["ants/Acromyrmex_versicolor1.jpg", "ants/Acromyrmex_versicolor_shop.jpg"]],
+  "Camponotus sericeus": [true, ["ants/Camponotus_sericeus1.jpg", "ants/Camponotus_sericeus2.jpg", "ants/Camponotus_sericeus3.jpg", "ants/Camponotus_sericeus4.jpg", "ants/Camponotus_sericeus5.jpg", "ants/Camponotus_sericeus_shop.jpg"]],
+  "Camponotus substitutus": [true, ["ants/Camponotus_substitutus1.jpg", "ants/Camponotus_substitutus2.jpg", "ants/Camponotus_substitutus3.jpg", "ants/Camponotus_substitutus4.jpg", "ants/Camponotus_substitutus5.jpg", "ants/Camponotus_substitutus_shop.jpg"]],
+  "Messor alexandri": [true, ["ants/Messor_alexandri1.jpg", "ants/Messor_alexandri2.jpg", "ants/Messor_alexandri3.jpg", "ants/Messor_alexandri4.jpg", "ants/Messor_alexandri5.jpg", "ants/Messor_alexandri6.jpg", "ants/Messor_alexandri7.jpg", "ants/Messor_alexandri8.jpg", "ants/Messor_alexandri9.jpg", "ants/Messor_alexandri10.jpg", "ants/Messor_alexandri_shop.jpg"]],
+  "Myrmecia chrysogaster": [true, ["ants/Myrmecia_chrysogaster1.jpg", "ants/Myrmecia_chrysogaster2.jpg", "ants/Myrmecia_chrysogaster3.jpg", "ants/Myrmecia_chrysogaster_shop.jpg"]],
+  "Myrmecia pavida": [true, ["ants/Myrmecia_pavida1.jpg", "ants/Myrmecia_pavida2.jpg", "ants/Myrmecia_pavida3.jpg", "ants/Myrmecia_pavida4.jpg", "ants/Myrmecia_pavida5.jpg", "ants/Myrmecia_pavida_shop.jpg"]],
+  "Myrmecocystus mexicanus": [true, ["ants/Myrmecocystus_mexicanus_shop.jpg"]],
+  "Pheidologeton diversus": [true, ["ants/Pheidologeton_diversus1.jpg", "ants/Pheidologeton_diversus2.jpg", "ants/Pheidologeton_diversus_shop.jpg"]],
+  "Polyrhachis dives": [true, ["ants/Polyrhachis_dives1.jpg", "ants/Polyrhachis_dives2.jpg", "ants/Polyrhachis_dives3.jpg", "ants/Polyrhachis_dives4.jpg", "ants/Polyrhachis_dives5.jpg", "ants/Polyrhachis_dives6.jpg", "ants/Polyrhachis_dives7.jpg", "ants/Polyrhachis_dives8.jpg", "ants/Polyrhachis_dives9.jpg", "ants/Polyrhachis_dives10.jpg", "ants/Polyrhachis_dives_shop.jpg"]],
+  "Marsameise": [true, ["ants/Marsameise_shop.jpg"]]
+};
+function ebaShAntImg(name, cls) {
+  var l = ebaShAntImgs[name];
+  return ebaShImg([l ? "/img/" + l[1][l[1].length - 1] : "/img/ants/" + ebaShAntBase(name) + "_shop.jpg"], cls, name);
+}
+// Galerie "Bilder je Wachstumsstufe" (nur Arten mit bestätigter Liste); Stufe = Zahl im Dateinamen, sonst Position
+function ebaShAntStages(name) {
+  var l = ebaShAntImgs[name];
+  if (!l) { return ""; }
+  var h = "<div class='sh-galbox'><b>Bilder je Wachstumsstufe</b>" + "<div class='sh-gal'>";
+  $.each(l[1], function(i, f) {
+    var m = /(\d+)\.jpg$/.exec(f), st = /_shop\.jpg$/.test(f) ? "Shop" : "Stufe " + (m ? m[1] : i + 1);
+    h += "<img src='/img/" + f + "' data-gal='1' title='" + st + "' alt='" + st + "' loading='lazy'>";
+  });
+  return h + "</div></div>";
+}
+// Fehlerbehandlung für alle Bilder der Ansicht (error bubbelt nicht -> Capture)
+function ebaShImgError(e) {
+  var t = e.target, $t = $(t);
+  if (!t || !t.tagName) { return; }
+  var tag = t.tagName.toLowerCase();
+  if (tag === "image") {
+    t.setAttribute("opacity", "0");
+    var nid = $(t).parent().attr("data-nid");
+    if (nid && ebaShImgRes[nid]) { // gecachte Datei ist verschwunden: Cache-Eintrag verwerfen
+      var cc = ebaShImgCacheLoad();
+      if (cc[nid]) { delete cc[nid]; ebaShImgCacheSave(cc); }
+      delete ebaShImgRes[nid];
+    }
+    return;
+  }
+  if (tag !== "img") { return; }
+  if ($t.attr("data-gal")) { $t.remove(); return; }
+  var ch = ($t.attr("data-chain") || "").split("|"), i = parseInt($t.attr("data-i"), 10) + 1;
+  if (ch[i]) { $t.attr("data-i", i).attr("src", ch[i]); return; }
+  $t.replaceWith("<span class='sh-ph " + ($t.attr("class") || "") + "'>" + ($t.attr("data-ph") || "?") + "</span>");
+}
+
+// Freischaltung einer Art in der Forschung (aus dem Baum abgeleitet)
+function ebaShUnlock(name) {
+  if (name === "Marsameise") { return "Ameisen finden und bestimmen 16"; }
+  var base = name.replace(/\.$/, ""), res = null;
+  $.each([["einh", "Einheimische Arten"], ["sued", "Südeuropäische Arten"], ["exot", "Exotische Arten"]], function(i, s) {
+    $.each(ebaShSec(s[0])[4], function(j, l) {
+      if ((l[5] + " " + l[0]).indexOf(base) >= 0) { res = s[1] + " " + (j + 1); return false; }
+    });
+    if (res) { return false; }
+  });
+  return res;
+}
+
+function ebaShAntRows() {
+  var out = [], maxP = 0;
+  $.each(ebaShAnts, function(name, a) {
+    var m = antmax[name] || {};
+    out.push({ name: name, cat: antcat[name] || 0, a: a, m: m, ppa: m.p / m.a, shop: shopPriceLimits[name] != null,
+               hid: $.inArray(name, ebaShHidden) >= 0 });
+    maxP = Math.max(maxP, m.p || 0);
+  });
+  out.maxP = maxP;
+  return out;
+}
+
+// ---- Reiter: Ameisen --------------------------------------------------------
+
+function ebaShAntCard(r, maxP) {
+  var m = r.m, a = r.a, n = r.name, rg = ebaShRegal(n), speed = ebaShSpeed(), dev = a[7] ? a[7].split("/") : null;
+  var w = Math.max(3, Math.round(100 * Math.sqrt(m.p / maxP))), open = ebaShState.open[n];
+  var pv = speed ? m.ps : m.pn;
+  var zuw = !m.poly ? "nein" : (pv == null ? "ja, Zuwachs unbekannt" : ebaShN(pv) + "&nbsp;A je K");
+  var platz = "&ndash;", nestImg = "";
+  if (n === "Temnothorax nylanderi") { nestImg = " <img class='sh-mini' src='/img/items/item_haselnuss.jpg' data-gal='1' alt=''>"; }
+  if (rg) {
+    platz = rg.formNest ? ebaShN(rg.shelf - rg.nestShelf, 1) + " + " + ebaShN(rg.nestShelf, 1) + " (Nestbecken) Regalpl&auml;tze"
+      : ebaShN(rg.shelf, 1) + (rg.shelf === 1 ? " Regalplatz" : " Regalpl&auml;tze");
+    platz = "<b>" + platz + "</b>" + (rg.dev.length ? " <sup>&Dagger;</sup>" : "");
+  }
+  var tags = "<span class='sh-tag c" + r.cat + "'>" + ebaShCatNames[r.cat] + "</span>"
+    + "<span class='sh-tag " + (m.poly ? "poly" : "mono") + "'>" + (m.poly ? "poly" : "mono") + "</span>"
+    + (r.shop ? "<span class='sh-tag shop'>im Shop</span>" : "") + (r.hid ? "<span class='sh-tag hid'>versteckt</span>" : "");
+  var h = "<div class='sh-card" + (open ? " sh-open" : "") + "' data-name='" + ebaShE(n) + "'>"
+    + "<div class='sh-card-h'>" + ebaShAntImg(n, "sh-ant") + "<div class='sh-card-t'><b><i>" + ebaShE(n) + "</i></b><div>" + tags + "</div>"
+    + "<div class='sh-bar' title='Anteil an der h&ouml;chsten Maximalpunktzahl (Wurzelskala)'><span style='width:" + w + "%'></span></div></div></div>"
+    + "<table class='sh-kv'>"
+    + "<tr><td>Max. Punkte</td><td><b>" + ebaShN(m.p) + "</b></td></tr>"
+    + "<tr><td>Max. Kolonie</td><td>" + ebaShN(m.a) + "&nbsp;A</td></tr>"
+    + "<tr><td>ASW-Punkte</td><td>" + ebaShN(a[4]) + "</td></tr>"
+    + "<tr><td>Verkaufspreis</td><td>" + (a[5] ? ebaShE(a[5]) + "&nbsp;&euro;" : "&ndash;") + "</td></tr>"
+    + "<tr><td>Max. Nest</td><td>" + ebaShE(a[1]) + nestImg + "</td></tr>"
+    + "<tr><td>Max. Formi</td><td>" + ebaShE(a[0]) + "</td></tr>"
+    + "<tr><td>Platzbedarf</td><td class='sh-regal' title='" + (rg ? ebaShE(ebaShRegalTip(rg)) : "") + "'>" + platz + "</td></tr></table>"
+    + "<div class='sh-more'>" + (open ? "&#9650; weniger" : "&#9660; Details") + "</div>";
+  if (open) {
+    var ph = (m.n != null ? m.n / m.a : null), pf = (m.f != null ? m.f / m.a : null);
+    h += "<table class='sh-kv sh-det'>"
+      + "<tr><td>Polygyn</td><td>" + zuw + "</td></tr>"
+      + "<tr><td>Punkte / Arbeiterin</td><td>" + ebaShN(r.ppa, 3) + "</td></tr>"
+      + "<tr><td>Fundorte</td><td>" + (a[2] ? ebaShE(a[2]) : "&ndash;") + "</td></tr>"
+      + "<tr><td>Platzbedarf Nest</td><td>" + ebaShN(m.n, 2) + " <small>(" + ebaShN(ph, 4) + " je Arbeiterin)</small></td></tr>"
+      + "<tr><td>Platzbedarf Formicarium</td><td>" + ebaShN(m.f, 2) + " <small>(" + ebaShN(pf, 4) + " je Arbeiterin)</small></td></tr>"
+      + (m.b != null ? "<tr><td>Brut (nur im Nest)</td><td>" + ebaShN(m.b, 3) + " Platz je Arbeiterin</td></tr>" : "")
+      + "<tr><td>Futter</td><td>" + ebaShE(a[3]) + "</td></tr>"
+      + "<tr><td>Entwicklung (Lexikon)</td><td>" + (dev ? "Ei " + dev[0] + " h &middot; Larve " + dev[1] + " h &middot; Puppe " + dev[2] + " h <small>(&Sigma; "
+          + (+dev[0] + +dev[1] + +dev[2]) + " h)</small>" : "&ndash;") + "</td></tr>"
+      + "<tr><td>Shop-Preis (Lexikon)</td><td>" + ebaShEuro(a[6]) + "</td></tr>"
+      + "<tr><td>Freischaltung</td><td>" + (ebaShUnlock(n) ? ebaShE(ebaShUnlock(n)) : "&ndash;") + "</td></tr></table>";
+    if (m.poly) {
+      h += "<div class='sh-calc' data-name='" + ebaShE(n) + "'>K&ouml;niginnen: <input type='number' class='sh-q' min='1' max='99' value='"
+        + (ebaShState.open[n].q || 2) + "'> <span class='sh-calc-out'></span></div>";
+    }
+    h += ebaShAntStages(n);
+  }
+  return h + "</div>";
+}
+
+function ebaShCalc(box) {
+  var n = box.attr("data-name"), q = parseInt(box.find(".sh-q").val(), 10) || 1, st = ebaShState.open[n];
+  if (st) { st.q = q; }
+  var r = ebaMaxPoints(n, q, ebaShSpeed()), out = box.find(".sh-calc-out"), m = antmax[n];
+  if (!r || r.unknown) { out.text("Zuwachs unbekannt (Spielhilfe: ???)"); return; }
+  out.html("&rarr; <b>" + ebaShN(r.ants) + "</b> Arbeiterinnen, <b>" + ebaShN(r.points) + "</b> Punkte, Nest min. "
+    + ebaShN(r.ants * m.n / m.a) + ", Formicarium min. " + ebaShN(r.ants * m.f / m.a));
+}
+
+// Sortierrichtung der Steckbriefe: Name und Platzbedarf zuerst aufsteigend, sonst absteigend
+function ebaShAntDir() {
+  return ebaShState.sortDir || ($.inArray(ebaShState.sort, ["name", "space"]) >= 0 ? "asc" : "desc");
+}
+function ebaShAntBody() {
+  var s = ebaShState, rows = ebaShAntRows(), q = $.trim(s.q).toLowerCase(), list = [];
+  $.each(rows, function(i, r) {
+    if (s.cat && r.cat !== s.cat) { return; }
+    if (s.shop && !r.shop) { return; }
+    if (s.poly && !r.m.poly) { return; }
+    if (s.hid && !r.hid) { return; }
+    if (q && (r.name + " " + r.a[2]).toLowerCase().indexOf(q) < 0) { return; }
+    list.push(r);
+  });
+  var key = { p: function(r) { return r.m.p; }, a: function(r) { return r.m.a; }, ppa: function(r) { return r.ppa; },
+              asw: function(r) { return r.a[4]; }, space: function(r) { return r.m.n / r.m.a; } }[s.sort];
+  var dir = ebaShAntDir() === "asc" ? 1 : -1;
+  list.sort(function(x, y) { return key ? dir * (key(x) - key(y)) || (x.name < y.name ? -1 : 1) : dir * (x.name < y.name ? -1 : 1); });
+  var h = "";
+  $.each(list, function(i, r) { h += ebaShAntCard(r, rows.maxP); });
+  return (h || "<p>Keine Art entspricht dem Filter.</p>") + "<div class='sh-cnt'>" + list.length + " von " + rows.length + " Arten</div>";
+}
+
+function ebaShAntsTab() {
+  var s = ebaShState, h = "<div class='sh-tool'>";
+  $.each([[0, "Alle"], [1, "Einheimisch"], [2, "S&uuml;deurop&auml;isch"], [3, "Exotisch"]], function(i, c) {
+    h += "<button type='button' class='sh-chip" + (s.cat === c[0] ? " on" : "") + "' data-f='cat' data-v='" + c[0] + "'>" + c[1] + "</button>";
+  });
+  $.each([["shop", "im Shop"], ["poly", "polygyn"], ["hid", "versteckt"]], function(i, c) {
+    h += "<button type='button' class='sh-chip" + (s[c[0]] ? " on" : "") + "' data-f='" + c[0] + "'>" + c[1] + "</button>";
+  });
+  h += " <input type='text' class='sh-q-in' placeholder='Art oder Fundort' value='" + ebaShE(s.q) + "'> Sortierung: <select class='sh-sort'>";
+  $.each([["name", "Name"], ["p", "Maximalpunkte"], ["a", "Koloniegr&ouml;&szlig;e"], ["ppa", "Punkte je Arbeiterin"],
+          ["asw", "ASW-Punkte"], ["space", "Platzbedarf je Arbeiterin"]], function(i, o) {
+    h += "<option value='" + o[0] + "'" + (s.sort === o[0] ? " selected" : "") + ">" + o[1] + "</option>";
+  });
+  return h + "</select> <button type='button' class='sh-chip sh-dir' title='Sortierrichtung umkehren'>"
+    + (ebaShAntDir() === "asc" ? "&#9650; aufsteigend" : "&#9660; absteigend") + "</button></div>"
+    + "<p class='sh-note sh-polynote'><b>Polygynie:</b> Die meisten Angaben beziehen sich auf eine K&ouml;nigin; bei polygynen Arten bringt jede K&ouml;nigin denselben Zuwachs an Arbeiterinnen.</p><div class='sh-grid'>" + ebaShAntBody() + "</div>";
+}
+
+// ---- Reiter: Vergleich (alle Arten; Shopameisen mit Verkaufsrechnung) -------
+
+// Regalplätze je Art (alle Arten). Regeln (im Spiel geprüft): Platzbedarf = Platzbedarf je Arbeiterin x max. Arbeiterinnen
+// (antmax.n bzw. antmax.f, Brut nicht eingerechnet wie im Blatt Ameisen) -> kleinstes passendes Nest bzw. Formicarium
+// (Kapazitäten: nestCapacity/formiCapacity). Ein normales Nest steht IM Formicarium: Das Formicarium hat mindestens die Klasse
+// des Nests (Reagenzglas/Mini Arena, kleines Nest/kleines Formi, mittleres Nest/mittleres Formi, großes Nest/großes Formi,
+// mittleres Ytong/mittlere Anlage, großes Ytong/große Anlage, riesiges Ytong/riesige Anlage), sonst zieht es nach (z.B. Lasius flavus).
+// Normale Nester belegen keine Regalplätze, Formicarien ihre eigenen (riesige Anlage: 0, Absicht: braucht eigenen Platz in der Wohnung).
+// Nestbecken (Excel: min. Nest ist ein Formicarium; Acromyrmex spec., A. versicolor, Polyrhachis dives): Das Nest ist ein eigenes
+// Formicarium NEBEN dem Formicarium, seine Größe ist unabhängig davon (kein Nachziehen); Regalplätze = Regal(Formi) + Regal(Nestbecken).
+// Temnothorax nylanderi: Normalfall (im Reagenzglas gefunden) kleines Nest + kleines Formi; selten in einer Haselnuss gefunden:
+// Haselnuss in Mini Arena (0,5), dann als Variante (.alt) mitgeführt. Das Excel (Blatt Ameisen: min. Nest / min. Formi von Hand
+// eingetragen, Blatt Shopameisen: Regalplätze) wird nur verglichen; Abweichungen stehen in .dev (‡ + Erklärung im Tooltip).
+var ebaShNestSteps = [["Reagenzglas", "reagenzglas", "Mini Arena"], ["kleines Nest", "kleines nest", "kleines Formicarium"],
+  ["mittleres Nest", "mittleres nest", "mittleres Formicarium"], ["großes Nest", "großes nest", "großes Formicarium"],
+  ["mittleres Ytong Nest", "mittleres ytong nest", "mittlere Anlage"], ["großes Ytong Nest", "großes ytong nest", "große Anlage"],
+  ["riesiges Ytong Nest", "riesiges ytong nest", "riesige Anlage"]];
+var ebaShFormiSteps = [["Mini Arena", 0.5], ["kleines Formicarium", 1], ["mittleres Formicarium", 2], ["großes Formicarium", 3],
+  ["mittlere Anlage", 4], ["große Anlage", 6], ["riesige Anlage", 0]];
+function ebaShFormiIdx(nm) {
+  var k = ("" + nm).toLowerCase().replace(/formi$/, "formicarium");
+  for (var i = 0; i < ebaShFormiSteps.length; i++) { if (ebaShFormiSteps[i][0].toLowerCase() === k) { return i; } }
+  return -1;
+}
+function ebaShNestIdx(nm) {
+  var k = ("" + nm).toLowerCase().replace(/ytong$/, "ytong nest");
+  for (var i = 0; i < ebaShNestSteps.length; i++) { if (ebaShNestSteps[i][1] === k) { return i; } }
+  return -1;
+}
+function ebaShRegal(name, fac) {
+  var m = antmax[name], a = ebaShAnts[name];
+  if (!m || !a || m.n == null || m.f == null) { return null; }
+  // fac: Vielfaches der Koloniegröße (polygyne Arten mit mehreren Königinnen), Platzbedarf wächst linear mit den Arbeiterinnen
+  if (fac && fac !== 1) { m = { n: m.n * fac, f: m.f * fac, a: m.a * fac }; }
+  var i, ni = -1, fi = -1, bi = -1, dev = [];
+  var xf = ebaShFormiIdx(a[0]), xnF = ebaShFormiIdx(a[1]), xn = ebaShNestIdx(a[1]);
+  var becken = xnF >= 0; // Excel: als min. Nest steht ein Formicarium = Nestbecken (eigenes Formicarium neben dem Formicarium)
+  for (i = ebaShFormiSteps.length - 1; i >= 0; i--) { if (formiCapacity[ebaShFormiSteps[i][0].toLowerCase()] >= m.f) { fi = i; } }
+  if (becken) {
+    for (i = ebaShFormiSteps.length - 1; i >= 0; i--) { if (formiCapacity[ebaShFormiSteps[i][0].toLowerCase()] >= m.n) { bi = i; } }
+  } else {
+    for (i = ebaShNestSteps.length - 1; i >= 0; i--) { if (nestCapacity[ebaShNestSteps[i][1]] >= m.n) { ni = i; } }
+  }
+  if (fi < 0 || (becken ? bi < 0 : ni < 0)) { return null; }
+  var pulled = false;
+  if (!becken) { var pair = ebaShFormiIdx(ebaShNestSteps[ni][2]); pulled = pair > fi; if (pulled) { fi = pair; } }
+  var nest = becken ? ebaShFormiSteps[bi][0] : ebaShNestSteps[ni][0], form = ebaShFormiSteps[fi][0];
+  var nestShelf = becken ? ebaShFormiSteps[bi][1] : 0, shelf = ebaShFormiSteps[fi][1] + nestShelf;
+  var nestCap = becken ? formiCapacity[nest.toLowerCase()] : nestCapacity[ebaShNestSteps[ni][1]];
+  var alt = null, s = ebaShShop[name];
+  // Haselnuss-Variante (Excel nennt sie als min. Nest): selten gefunden, passt in eine Mini Arena
+  if (!becken && a[1] === "Haselnuss" && xf >= 0) {
+    alt = { nest: "Haselnuss", form: ebaShFormiSteps[xf][0], shelf: ebaShFormiSteps[xf][1] };
+    dev.push("Excel nennt nur die Haselnuss-Variante (" + alt.nest + ", " + alt.form + ", " + ebaShN(alt.shelf, 1) + " Regalplätze); der Normalfall (im Reagenzglas gefunden) braucht " + nest + " + " + form);
+  } else {
+    if (becken ? xnF !== bi : xn !== ni) {
+      var exNest = becken ? ebaShFormiSteps[xnF][0] : (xn >= 0 ? ebaShNestSteps[xn][0] : a[1]);
+      var t = "Nest: Rechnung " + nest + " (Bedarf " + ebaShN(m.n, 2) + " = " + ebaShN(100 * m.n / nestCap, 0) + " % der Kapazität), Excel " + exNest;
+      if (!becken && xn > ni) { t += " – das kleinere Nest reicht, ab 75 % Belegung bremst es aber das Wachstum (bei 100 % am Ende stark); die Spielhilfe empfiehlt hier das größere Nest"; }
+      dev.push(t);
+    }
+    if (xf >= 0 && xf !== fi) { dev.push("Formicarium: Rechnung " + form + ", Excel " + ebaShFormiSteps[xf][0]); }
+  }
+  if (s && s[1] != null && s[1] !== shelf) {
+    dev.push("Regalplätze: Spielhilfe-Blatt Shopameisen " + ebaShN(s[1], 1) + ", Rechnung " + ebaShN(shelf, 1)
+      + (becken ? " (das Blatt zählt nur ein Formicarium; das Nestbecken ist ein eigenes Formicarium und belegt zusätzlich Regalplätze)" : ""));
+  }
+  var rn = m.n / m.a, rf = m.f / m.a, fm = function(x) { return ebaShN(x, 4); };
+  return { nest: nest, form: form, formNest: becken, nestWord: becken ? "Nestbecken" : "Nest", nestShelf: nestShelf, shelf: shelf, alt: alt,
+           dev: dev, pulled: pulled, nestNeed: m.n, formNeed: m.f,
+           calc: fm(rn) + " Nest und " + fm(rf) + " Formicarium je Arbeiterin × " + ebaShN(m.a) + " = Nest " + ebaShN(m.n, 2)
+             + ", Formicarium " + ebaShN(m.f, 2) + (pulled ? "; Formicarium zieht auf die Klasse des Nests nach" : "")
+             + (becken ? "; Nestbecken ist ein eigenes Formicarium neben dem Formicarium, unabhängig von dessen Größe" : "") };
+}
+function ebaShRegalTip(g) {
+  var t = g.nestWord + " " + g.nest + ", Formicarium " + g.form + " (Rechnung: " + g.calc + ")."
+    + " Regalplätze " + ebaShN(g.shelf, 1) + (g.formNest ? " (Formicarium " + ebaShN(g.shelf - g.nestShelf, 1) + " + Nestbecken " + ebaShN(g.nestShelf, 1) + ")" : "") + "; normale Nester belegen keinen Regalplatz."
+    + (g.formNeed <= 200000 && (!g.formNest || g.nestNeed <= 200000) ? " Mit riesiger Anlage (ASW-Aktion: 150 ASW-Punkte + 1 Regal) 0 Regalplätze" + (g.formNest ? " je Formicarium bzw. Nestbecken" : "") + "; sie braucht einen eigenen Platz in der Wohnung (Bedarf " + ebaShN(g.formNeed, 2) + (g.formNest ? " bzw. " + ebaShN(g.nestNeed, 2) : "") + " ≤ 200.000: passt)." : "");
+  if (g.alt) { t += " Sonderfall Haselnuss: Wird die Art selten in einer Haselnuss gefunden (verbraucht dann kein Reagenzglas), bietet sie genug Platz für die ausgewachsene Kolonie und passt in eine " + g.alt.form + ": " + ebaShN(g.alt.shelf, 1) + " Regalplätze."; }
+  if (g.dev.length) { t += " ‡ Abweichung zur Spielhilfe: " + g.dev.join("; ") + "."; }
+  return t;
+}
+function ebaShRegalTxt(g) { return g ? ebaShE(g.nestWord) + " " + ebaShE(g.nest) + ", " + ebaShE(g.form) + ", " + ebaShN(g.shelf, 1) + " Regalplätze" : "&ndash;"; }
+
+// Zeilen für ALLE Arten. Werte, die es nur für Shopameisen gibt (Blatt "Shopameisen":
+// Tage, Verkaufserlös), bleiben bei den übrigen Arten null (Anzeige "–"). Regalplätze: ebaShRegal().
+// Punkte, Kolonie, Pt/A und min. Formi gelten für alle Arten (Blatt "Ameisen", Pt/A = Punkte / Kolonie).
+function ebaShShopRows() {
+  var out = [];
+  $.each(ebaShAnts, function(name, a) {
+    var m = antmax[name], s = ebaShShop[name], d = s ? s[0] : null, g = s ? s[3] : null, rg = ebaShRegal(name), sh = rg ? rg.shelf : null;
+    out.push({ rg: rg, name: name, cat: antcat[name] || 0, hid: $.inArray(name, ebaShHidden) >= 0, buyable: shopPriceLimits[name] != null,
+               days: d, shelf: sh, pmin: s ? s[2] : null, pmax: g, buy: shopPriceLimits[name],
+               p: m.p, a: m.a, pta: m.p / m.a, minf: a[0],
+               ppd: d ? m.p / d : null, ppds: d && sh ? m.p / d / sh : null,
+               gpd: d ? g / d : null, gpds: d && sh ? g / d / sh : null,
+               asw: a[4], aswd: d ? a[4] / d : null, aswds: d && sh ? a[4] / d / sh : null, awe: a[6] ? a[4] / a[6] : null });
+  });
+  return out;
+}
+// Spalten: Schlüssel, Titel, Tooltip, erster Klick aufsteigend? (sonst absteigend)
+var ebaShVCols = [
+  ["name", "Art", "", true], ["days", "Tage", "Auswachszeit bei höchster Stufe Ameisenwachstum; nur für Shopameisen bekannt", true],
+  ["p", "Punkte &dagger;", "Maximalpunkte bei einer Königin (Blatt Ameisen, alle Arten)", false],
+  ["a", "Kolonie &dagger;", "Maximale Arbeiterinnen bei einer Königin (Blatt Ameisen, alle Arten)", false],
+  ["pta", "Pt/A &dagger;", "Punkte je Arbeiterin = Punkte / Kolonie; aus Blatt Ameisen gerechnet, alle Arten", false],
+  ["asw", "ASW-Pt &dagger;", "Punkte f\u00FCr die Ameisenschutzwarte (Blatt Ameisen, Spalte ASW Pt; alle Arten)", false],
+  ["shelf", "Regalpl&auml;tze", "Regalplätze = Regalplätze der Formicarien, die die Art bei voller Kolonie braucht (bei Nestbecken Formicarium + Nestbecken; Rechnung im Tooltip der Zeile); &Dagger; = Abweichung zur Spielhilfe", true],
+  ["minf", "min. Formi &dagger;", "Mindest-Formicarium (Blatt Ameisen, alle Arten); sortiert nach Kapazität", true],
+  ["pmax", "Verkauf (&euro;)", "Erlös einer ausgewachsenen Kolonie im Shop; nur für Shopameisen bekannt", false],
+  ["buy", "Ankauf max./Ameise", "Höchster Ankaufspreis je Ameise; nur für Shopameisen bekannt", false],
+  ["ppd", "Pkt/Tag", "Punkte / Tage; nur wo Tage bekannt sind", false],
+  ["ppds", "Pkt/Tag/Platz", "Punkte / Tage / Regalplatz; nur wo Tage bekannt sind", false],
+  ["gpd", "&euro;/Tag", "Verkauf (Höchstwert) / Tage; nur für Shopameisen", false],
+  ["gpds", "&euro;/Tag/Platz", "Verkauf (Höchstwert) / Tage / Regalplatz; nur für Shopameisen", false],
+  ["aswd", "ASW/Tag", "ASW-Punkte / Tage; nur wo Tage bekannt sind", false],
+  ["aswds", "ASW/Tag/Platz", "ASW-Punkte / Tage / Regalplatz; nur wo Tage bekannt sind", false],
+  ["awe", "ASW je &euro; Kauf", "ASW-Punkte / Shop-Kaufpreis der Art (Lexikon); nur f\u00FCr Arten mit Shop-Preis", false]
+];
+// Sortierwert; null = fehlt (steht beim Sortieren immer am Ende)
+function ebaShVVal(r, k) {
+  if (k === "minf") {
+    var c = formiCapacity[r.minf.toLowerCase().replace(/formi$/, "formicarium")];
+    return c == null ? null : c;
+  }
+  var v = r[k];
+  return v == null || (typeof v === "number" && isNaN(v)) ? null : v;
+}
+function ebaShShopTab() {
+  var s = ebaShState, k = s.shopSort, dir = s.shopDir === "asc" ? 1 : -1, rows = [], all = ebaShShopRows(), cnt = { all: all.length, shop: 0, noshop: 0 };
+  $.each(all, function(i, r) { if (r.buyable) { cnt.shop++; } else { cnt.noshop++; } });
+  $.each(all, function(i, r) {
+    if (s.vmode === "shop" && !r.buyable) { return; }
+    if (s.vmode === "noshop" && r.buyable) { return; }
+    if (s.vcat && r.cat !== s.vcat) { return; }
+    rows.push(r);
+  });
+  // Top 3 nur innerhalb der gefilterten Menge (und nur Arten mit Wert)
+  var top = {};
+  $.each(["gpd", "ppd"], function(i, f) {
+    var srt = $.grep(rows, function(r) { return r[f] != null; }).sort(function(x, y) { return y[f] - x[f]; });
+    top[f] = $.map(srt.slice(0, 3), function(r) { return r.name; });
+  });
+  rows.sort(function(x, y) {
+    if (k === "name") { return dir * (x.cat - y.cat || (x.name < y.name ? -1 : 1)); }
+    var vx = ebaShVVal(x, k), vy = ebaShVVal(y, k);
+    if (vx == null || vy == null) { return vx == null && vy == null ? (x.name < y.name ? -1 : 1) : (vx == null ? 1 : -1); }
+    return dir * (vx - vy) || (x.name < y.name ? -1 : 1);
+  });
+  var h = "<div class='sh-tool'>Zeige: ";
+  $.each([["all", "Alle", cnt.all], ["shop", "im Shop kaufbar", cnt.shop], ["noshop", "nicht im Shop", cnt.noshop]], function(i, c) {
+    h += "<button type='button' class='sh-chip" + (s.vmode === c[0] ? " on" : "") + "' data-f='vmode' data-v='" + c[0] + "'>" + c[1] + " (" + c[2] + ")</button>";
+  });
+  h += " &nbsp;";
+  $.each([[0, "alle Kategorien"], [1, "Einheimisch"], [2, "S&uuml;deurop&auml;isch"], [3, "Exotisch"]], function(i, c) {
+    h += "<button type='button' class='sh-chip" + (s.vcat === c[0] ? " on" : "") + "' data-f='vcat' data-v='" + c[0] + "'>" + c[1] + "</button>";
+  });
+  h += "</div><p class='sh-note sh-polynote'><b>Polygynie:</b> Die meisten Angaben beziehen sich auf eine K&ouml;nigin; bei polygynen Arten bringt jede K&ouml;nigin denselben Zuwachs an Arbeiterinnen.</p><p class='sh-note'>Vergleich aller Arten. <b>Im Shop kaufbar</b> = die Art wird im Shop angeboten (auch diese Arten lassen sich in der Natur finden), <b>nicht im Shop</b> = kein Shop-Angebot. Fundorte stehen im Steckbrief (Reiter Ameisen). "
+    + "<b>Tage</b> (Auswachszeit bei h&ouml;chster Stufe <i>Ameisenwachstum</i>), <b>Verkauf</b> und <b>Ankauf</b> gibt es in der Spielhilfe nur f&uuml;r Shopameisen, "
+    + "sonst steht &bdquo;&ndash;&ldquo;; die davon abh&auml;ngigen Spalten (Pkt/Tag, &euro;/Tag, &hellip;) ebenso. "
+    + "<b>Regalpl&auml;tze</b> gibt es f&uuml;r alle Arten: Platzbedarf je Arbeiterin &times; max. Arbeiterinnen, abgebildet auf das kleinste passende Nest bzw. Formicarium; das Formicarium ist mindestens so gro&szlig; wie die Klasse des Nests, nur Formicarien belegen Regalpl&auml;tze; ein <i>Nestbecken</i> (Acromyrmex, Polyrhachis dives) ist ein eigenes Formicarium neben dem Formicarium, unabh&auml;ngig von dessen Gr&ouml;&szlig;e, und z&auml;hlt zus&auml;tzlich. Temnothorax nylanderi: Normalfall kleines Nest + kleines Formicarium, in einer Haselnuss gefunden (selten) Mini Arena. Rechnung im Tooltip. <sup>&Dagger;</sup> = Abweichung zur Spielhilfe (Erkl&auml;rung im Tooltip). "
+    + "Mit der <i>riesigen Anlage</i> (ASW-Aktion, 150 ASW-Punkte + 1 Regal) w&auml;ren es 0 Regalpl&auml;tze, sie braucht aber einen eigenen Platz in der Wohnung (Absicht); sie fasst jede Art. "
+    + "<b>&dagger;</b> = f&uuml;r alle Arten aus dem Blatt <i>Ameisen</i> (Pt/A = Punkte je Arbeiterin, gerechnet; ASW-Pt = Punkte f&uuml;r die Ameisenschutzwarte). "
+    + "<b>ASW/Tag</b> und <b>ASW/Tag/Platz</b> gibt es nur, wo die Auswachszeit bekannt ist, <b>ASW je &euro; Kauf</b> nur f&uuml;r Arten mit Shop-Kaufpreis. "
+    + "Gold = Top 3 nach &euro;/Tag, <span class='sh-top2'>gr&uuml;n</span> = Top 3 nach Pkt/Tag, jeweils innerhalb der gezeigten Arten. "
+    + "Spalte anklicken = sortieren, nochmal klicken = umkehren (Art: nach Kategorie gruppiert).</p>"
+    + "<table class='liste sh-tab'><tr>";
+  $.each(ebaShVCols, function(i, c) {
+    h += "<th class='sh-th" + (k === c[0] ? " on" : "") + "' data-s='" + c[0] + "'" + (c[2] ? " title='" + c[2] + "'" : "") + ">" + c[1]
+      + (k === c[0] ? (dir > 0 ? " &#9650;" : " &#9660;") : "") + "</th>";
+  });
+  h += "</tr>";
+  var lastCat = -1;
+  $.each(rows, function(i, r) {
+    if (k === "name" && r.cat !== lastCat) {
+      lastCat = r.cat; h += "<tr class='sh-grp'><td colspan='" + ebaShVCols.length + "'>" + ebaShCatNames[r.cat] + "</td></tr>";
+    }
+    var g = $.inArray(r.name, top.gpd), pp = $.inArray(r.name, top.ppd);
+    h += "<tr><td><i>" + ebaShE(r.name) + "</i>" + (r.hid ? " <small title='versteckte Art'>(versteckt)</small>" : "") + "</td><td>" + (r.days != null ? r.days : "&ndash;")
+      + "</td><td>" + ebaShN(r.p) + "</td><td>" + ebaShN(r.a) + "</td><td>" + ebaShN(r.pta, 2) + "</td><td>" + ebaShN(r.asw) + "</td><td title='" + (r.rg ? ebaShE(ebaShRegalTip(r.rg)) : "") + "'>" + (r.rg ? ebaShN(r.shelf, 1) + (r.rg.dev.length ? " <sup>&Dagger;</sup>" : "") : "&ndash;")
+      + "</td><td>" + ebaShE(r.minf) + "</td><td>" + (r.pmax == null ? "&ndash;" : (r.pmin != null ? ebaShN(r.pmin, 2) + " &ndash; " : "?? &ndash; ") + ebaShN(r.pmax, 2))
+      + "</td><td>" + ebaShEuro(r.buy) + "</td><td class='" + (pp >= 0 ? "sh-top2" : "") + "'>" + ebaShN(r.ppd, 1) + "</td><td>" + ebaShN(r.ppds, 1)
+      + "</td><td class='" + (g >= 0 ? "sh-top1" : "") + "'>" + ebaShN(r.gpd, 2) + (g >= 0 ? " <small>#" + (g + 1) + "</small>" : "")
+      + "</td><td>" + ebaShN(r.gpds, 2) + "</td><td>" + ebaShN(r.aswd, 2) + "</td><td>" + ebaShN(r.aswds, 2) + "</td><td>" + ebaShN(r.awe, 2) + "</td></tr>";
+  });
+  return h + "</table><p class='sh-note'>" + rows.length + " von " + cnt.all + " Arten. F&uuml;r <i>Acromyrmex spec.</i> fehlt der Mindestpreis in der Spielhilfe (&bdquo;da fehlen Daten&ldquo;), ebenso Ankaufspreise f&uuml;r nicht aufgef&uuml;hrte Arten.</p>";
+}
+
+// ---- Reiter: Wohnungen ------------------------------------------------------
+
+function ebaShWohnTab() {
+  var st = ebaShState, list = [];
+  $.each(ebaShWohn, function(i, w) { list.push({ nr: i + 1, w: w }); });
+  var key = { pts: function(x) { return x.w[3]; }, ppp: function(x) { return x.w[2] / x.w[1]; }, plaetze: function(x) { return x.w[1]; }, preis: function(x) { return x.w[2]; } }[st.wsort];
+  if (key) { list.sort(function(x, y) { return key(x) - key(y) || x.nr - y.nr; }); }
+  var h = "<div class='sh-tool'>Sortierung: ";
+  $.each([["spiel", "Spielreihenfolge"], ["pts", "ben&ouml;tigte Punkte"], ["preis", "Preis"], ["plaetze", "Regalpl&auml;tze"], ["ppp", "&euro; je Regalplatz"]], function(i, c) {
+    h += "<button type='button' class='sh-chip" + (st.wsort === c[0] ? " on" : "") + "' data-f='wsort' data-v='" + c[0] + "'>" + c[1] + "</button>";
+  });
+  h += "</div><p class='sh-note'>Spielreihenfolge: Start ist das Zimmer bei den Eltern, danach aufsteigend nach Regalpl&auml;tzen und Preis (beides steigt gleichzeitig). "
+    + "Die ben&ouml;tigten Punkte bestimmen nur, wann eine Wohnung freigeschaltet wird; danach w&auml;re die Reihenfolge Dachboden vor Schuppen und Haus vor Hochhaus.</p><div class='sh-wohn'>";
+  $.each(list, function(i, x) {
+    var w = x.w, start = !w[2] && !w[3];
+    var img = w[4] ? ebaShImg(["/img/items/Wohnung_" + w[4] + ".jpg"], "sh-wimg", w[0]) : "<span class='sh-ph sh-wimg'>" + ebaShE(w[0].charAt(0)) + "</span>";
+    var dots = ""; for (var k = 0; k < w[1]; k++) { dots += "<i></i>"; }
+    h += "<div class='sh-card sh-wcard' data-nr='" + x.nr + "'>" + img + "<div class='sh-wb'><b>" + x.nr + ". " + ebaShE(w[0]) + "</b>"
+      + "<div class='sh-dots' title='Regalpl&auml;tze'>" + dots + "</div>"
+      + "<table class='sh-kv'><tr><td>Regalpl&auml;tze</td><td><b>" + w[1] + "</b></td></tr>"
+      + "<tr><td>Preis</td><td>" + (start ? "Standard" : ebaShEuro(w[2])) + "</td></tr>"
+      + "<tr><td>ben&ouml;tigte Punkte</td><td>" + (start ? "&ndash;" : ebaShN(w[3])) + "</td></tr>"
+      + (!start && w[1] ? "<tr><td>&euro; je Regalplatz</td><td>" + ebaShN(w[2] / w[1], 2) + "</td></tr>" : "") + "</table></div></div>";
+  });
+  return h + "</div><ul class='sh-list'><li>Wer eine gr&ouml;&szlig;ere Wohnung gekauft hat, kann nicht in eine kleinere zur&uuml;ckziehen.</li>"
+    + "<li>Der Kaufpreis wird um den Preis der aktuellen Wohnung gek&uuml;rzt.</li>"
+    + "</ul>";
+}
+
+// ---- Reiter: Forschungsbaum (SVG) ------------------------------------------
+
+// Knoten: id, Name (\n = Umbruch), Bildkandidaten (Dateien unter /img/tasks/, werden nur auf Knopfdruck im Browser
+// nacheinander geprobt, das erste ladbare gilt), Gruppe, Zweige. Steht nur ein Name da, ist die Datei vom Nutzer im Spiel
+// bestätigt und wird normal geladen; die übrigen sind GESCHÄTZTE Namen (das Namensschema im Spiel ist gemischt deutsch/englisch).
+// Der Knoten "jobs" hat keine eigenen Kandidaten: er zeigt das erste gefundene Bild von jk/jv/jf (ebaShImgExtra).
+// Alle erfolglos geprüften Kandidaten (ausb, bio, form, nest, ha2, jk, jv, Saison Halloween, Abzeichen-Varianten) stehen in BILDERSUCHE_GEPRUEFT.md und werden
+// nicht erneut geprüft; Knoten mit leerer Liste gelten als "nicht gefunden" (Buchstabe statt Bild). allg (research_allgemeinwissen.jpg)
+// und jf (research_gabelstapler.jpg) sind vom Nutzer im Spiel bestätigt. Osterei-Futter: img/items/food_osterei.jpg (bestätigt, kommt in der Spielhilfe nicht vor).
+// Kandidaten mit "img/..." sind Pfade ab Wurzel (z. B. img/awards/...), alle anderen liegen unter /img/tasks/.
+var ebaShNodes = [
+  ["allg", "Allgemeines\nüber Ameisen", ["research_allgemeinwissen.jpg"], "t", ["allg"]],
+  ["einh", "Einheimische\nArten", ["research_ameisen_einheimisch.jpg"], "a", ["einh"]],
+  ["ausb", "Ausbruchschutz", [], "f", ["ausb"]],
+  ["futt", "Futtertiere", ["research_futter.jpg"], "f", ["futt"]],
+  ["bonus", "Forschungs-\nbonus", ["research_forschungsbonus.jpg"], "b", ["bonus"]],
+  ["bio", "Biologie der\nAmeisen", [], "b", ["bio"]],
+  ["hand", "Handwerkliches\nGeschick", ["research_werkzeug.jpg"], "h", ["hand"]],
+  ["find", "Ameisen finden\nund bestimmen", ["research_ameisenfinden.jpg"], "a", ["find"]],
+  ["jobs", "Jobver-\nbesserungen", [], "j", ["jk", "jv", "jf"]],
+  ["sued", "Südeuropäische\nArten", ["research_ameisen_suedeurop.jpg"], "a", ["sued"]],
+  ["zucht", "Futtertier-\nzucht", ["research_futtertierzucht.jpg"], "f", ["zucht"]],
+  ["samen", "Samen-\nsammeln", ["research_seeds.jpg"], "f", ["samen"]],
+  ["zucker", "Zuckerwasser\nselbst\nherstellen", ["research_sugarwater.jpg"], "f", ["zucker"]],
+  ["poly", "Polygynie", ["research_polygyny.jpg"], "b", ["poly"]],
+  ["wachs", "Ameisen-\nwachstum", ["research_wachstum.jpg"], "b", ["wachs"]],
+  ["form", "Formicarien-\nbau", [], "h", ["form"]],
+  ["nest", "Nestbau", [], "h", ["nest"]],
+  ["asw", "Ameisen-\nschutzwarte", ["research_asw.jpg"], "j", ["asw"]],
+  ["exot", "Exotische\nArten", ["research_ameisen_exotisch.jpg"], "a", ["exot"]],
+  ["blaetter", "Blätter-\nsammeln", ["research_blaetter.jpg"], "f", ["blaetter"]]
+];
+// Die drei Jobverbesserungen einzeln (nur Bildsuche, kein eigener Baumknoten): Kloputz-Ausrüstung (Pümpel),
+// Verhaltensforscher (Lehrbücher), Online-Fahrschule (Gabelstaplerschein).
+var ebaShImgExtra = [
+  ["jk", "Jobverbesserung:\nKloputz (Pümpel)", [], "j", []],
+  ["jv", "Jobverbesserung:\nVerhaltensforscher", [], "j", []],
+  ["jf", "Jobverbesserung:\nGabelstaplerschein", ["research_gabelstapler.jpg"], "j", []],
+  // Weiteres Bild (nur Bildersuche): zweites Bild von Handwerkliches Geschick (Stufe 2); neue Kandidaten, siehe BILDERSUCHE_GEPRUEFT.md
+  ["ha2", "Handwerkliches Geschick:\nzweites Bild", [], "x", []]
+];
+// Raster von oben nach unten: id -> [Spalte, Zeile, eingerückt]. Zeile 0 = Zweige unter der Wurzel,
+// darunter hängen deren Folge-Forschungen (eingerückt, Ast links daneben) bzw. stehen bei Ketten direkt darunter;
+// die Zweige ohne Folgeforschung hängen als Spalte direkt unter der Wurzelleiste.
+var ebaShLay = {
+  allg: [0, -1], einh: [0, 0], sued: [0, 1, 1], exot: [0, 2, 1], blaetter: [0, 3, 1], ausb: [1, 0, 1], bonus: [1, 1, 1], find: [1, 2, 1], jobs: [1, 3, 1],
+  futt: [2, 0], zucht: [2, 1, 1], samen: [2, 2, 1], zucker: [2, 3, 1],
+  bio: [3, 0], poly: [3, 1, 1], wachs: [3, 2, 1], form: [3, 3, 1], nest: [3, 4, 1], asw: [3, 5, 1], hand: [2, 4, 1]
+};
+// Kanten: von, nach, benötigte Stufe des Vorgängers, gestrichelt (= nur zusätzliche Voraussetzung),
+// zweite Voraussetzung (Leitung von rechts in die Karte statt Ast von oben)
+var ebaShEdges = [["allg", "einh", 3], ["allg", "ausb", 4], ["allg", "futt", 5], ["allg", "bonus", 7], ["allg", "bio", 8], ["allg", "find", 8],
+  ["allg", "jobs", 11], ["einh", "sued", 2], ["sued", "exot", 4], ["exot", "blaetter", 3], ["futt", "zucht", 10], ["futt", "samen", 10],
+  ["futt", "zucker", 6], ["bio", "zucker", 6, 1, 1], ["bio", "poly", 5], ["bio", "wachs", 7], ["bio", "form", 3], ["bio", "nest", 4], ["bio", "asw", 4],
+  ["hand", "form", 2, 0, 1], ["hand", "nest", 2, 0, 1]];
+// Wurzel ohne Vorgänger, aber mit Bedingung (statt "St. n")
+var ebaShReq = { hand: "1000 Pkt." };
+var ebaShGroupCol = { t: "#3CAC56", a: "#4fa8d8", f: "#E8963C", b: "#d9c34a", h: "#b08adf", j: "#d96a8a" };
+var ebaShGroupNames = { a: "Ameisenarten &amp; Suchen", f: "Futter &amp; Sammeln", b: "Biologie &amp; Wachstum", h: "Handwerk", j: "Jobs &amp; ASW", t: "Stamm" };
+
+// ---- Bildersuche: nur auf Knopfdruck, Ergebnis im Cache ----
+// Es gibt KEINE automatischen Probe-Anfragen (Last und Logs beim Spielbetreiber). Knoten mit genau einem
+// Dateinamen sind bekannt und werden normal geladen. Bei den übrigen steht ein Buchstabe, bis der Nutzer
+// unter Info -> Bildersuche einmal "Bildnamen jetzt einmal prüfen" drückt; die gefundenen Dateien merkt
+// sich der Cache für diesen Nutzer (kein erneutes Probieren von selbst).
+// ebaShImgRes: id -> Dateiname | "" (nicht gefunden); fehlt = nicht geprüft.
+// Cache (GM): eba_sh_imgcache = JSON { id: { f: Datei | "none", t: Zeitpunkt, s: Kandidaten } }.
+var ebaShImgRes = {}, ebaShImgRun = {}, ebaShImgGen = 0, ebaShTitleBase = {}, ebaShImgKnown = {}, ebaShImgDone = false;
+function ebaShImgSrc(f) { return f.indexOf("img/") === 0 ? "/" + f : "/img/tasks/" + f; }
+function ebaShNode(id) {
+  var all = ebaShNodes.concat(ebaShImgExtra);
+  for (var i = 0; i < all.length; i++) { if (all[i][0] === id) { return all[i]; } }
+  return null;
+}
+// Knoten mit eigenen Dateinamen (Baumknoten ohne Kandidaten, z. B. "jobs", zeigen das Bild eines Unterknotens)
+function ebaShImgList() { return $.grep(ebaShNodes.concat(ebaShImgExtra), function(n) { return n[2].length > 0; }); }
+function ebaShImgCands(n) {
+  if (n[2].length) { return n[2]; }
+  var c = [];
+  $.each(n[4], function(i, id) { var k = ebaShNode(id); if (k && k !== n) { c = c.concat(k[2]); } });
+  return c;
+}
+// Baumknoten ohne eigene Kandidaten: erstes gefundenes Bild der Unterknoten; unbekannt, solange eines noch nicht geprüft ist
+function ebaShImgDerive() {
+  $.each(ebaShImgExtra, function(i, n) { if (!n[2].length) { ebaShImgRes[n[0]] = ""; } });
+  $.each(ebaShNodes, function(i, n) {
+    if (n[2].length) { return; }
+    var res = "", open = false;
+    $.each(n[4], function(j, id) {
+      if (id === n[0]) { ebaShImgRes[id] = ""; return; }
+      var r = ebaShImgRes[id];
+      if (r) { res = r; return false; }
+      if (r === undefined) { open = true; }
+    });
+    if (res || !open) { ebaShImgRes[n[0]] = res; } else { delete ebaShImgRes[n[0]]; }
+  });
+}
+function ebaShImgCacheLoad() {
+  try { var c = JSON.parse(GM_getValue("eba_sh_imgcache", "")); if (c && typeof c === "object") { return c; } } catch (e) { /* ignorieren */ }
+  return {};
+}
+function ebaShImgCacheSave(c) { try { GM_setValue("eba_sh_imgcache", JSON.stringify(c)); } catch (e) { /* ignorieren */ } }
+// Ergebnisse aus Dateinamenliste (bekannt) und Cache (früher manuell geprüft) einlesen - ohne Netzzugriff
+function ebaShImgInit() {
+  var cache = ebaShImgCacheLoad();
+  $.each(ebaShImgList(), function(i, n) {
+    var id = n[0], c = cache[id];
+    if (ebaShImgRun[id]) { return; }
+    ebaShImgKnown[id] = n[2].length === 1;
+    if (ebaShImgKnown[id]) { ebaShImgRes[id] = n[2][0]; return; }
+    if (c && c.s === n[2].join("|") && (c.f === "none" || $.grep(c.f.split(","), function(x) { return $.inArray(x, n[2]) < 0; }).length === 0)) {
+      ebaShImgRes[id] = c.f === "none" ? "" : c.f;
+    } else {
+      delete ebaShImgRes[id];
+    }
+  });
+  ebaShImgDerive();
+}
+function ebaShImgStatus(n) {
+  var r = ebaShImgRes[n[0]];
+  if (r === undefined) { return ebaShImgRun[n[0]] ? "Bild: wird gesucht ..." : "Bild: noch nicht geprüft"; }
+  var cs = ebaShImgCands(n);
+  return r ? "Bild: " + r : "Bild nicht gefunden" + (cs.length ? "; geprüft: " + cs.join(", ") : " (siehe BILDERSUCHE_GEPRUEFT.md)");
+}
+function ebaShImgNodeUpdate(id) {
+  ebaShImgDerive();
+  var ids = [id];
+  $.each(ebaShNodes, function(i, d) { if (!d[2].length && $.inArray(id, d[4]) >= 0) { ids.push(d[0]); } });
+  $.each(ids, function(i, nid) {
+    var n = ebaShNode(nid), g = $("svg.sh-tree g[data-nid='" + nid + "']");
+    if (g.length && n) {
+      var r = ebaShImgRes[nid], im = g.find("image");
+      if (r) { im.removeAttr("opacity"); im[0].setAttribute("href", ebaShImgSrc(r)); }
+      g.find("title").first().text((ebaShTitleBase[nid] || n[1].replace(/\n/g, " ")) + " | " + ebaShImgStatus(n));
+    }
+  });
+  ebaShImgInfoUpdate();
+}
+function ebaShImgProbeNode(n, gen, done) {
+  var c = n[2], i = 0, hits = [];
+  var next = function() {
+    if (gen !== ebaShImgGen) { return; }
+    if (i >= c.length) { done(hits.join(",")); return; }
+    var file = c[i++], im = new Image(), fin = false, to;
+    var end = function(ok) {
+      if (fin) { return; }
+      fin = true; window.clearTimeout(to); im.onload = im.onerror = null;
+      if (ok && !n[5]) { done(file); return; }
+      if (ok) { hits.push(file); }
+      window.setTimeout(next, 4); // kurze Pause zwischen den Anfragen
+    };
+    im.onload = function() { end(im.naturalWidth > 0); };
+    im.onerror = function() { end(false); };
+    to = window.setTimeout(function() { end(false); }, 10000);
+    im.src = ebaShImgSrc(file);
+  };
+  next();
+}
+// Anzahl der Anfragen eines vollständigen Durchlaufs (alle Kandidaten der noch unbekannten Knoten; bekannte werden nicht geprüft)
+function ebaShImgProbeCount(grp) {
+  var n = 0;
+  $.each(ebaShImgList(), function(i, nd) { if (nd[2].length > 1 && (!grp || nd[3] === grp)) { n += nd[2].length; } });
+  return n;
+}
+// Nur auf Knopfdruck: alle Kandidaten einmal prüfen, Cache neu schreiben
+function ebaShProbeManual() {
+  if ($.grep(ebaShImgList(), function(n) { return ebaShImgRun[n[0]]; }).length) { return; } // läuft schon
+  ebaShImgGen++; ebaShImgRes = {}; ebaShImgRun = {}; ebaShImgDone = false;
+  ebaShImgCacheSave({});
+  var gen = ebaShImgGen, todo = [];
+  $.each(ebaShImgList(), function(i, n) {
+    ebaShImgKnown[n[0]] = n[2].length === 1;
+    if (ebaShImgKnown[n[0]]) { ebaShImgRes[n[0]] = n[2][0]; return; } // bekannte Dateien nicht prüfen
+    todo.push(n); ebaShImgRun[n[0]] = true;
+  });
+  ebaShImgDerive();
+  var active = 0, step = function() {
+    while (active < 4 && todo.length) {
+      (function(n) {
+        active++;
+        ebaShImgProbeNode(n, gen, function(file) {
+          active--;
+          if (gen !== ebaShImgGen) { return; }
+          delete ebaShImgRun[n[0]];
+          ebaShImgRes[n[0]] = file;
+          var cc = ebaShImgCacheLoad();
+          cc[n[0]] = { f: file || "none", t: new Date().getTime(), s: n[2].join("|") };
+          ebaShImgCacheSave(cc);
+          if (!todo.length && !active) { ebaShImgDone = true; }
+          ebaShImgNodeUpdate(n[0]);
+          step();
+        });
+      })(todo.shift());
+    }
+  };
+  $.each(todo, function(i, n) { ebaShImgNodeUpdate(n[0]); });
+  step();
+}
+
+
+function ebaShPill(cx, cy, text, col, dash, title) {
+  var w = Math.max(32, Math.round(text.length * 5.2 + 9));
+  return "<g class='sh-pillg'><title>" + ebaShE(title) + "</title><rect x='" + (cx - w / 2) + "' y='" + (cy - 7.5) + "' width='" + w + "' height='15' rx='7.5' class='sh-pill' stroke='" + col + "'"
+    + (dash ? " stroke-dasharray='3 2'" : "") + "/><text x='" + cx + "' y='" + (cy + 3.4) + "' class='sh-elab' text-anchor='middle'>" + ebaShE(text) + "</text></g>";
+}
+
+function ebaShTreeSvg() {
+  var NW = 136, NH = 66, IND = 14, RP = NH + 24, PADX = 4, ROOTY = 3, BUSY = 80, Y1 = 104, speed = ebaShSpeed(), pos = {}, gut = { 2: 46 }, hasInd = {}, colX = [PADX], ncol = 0;
+  $.each(ebaShLay, function(id, l) { if (l[2]) { hasInd[l[0]] = true; } ncol = Math.max(ncol, l[0] + 1); });
+  for (var c = 0; c < ncol; c++) { colX[c + 1] = colX[c] + NW + (hasInd[c] ? IND : 0) + (gut[c] != null ? gut[c] : 10); }
+  var W = colX[ncol - 1] + NW + (hasInd[ncol - 1] ? IND : 0) + PADX, maxR = 0;
+  $.each(ebaShNodes, function(i, n) {
+    var l = ebaShLay[n[0]];
+    pos[n[0]] = { x: colX[l[0]] + (l[2] ? IND : 0), y: l[1] < 0 ? ROOTY : Y1 + l[1] * RP, n: n };
+    maxR = Math.max(maxR, l[1]);
+  });
+  var H = Math.ceil(Y1 + maxR * RP + NH + 6);
+  var ports = [];
+  $.each(ebaShEdges, function(i, e) { if (e[0] === "allg") { ports.push(ebaShLay[e[1]][2] ? pos[e[1]].x - 7 : pos[e[1]].x + 20); } });
+  var cx = (Math.min.apply(null, ports) + Math.max.apply(null, ports)) / 2;
+  pos.allg.x = cx - NW / 2;
+  var paths = "", pills = "", byP = {}, spineY = {};
+  $.each(ebaShEdges, function(i, e) { (byP[e[0]] = byP[e[0]] || []).push(e); });
+  var path = function(d, col, dash) { return "<path d='" + d + "' class='sh-edge" + (dash ? " dash" : "") + "' stroke='" + col + "'/>"; };
+  var ttl = function(e) { return "Voraussetzung: " + ebaShSec(e[0])[1] + ", Stufe " + e[2] + (e[3] ? " (zusätzlich)" : ""); };
+  var A = pos.allg;
+  paths += "<path d='M" + cx + " " + (A.y + NH) + " V" + BUSY + " M" + Math.min.apply(null, ports) + " " + BUSY + " H" + Math.max.apply(null, ports) + "' class='sh-edge sh-bus'/>";
+  $.each(byP, function(pid, list) {
+    var p = pos[pid];
+    list = list.slice().sort(function(a, b) { return pos[a[1]].y - pos[b[1]].y; });
+    var prevY = p.y + NH;
+    $.each(list, function(j, e) {
+      var ch = pos[e[1]], col = ebaShGroupCol[ch.n[3]], py = ch.y - 8;
+      if (e[4] && p.x + NW < ch.x) {
+        // zweite Voraussetzung von einer Karte links in der Nachbarspalte: Leitung rechts aus der Karte, über die Lücke von links in die Zielkarte
+        var hy = p.y + NH / 2, ey = ch.y + NH / 2 === hy ? hy : ch.y + NH - 14, gx = colX[ebaShLay[e[1]][0]] - 30;
+        paths += path("M" + (p.x + NW) + " " + hy + (ey === hy ? "" : " H" + gx + " V" + ey) + " H" + ch.x, col, e[3]);
+        pills += ebaShPill(ch.x - 22, ey, "St. " + e[2], col, e[3], ttl(e));
+      } else if (e[4]) {
+        // zweite Voraussetzung: Leitung von der rechts stehenden Karte, links neben der Spalte nach unten, von rechts in die Zielkarte
+        var tx = p.x - 12, xr = ch.x + NW, yc = ch.y + NH / 2;
+        paths += path("M" + p.x + " " + (p.y + NH / 2) + " H" + tx + " V" + yc + " H" + (xr + 4), col, e[3]);
+        pills += ebaShPill(xr + 22, yc, "St. " + e[2], col, e[3], ttl(e));
+      } else if (pid === "allg" && ebaShLay[e[1]][2]) {
+        // Spalte unter der Wurzelleiste: Ast links neben den Karten
+        var sx = ch.x - 7;
+        spineY[sx] = spineY[sx] || BUSY;
+        paths += path("M" + sx + " " + spineY[sx] + " V" + py + " H" + (ch.x + 6), col, e[3]);
+        pills += ebaShPill(ch.x + 20, py, "St. " + e[2], col, e[3], ttl(e));
+        spineY[sx] = py;
+      } else if (pid === "allg") {
+        paths += path("M" + (ch.x + 20) + " " + BUSY + " V" + py, col, e[3]);
+        pills += ebaShPill(ch.x + 20, py, "St. " + e[2], col, e[3], ttl(e));
+      } else if (ch.x === p.x) {
+        paths += path("M" + (p.x + 20) + " " + (p.y + NH) + " V" + py, col, e[3]);
+        pills += ebaShPill(ch.x + 20, py, "St. " + e[2], col, e[3], ttl(e));
+      } else {
+        paths += path("M" + (p.x + 9) + " " + prevY + " V" + py + " H" + (ch.x + 6), col, e[3]);
+        pills += ebaShPill(ch.x + 20, py, "St. " + e[2], col, e[3], ttl(e));
+        prevY = py;
+      }
+    });
+  });
+  $.each(ebaShReq, function(id, t) {
+    var p = pos[id];
+    pills += ebaShPill(p.x + 32, p.y - 8, t, ebaShGroupCol[p.n[3]], 0, "Voraussetzung: " + ebaShSec(id)[2]);
+  });
+  var svg = "<svg class='sh-tree' viewBox='0 0 " + W + " " + H + "' width='100%' style='height:auto;min-width:" + Math.round(W * 0.85) + "px' xmlns='http://www.w3.org/2000/svg'>"
+    + "<defs><clipPath id='shclip'><rect x='5' y='5' width='36' height='36' rx='4'/></clipPath></defs>" + paths;
+  $.each(ebaShNodes, function(i, n) {
+    var p = pos[n[0]], c = ebaShGroupCol[n[3]], t = { n: 0, pts: 0, cost: 0, min: 0 }, lines = n[1].split("\n"), r = ebaShImgRes[n[0]];
+    $.each(n[4], function(j, sid) { var q = ebaShSum(sid); t.n += q.n; t.pts += q.pts; t.cost += q.cost; t.min += q.min; });
+    var pr = ebaShSec(n[4][0])[2], dur = ebaShDur(t.min, speed).replace(/&nbsp;/g, " ");
+    ebaShTitleBase[n[0]] = lines.join(" ") + " - " + t.n + " Stufen, " + t.pts + " Punkte, " + ebaShN(t.cost, 2) + " €, " + dur + (pr ? "; Voraussetzung: " + pr : "")
+      + (n[0] === "asw" ? "; Aktionen der ASW (riesige Anlage, Riesen YTong Nest, Käferlarven) im Reiter ASW" : "")
+      + (n[0] === "samen" ? "; erhöht nur den Ertrag, die Aktion Körner und Samen sammeln gibt es schon mit Futtertiere Stufe 6" : "");
+    svg += "<g class='sh-nodeg' data-nid='" + n[0] + "' transform='translate(" + p.x + " " + p.y + ")'><title>" + ebaShE(ebaShTitleBase[n[0]] + " | " + ebaShImgStatus(n)) + "</title>"
+      + "<rect class='sh-node' width='" + NW + "' height='" + NH + "' rx='6' stroke='" + c + "'/>"
+      + "<rect x='5' y='5' width='36' height='36' rx='4' class='sh-nph'/><text x='23' y='30' class='sh-nphl' text-anchor='middle'>" + ebaShE(lines[0].charAt(0)) + "</text>"
+      + "<image" + (r ? " href='" + ebaShImgSrc(r) + "'" : "") + " x='5' y='5' width='36' height='36' preserveAspectRatio='xMidYMid slice' clip-path='url(#shclip)'/>";
+    $.each(lines, function(j, l) { svg += "<text x='46' y='" + (15 + j * 11.5) + "' class='sh-nname'>" + ebaShE(l) + "</text>"; });
+    svg += "<text x='6' y='" + (NH - 17) + "' class='sh-nstat'>" + t.n + " St. &middot; " + ebaShN(t.cost, 1) + " €</text>"
+      + "<text x='6' y='" + (NH - 6) + "' class='sh-nstat'>" + dur + "</text></g>";
+  });
+  return "<div class='sh-treewrap'>" + svg + pills + "</svg></div>";
+}
+
+function ebaShLevelTable(s, speed) {
+  var h = "<table class='liste sh-tab sh-lv'><tr><th>St.</th><th>Bezeichnung</th><th>Pkt</th><th>Kosten</th><th>Dauer</th><th>Voraussetzung / Sonstiges</th></tr>", t = { pts: 0, cost: 0, min: 0 };
+  $.each(s[4], function(i, l) {
+    t.pts += l[1]; t.cost += l[2]; t.min += l[3];
+    h += "<tr><td>" + (i + 1) + "</td><td>" + (l[0] ? ebaShE(l[0]) : "&ndash;") + "</td><td>" + ebaShN(l[1]) + "</td><td>" + ebaShEuro(l[2]) + "</td><td>"
+      + ebaShDur(l[3], speed) + "</td><td class='sh-small'>" + (l[4] ? "<b>" + ebaShE(l[4]) + "</b>" + (l[5] ? "; " : "") : "") + ebaShE(l[5]) + "</td></tr>";
+  });
+  return h + "<tr class='sh-sum'><td></td><td>Gesamt</td><td>" + ebaShN(t.pts) + "</td><td>" + ebaShEuro(t.cost) + "</td><td>" + ebaShDur(t.min, speed) + "</td><td></td></tr></table>";
+}
+
+function ebaShTreeTab() {
+  var speed = ebaShSpeed(), all = { n: 0, pts: 0, cost: 0, min: 0 }, leg = "";
+  $.each(ebaShTree, function(i, s) { var q = ebaShSum(s[0]); all.n += q.n; all.pts += q.pts; all.cost += q.cost; all.min += q.min; });
+  $.each(ebaShGroupNames, function(k, v) { leg += "<span><i style='background:" + ebaShGroupCol[k] + "'></i>" + v + "</span>"; });
+  var h = "<p class='sh-note'>Forschungsbaum nach der Spielhilfe (Arthuriel). Die Plakette am Ende jeder Linie (direkt an der Karte) nennt die ben&ouml;tigte Stufe des Vorg&auml;ngers; kommt eine zweite Linie von der Seite, ist das eine weitere Voraussetzung, gestrichelt = nur zus&auml;tzlich;"
+    + " weitere Voraussetzungen stehen im Tooltip der Karte. Unter jedem Namen: Stufen &middot; Gesamtkosten &middot; Gesamtdauer (" + (speed ? "Speedserver" : "Normalserver")
+    + "). Ein Buchstabe statt Bild bedeutet: Bild nicht bekannt bzw. nicht gefunden (die Dateinamen werden nur auf Knopfdruck im Browser geprobt; Ergebnis im Tooltip; &bdquo;Bildnamen jetzt einmal pr&uuml;fen&ldquo; unter Info &rarr; Bildersuche). Nur wenn die Spalte sehr schmal ist (z.&nbsp;B. am Handy), l&auml;sst sich der Baum seitlich schieben.</p>"
+    + "<div class='sh-legend'>" + leg + "</div>" + ebaShTreeSvg()
+    + "<p class='sh-note'>Alles erforscht: <b>" + ebaShN(all.pts) + "</b> Punkte, <b>" + ebaShEuro(all.cost) + "</b>, <b>" + ebaShDur(all.min, speed) + "</b> (" + all.n + " Stufen).</p>"
+    + "<h4>Stufen je Zweig</h4>";
+  $.each(ebaShTree, function(i, s) {
+    var q = ebaShSum(s[0]);
+    h += "<details class='sh-det-box'" + (ebaShState.open["t_" + s[0]] ? " open" : "") + " data-id='" + s[0] + "'><summary><b>" + ebaShE(s[1]) + "</b> <small>"
+      + q.n + " St. &middot; " + ebaShEuro(q.cost) + " &middot; " + ebaShDur(q.min, speed) + "</small></summary>"
+      + (s[2] ? "<div class='sh-small'>Voraussetzung: " + ebaShE(s[2]) + "</div>" : "") + (s[3] ? "<div class='sh-small'>" + ebaShE(s[3]) + "</div>" : "")
+      + (ebaShState.open["t_" + s[0]] ? ebaShLevelTable(s, speed) : "") + "</details>";
+  });
+  return h;
+}
+
+// ---- Reiter: Ziele & Bonus --------------------------------------------------
+
+// Ziel: Titel, [Zweig, Stufe, Zusatzvoraussetzung]. Kosten/Dauer folgen aus dem Baum
+// (Summe der Stufen 1..n) und stimmen mit den Summen des Blatts "Forschungsziele" überein.
+var ebaShGoals = [
+  ["Gemixtes Zuckerwasser", [["allg", 8], ["futt", 6], ["bio", 6, "Kolonie mit 1000 Ameisen"], ["zucker", 2]]],
+  ["Formicarien- und Nestbau (Voraussetzungen)", [["allg", 8], ["bio", 3, "Kolonie mit 125 Ameisen"], ["hand", 2, "1000 Gesamtpunkte"]]],
+  ["Futtertierzucht (Voraussetzungen)", [["allg", 5], ["futt", 10, "2000 gefundene Futtertiere"]]],
+  ["Marsameise", [["allg", 11], ["einh", 10, "Stufe 9 gen\u00FCgt als Voraussetzung; die Spielhilfe rechnet mit allen 10 Stufen"], ["sued", 9, "Kolonie mit 5000 einheimischen Ameisen"], ["exot", 9, "Kolonie mit 5000 südeuropäischen Ameisen"], ["find", 16]]]
+];
+var ebaShBonusBase = 15777.95; // Spielhilfe: maximale Forschungskosten bei Voraussetzung "Finden" Stufe 7 ohne Bonus
+function ebaShGoalsTab() {
+  var speed = ebaShSpeed(), h = "<p class='sh-note'>Was man f&uuml;r bestimmte Ziele insgesamt erforschen muss (Summen der Zweige bis zur genannten Stufe).</p><div class='sh-goals'>";
+  $.each(ebaShGoals, function(i, g) {
+    var t = { cost: 0, min: 0, pts: 0 };
+    h += "<div class='sh-card'><b>" + ebaShE(g[0]) + "</b><table class='liste sh-tab'><tr><th>Zweig</th><th>Stufe</th><th>Kosten</th><th>Dauer</th></tr>";
+    $.each(g[1], function(j, z) {
+      var q = ebaShSum(z[0], z[1]); t.cost += q.cost; t.min += q.min; t.pts += q.pts;
+      h += "<tr><td>" + ebaShE(ebaShSec(z[0])[1]) + (z[2] ? "<div class='sh-small'>" + ebaShE(z[2]) + "</div>" : "") + "</td><td>" + z[1] + "</td><td>" + ebaShEuro(q.cost)
+        + "</td><td>" + ebaShDur(q.min, speed) + "</td></tr>";
+    });
+    h += "<tr class='sh-sum'><td>Gesamt</td><td></td><td>" + ebaShEuro(t.cost) + "</td><td>" + ebaShDur(t.min, speed) + "</td></tr></table></div>";
+  });
+  h += "</div><h4>Forschungsbonus: Lerne von den Ameisen</h4><p class='sh-note'>Bis zu welcher Stufe lohnt der Forschungsbonus? Das h&auml;ngt davon ab, wie viel schon erforscht ist: "
+    + "mehr erforscht = weniger zu sparen. Mit der Voraussetzung <i>Ameisen finden und bestimmen</i> Stufe 7 und dem nicht erforschten Zweig bleiben maximale Forschungskosten von <b>"
+    + ebaShEuro(ebaShBonusBase) + "</b>. 5&nbsp;% Ersparnis je Stufe = <b>" + ebaShEuro(ebaShBonusBase * 0.05) + "</b>. <b>Netto</b> = Ersparnis der Stufe minus ihre Kosten. "
+    + "Gelb: Verdienst, wenn man die Forschungszeit stattdessen mit Kloputzen (4&nbsp;&euro;/h) bzw. Regale einr&auml;umen (20&nbsp;&euro; je 8&nbsp;h) verbringt (Normalserver-Dauer).</p>"
+    + "<table class='liste sh-tab'><tr><th>St.</th><th>Kosten</th><th>Dauer</th><th>Ersparnis gesamt</th><th>Netto je Stufe</th><th>Klo (4&nbsp;&euro;/h)</th><th>Regale (2,50&nbsp;&euro;/h)</th></tr>";
+  var last = null;
+  $.each(ebaShSec("bonus")[4], function(i, l) {
+    var sav = ebaShBonusBase * 0.05, net = sav - l[2], klo = l[3] / 60 * 4, reg = l[3] / 60 * 2.5, loss = net < klo;
+    h += "<tr" + (loss ? " class='sh-loss'" : "") + "><td>" + (i + 1) + "</td><td>" + ebaShEuro(l[2]) + "</td><td>" + ebaShDur(l[3], speed) + "</td><td>" + ebaShEuro(sav * (i + 1))
+      + "</td><td class='" + (net < 0 ? "sh-neg" : "sh-pos") + "'>" + ebaShEuro(net) + "</td><td class='sh-yel'>" + ebaShEuro(klo) + "</td><td class='sh-yel'>" + ebaShEuro(reg) + "</td></tr>";
+  });
+  return h + "</table><p class='sh-note'><b>Fazit der Spielhilfe:</b> Die letzte Stufe Forschungsbonus ist ein finanzielles Verlustgesch&auml;ft, wenn man bereits andere Zweige erforscht hat "
+    + "und die Zeit alternativ mit Kloputzen und Regalauff&uuml;llen (nachts) verbringt. Rot markierte Zeilen: der Netto-Gewinn liegt unter dem Verdienst durch Klo-Job.</p>";
+}
+
+// ---- Reiter: Jobs -----------------------------------------------------------
+
+// Jobs: Familie -> Lohnstufen. Prinzip: Die Joblänge unterscheidet die Jobs, das Gehalt die Stufen je Länge
+// (ein Job = eine Länge; Verbesserungen erhöhen nur den Lohn).
+// Stufe: [Name, Bild (oder null), Dauer in h (oder "tick" = Länge eines Ticks), Lohn in EUR (gesamt), Stundenlohn, Freischaltung, Hinweis,
+//         (ID, nicht angezeigt), Verknüpfung [Text, Familie] (oder fehlt)]
+// Dauern gelten für den Normalserver; Speedserver = 1/5. null = unbekannt (wird so angezeigt). Quellen: Nutzerangaben und echte Seite des Arbeitsamts (haben Vorrang) und Blatt Forschungsbaum.
+var ebaShJobs = [
+  ["Kloputzer", [
+    ["Kloputzer", "klo.jpg", "tick", 3, 3, "von Anfang an", "Nach 200 geputzten Klos kann man einen Pümpel kaufen.", 301],
+    ["Kloputzer mit Pümpel", "klo2.jpg", "tick", 4, 4, "mit gekauftem Pümpel", "", 301]]],
+  ["Pizzeria Omerta sucht Pizzaboten", [
+    ["Pizzeria Omerta sucht Pizzaboten", "job_pizza.jpg", 5, 20, 4, "von Anfang an", "Je 12{P} aktive Spieler pro Tick wird ein Pizzajob vergeben. Fährt jemand gerade Pizza aus, ist dieser Slot 4 Stunden lang blockiert.", null],
+    ["Pizzeria Omerta sucht Pizzaboten", "job_pizza.jpg", 5, 25, 5, "Forschung Pümpel (wie beim Kloputzer)", "Pizzeria Omerta zahlt mehr als beim Kloputzen. Dein Lohn steigt deswegen ebenfalls an.", null]]],
+  ["Regale einräumen", [
+    ["Aushilfskraft zum Regale einräumen gesucht", "supermarkt.jpg", 8, 15, 15 / 8, "von Anfang an", "", 302],
+    ["Aushilfskraft zum Regale einräumen gesucht", "supermarkt2.jpg", 8, 20, 2.5, "Forschung Gabelstaplerschein (Online-Fahrschule, frei nach 75 eingeräumten Regalen)", "", 302]]],
+  ["Museum sucht versierten Myrmekologen", [
+    ["Museum sucht versierten Myrmekologen", "job_museum.jpg", 3, 8, 8 / 3, "Forschung Ameisen finden und bestimmen, Stufe 4 („Wo sind die besten Chancen?“)", "", 305]]],
+  ["Verhaltensforscher für Studie gesucht", [
+    ["Verhaltensforscher für Studie gesucht", "job_verhaltensforscher.jpg", 12, 30, 2.5, "150-mal den Museumsjob, Allgemeines über Ameisen Stufe 11, dann Forschung Verhaltensforscher für Studie (Lehrbücher kaufen, auswendig lernen, Prüfung ablegen)", "", null]]],
+  ["Werbeplakate kleben", [
+    ["Werbeplakate kleben", "job_plakate.jpg", 10, 25, 2.5, "Je 40 Klicks auf die Werbebanner (Abstimmen für EBA) gibt es einen Job ‚Werbeplakate kleben‘. Ob sich mehrere ansammeln, ist unklar.", "", 315]]],
+  ["Betreuer bei studentischer Biologie-Exkursion", [
+    ["Betreuer bei studentischer Biologie Exkursion", "job_exkursion.jpg", 20, 50, 2.5, "Forschung Biologie der Ameisen, Stufe 4", "", 304]]],
+  ["Ameisenschutzwarte sucht Freiwillige", [
+    ["Ameisenschutzwarte sucht Freiwillige", "job_asw.jpg", 6, 5, 5 / 6, ebaShSec("asw")[2], "", null]]]
+];
+function ebaShJobsTab() {
+  var speed = ebaShSpeed();
+  var h = "<p class='sh-note'>Jobs mit Bild je Lohnstufe, Dauer, Lohn und Stundenlohn. Nicht bekannte Werte stehen als &bdquo;unbekannt&ldquo;. "
+    + "Quelle: Angaben aus der Spielerschaft, Arbeitsamt im Spiel und Spielhilfe (Forschungsbaum); die Liste ist nicht zwingend vollst&auml;ndig.</p>"
+    + "<p class='sh-note'><b>Prinzip:</b> Die Joblänge unterscheidet die Jobs, das Gehalt die Stufen je Länge. Ein Job hat also eine feste Länge; "
+    + "Verbesserungen (z.&nbsp;B. P&uuml;mpel, Gabelstaplerschein) erh&ouml;hen nur den Lohn. "
+    + "<b>Jobdauern gelten f&uuml;r den Normalserver.</b> Auf dem Speedserver entspricht 1&nbsp;h = 12&nbsp;min (Faktor 1/5); "
+    + (speed ? "der Schalter &bdquo;Speedserver-Werte&ldquo; ist an, die Dauern sind umgerechnet, der Lohn bleibt gleich (Stundenlohn je Spielstunde = 12&nbsp;min). "
+             : "mit dem Schalter &bdquo;Speedserver-Werte&ldquo; oben werden die Dauern umgerechnet (der Lohn bleibt gleich). ")
+    + "</p><div class='sh-jobs'>";
+  var u = "<i class='sh-unk'>unbekannt</i>";
+  $.each(ebaShJobs, function(i, fam) {
+    $.each(fam[1], function(k, j) {
+      var dur = j[2] == null ? u : (j[2] === "tick" ? (speed ? "12&nbsp;min" : "1&nbsp;h")
+        : (typeof j[2] === "string" ? ebaShE(j[2]) : (speed ? ebaShDur(j[2] * 60, true) : j[2] + "&nbsp;h")));
+      h += "<div class='sh-card sh-jcard' data-job='" + ebaShE(fam[0]) + "' data-stage='" + (k + 1) + "'>"
+        + (j[1] ? ebaShImg(["/img/tasks/" + j[1]], "sh-jimg", j[0]) : "<span class='sh-ph sh-jimg'>?</span>")
+        + "<div><b>" + ebaShE(j[0]) + "</b>" + (fam[1].length > 1 ? " <small>(Lohnstufe " + (k + 1) + " von " + fam[1].length + ")</small>" : "")
+        + (j[8] ? "<div class='sh-small'><i>" + ebaShE(j[8][0]) + "</i> <a href='#' class='sh-jlink' data-target='" + ebaShE(j[8][1]) + "'>"
+                  + ebaShE(j[8][1]) + "</a></div>" : "")
+        + "<table class='sh-kv'><tr><td>Dauer</td><td>" + dur + "</td></tr>"
+        + "<tr><td>Lohn</td><td>" + (j[3] != null ? ebaShEuro(j[3]) : u) + "</td></tr>"
+        + "<tr><td>Stundenlohn</td><td>" + (j[4] != null ? "<b>" + ebaShEuro(j[4]) + "</b> je " + (speed ? "Spielstunde" : "Stunde") : u) + "</td></tr></table>"
+        + "<div class='sh-small'><b>" + (k ? "Verbesserung (nur Lohn)" : "Freischaltung") + ":</b> " + ebaShE(j[5]) + (j[6] ? "<br>" + ebaShE(j[6]).replace("{P}", ebaShTip("*", "bei der genauen Anzahl unsicher, könnten auch 10 sein")) : "") + "</div></div></div>";
+    });
+  });
+  // Früherer Job der Weihnachtsaktion (nicht mehr im Spiel); Werte unbekannt
+  h += "<div class='sh-card sh-jcard sh-relikt' data-job='Weihnachtsmann'>" + ebaShImg(["/img/tasks/job_weihnachtsmann.jpg"], "sh-jimg", "Weihnachtsmann")
+    + "<div><b>Weihnachtsmann</b> <span class='sh-tag'>nicht mehr im Spiel</span>"
+    + "<table class='sh-kv'><tr><td>Dauer</td><td>" + u + "</td></tr><tr><td>Lohn</td><td>" + u + "</td></tr><tr><td>Stundenlohn</td><td>" + u + "</td></tr></table>"
+    + "<div class='sh-small'><b>Freischaltung:</b> Man brauchte ein frisches Weihnachtsmann-Kost&uuml;m aus dem Adventskalender, damit der Job angezeigt wurde.<br>Gab es nur w&auml;hrend der fr&uuml;heren Weihnachtsaktion.</div></div></div>";
+  h += "</div><h4>Jobverbesserungen (Forschung)</h4>";
+  $.each(["jk", "jv", "jf"], function(i, id) {
+    var s = ebaShSec(id);
+    h += "<div class='sh-small'><b>" + ebaShE(s[1].replace("Jobverbesserung: ", "")) + "</b> &ndash; Voraussetzung: " + ebaShE(s[2]) + "</div>" + ebaShLevelTable(s, ebaShSpeed());
+  });
+  return h;
+}
+
+// ---- Reiter: ASW (Ameisenschutzwarte) ---------------------------------------
+
+// Aktionen unter Draußen > Ameisenschutzwarte > Aktionen (echte Seite, Bilder vom Spielserver).
+// [Name, Bild, benötigte ASW-Punkte, Sonstiges Benötigtes, Dauer in Minuten (Normalserver), Kosten in EUR, taketask-ID, Beschreibung]
+var ebaShAswActions = [
+  ["riesige Anlage herstellen", "/img/tasks/action_MakeRiesenAnlage.jpg", 150, "1 Regal", 350, 20, 708,
+   "Die Experten bei der Ameisenschutzwarte helfen dir, ein Regal so umzubauen, dass man es als riesiges Formicarium nutzen kann."],
+  ["Riesen YTong Nest herstellen", "/img/items/item_riesenYTongNest.jpg", 100, "", 480, 60, 709,
+   "Im Baumarkt gibt es YTong zu kaufen; mit deinem Werkzeug bastelst du leicht G\u00E4nge und Kammern f\u00FCr deine Ameisen."],
+  ["K\u00E4ferlarven abholen", "/img/items/food_kaeferlarve.jpg", 5, "", 5, 0, 710,
+   "Wegen einer Maik\u00E4ferplage wurden K\u00E4ferlarven gesammelt; die Ameisenschutzwarte gibt dir einen Haufen davon ab."]
+];
+function ebaShAswTab() {
+  var speed = ebaShSpeed();
+  var h = "<p class='sh-note'><b>Ameisenschutzwarte (ASW)</b> findest du unter <i>Drau&szlig;en &rarr; Ameisenschutzwarte</i> mit den Unterseiten "
+    + "<i>Statistik</i>, <i>Kolonie auswildern</i>, <i>ehemalige Kolonien</i> und <i>Aktionen</i>. Die Mitgliedschaft schaltet die Forschung <i>Ameisenschutzwarte (ASW)</i> frei (siehe Forschungsbaum). "
+    + "<b>ASW-Punkte</b> erh&auml;ltst du, indem du Kolonien auswilderst (<i>Kolonie auswildern</i>); f&uuml;r nicht einheimische Arten f&auml;llt dabei eine Geb&uuml;hr an. "
+    + "Wie viele Punkte welche Art bringt, steht in den Ameisen-Karten und im Vergleich (Spalte ASW-Punkte). "
+    + "<b>Faustformel:</b> ASW-Punkte &asymp; 1,57 &times; &#8731;(Punkte der ausgewachsenen Kolonie); sie stimmt bei Arten bis ca. 75.000 Punkte auf &plusmn;1; bei sehr gro&szlig;en Kolonien liegt der echte Wert h&ouml;her (bis +11).</p>"
+    + "<p class='sh-note'><b>Dauer:</b> Die Angaben im Spiel gelten f&uuml;r den Normalserver. "
+    + (speed ? "Der Schalter &bdquo;Speedserver-Werte&ldquo; ist an: die Dauern sind mit Faktor 1/5 umgerechnet (wie bei den Jobs), die Kosten bleiben gleich. "
+             : "Mit dem Schalter &bdquo;Speedserver-Werte&ldquo; oben werden die Dauern mit Faktor 1/5 umgerechnet (wie bei den Jobs), die Kosten bleiben gleich. ")
+    + "<b>Die ASW-Punkte werden beim Herstellen verbraucht</b>; der Spieltext sagt &bdquo;Ben&ouml;tigt &hellip;&ldquo;.</p>"
+    + "<h4>Aktionen (Drau&szlig;en &rarr; Ameisenschutzwarte &rarr; Aktionen)</h4><div class='sh-jobs'>";
+  $.each(ebaShAswActions, function(i, a) {
+    h += "<div class='sh-card sh-jcard sh-aswcard' data-asw='" + a[6] + "'>" + ebaShImg([a[1]], "sh-jimg", a[0])
+      + "<div><b>" + ebaShE(a[0]) + "</b> <small class='sh-jid' title='taketask-ID im Formular der Seite'>taketask " + a[6] + "</small>"
+      + "<div class='sh-small'>" + ebaShE(a[7]) + "</div>"
+      + "<table class='sh-kv'><tr><td>Verbraucht</td><td><b>" + a[2] + "&nbsp;ASW-Punkte</b>" + (a[3] ? " (+ " + ebaShE(a[3]) + ")" : "") + "</td></tr>"
+      + "<tr><td>Dauer</td><td>" + ebaShDur(a[4], speed) + (speed ? " <small>(Normalserver " + ebaShDur(a[4], false) + ")</small>" : "") + "</td></tr>"
+      + "<tr><td>Kosten</td><td>" + ebaShEuro(a[5]) + "</td></tr></table></div></div>";
+  });
+  return h + "</div>";
+}
+
+// ---- Reiter: Futter ---------------------------------------------------------
+
+// Freischaltung: Forschungsstufe laut Baum, sonst Sonderfälle laut Excel/Lexikon
+var ebaShFoodOther = {
+  "Mehlwürmer": "von Beginn an (Shop)", "Zuckerwasser": "von Beginn an (Shop)", "Grassamen": "von Beginn an (Shop)",
+  "gemixtes Zuckerwasser": "Zuckerwasser selbst herstellen, Stufe 1 (Mixer)",
+  "Brombeerblätter": "Blättersammeln"
+};
+function ebaShFoodUnlock(name) {
+  var res = null;
+  $.each(ebaShSec("futt")[4], function(i, l) { if (("; " + l[5] + ";").indexOf("Futter: " + name) >= 0) { res = "Futtertiere, Stufe " + (i + 1); return false; } });
+  return res || ebaShFoodOther[name] || null;
+}
+// Spalten: Schlüssel, Titel, Tooltip, erster Klick aufsteigend?
+var ebaShFCols = [
+  ["name", "Futter", "", true], ["art", "Art", "", true], ["zers", "Zersetzung", "Zersetzungsrate je Tick; kleiner = h\u00E4lt l\u00E4nger", true],
+  ["verm", "Vermehrung", "", false], ["menge", "Packung", "Packungsgr\u00F6\u00DFe im Shop in Gramm", false], ["preis", "Preis", "Shop-Preis je Packung", true],
+  ["pg", "Preis pro g", "Shop-Preis / Gramm (in Klammern je kg)", true], ["frei", "Freischaltung", "", true]
+];
+var ebaShFArt = [["", "alle Arten"], ["Zuckerhaltig", "Zucker"], ["Protein", "Protein"], ["Körner", "K\u00F6rner"], ["Blätter", "Bl\u00E4tter"]];
+function ebaShFoodRows() {
+  var out = [];
+  $.each(ebaShFood, function(i, f) {
+    var fr = ebaShFoodUnlock(f[0]), m = /Stufe (\d+)/.exec(fr || "");
+    out.push({ i: i, f: f, name: f[0], art: f[3], zers: f[4], verm: f[5], menge: f[2], preis: f[1], shop: f[1] != null,
+               pg: f[1] != null && f[2] ? f[1] / f[2] : null, unlock: fr, zucht: !!f[6],
+               frei: /Beginn/.test(fr || "") ? 0 : (m && /^Futtertiere/.test(fr) ? +m[1] : null) });
+  });
+  return out;
+}
+function ebaShFoodTab() {
+  var st = ebaShState, maxZ = 0, cols = { Protein: "#d96a8a", Zuckerhaltig: "#E8963C", "Körner": "#d9c34a", "Blätter": "#3CAC56" };
+  $.each(ebaShFood, function(i, f) { maxZ = Math.max(maxZ, f[4]); });
+  var all = ebaShFoodRows(), rows = $.grep(all, function(r) {
+    return (!st.fart || r.art === st.fart) && (st.fshop === "all" || (st.fshop === "shop") === r.shop) && (!st.fzucht || r.zucht);
+  });
+  var k = st.fsort, dir = st.fdir === "asc" ? 1 : -1;
+  rows.sort(function(x, y) {
+    if (k === "def") { return x.i - y.i; }
+    var vx = x[k], vy = y[k];
+    if (vx == null || vy == null) { return vx == null && vy == null ? x.i - y.i : (vx == null ? 1 : -1); }
+    if (typeof vx === "string") { return dir * vx.localeCompare(vy, "de") || x.i - y.i; }
+    return dir * (vx - vy) || x.i - y.i;
+  });
+  var h = "<div class='sh-tool'>Futterart: ";
+  $.each(ebaShFArt, function(i, c) {
+    h += "<button type='button' class='sh-chip" + (st.fart === c[0] ? " on" : "") + "' data-f='fart' data-v='" + c[0] + "'>" + c[1] + "</button>";
+  });
+  h += " &nbsp;";
+  $.each([["all", "alle"], ["shop", "im Shop"], ["noshop", "nicht im Shop"]], function(i, c) {
+    h += "<button type='button' class='sh-chip" + (st.fshop === c[0] ? " on" : "") + "' data-f='fshop' data-v='" + c[0] + "'>" + c[1] + "</button>";
+  });
+  h += " <button type='button' class='sh-chip" + (st.fzucht ? " on" : "") + "' data-f='fzucht' title='Futtertiere, die man mit der Forschung Futtertierzucht selbst z&uuml;chten kann'>z&uuml;chtbar</button>";
+  h += "</div><p class='sh-note'>Die Futterliste stammt aus dem Lexikon. Die Zersetzungsrate je Tick bestimmt, wie schnell Futter verdirbt; Freischaltung aus dem Forschungsbaum. "
+    + "Spalte anklicken = sortieren, nochmal klicken = umkehren.</p>"
+    + "<table class='liste sh-tab sh-food'><tr>";
+  $.each(ebaShFCols, function(i, c) {
+    h += "<th class='sh-th' data-fs='" + c[0] + "'" + (c[2] ? " title='" + c[2] + "'" : "") + ">" + c[1] + (k === c[0] ? (dir > 0 ? " &#9650;" : " &#9660;") : "") + "</th>";
+  });
+  h += "</tr>";
+  $.each(rows, function(i, r) {
+    var f = r.f;
+    h += "<tr><td>" + ebaShE(f[0]) + (r.shop ? " <span class='sh-tag shop'>Shop</span>" : "") + (f[6] ? " <span class='sh-tag'>z&uuml;chtbar</span>" : "") + "</td>"
+      + "<td><span class='sh-dot' style='background:" + (cols[f[3]] || "#888") + "'></span>" + ebaShE(f[3] === "Zuckerhaltig" ? "Zucker" : f[3]) + "</td>"
+      + "<td><div class='sh-bar sh-fbar'><span style='width:" + Math.round(100 * f[4] / maxZ) + "%;background:" + (cols[f[3]] || "#888") + "'></span></div>" + ebaShN(f[4], 2) + "&nbsp;%</td>"
+      + "<td>" + (f[5] != null ? ebaShN(f[5], 2) : "&ndash;") + "</td>"
+      + "<td>" + (r.shop ? f[2] + "&nbsp;g" : "&ndash;") + "</td><td>" + (r.shop ? ebaShEuro(f[1]) : "&ndash;") + "</td>"
+      + "<td>" + (r.pg != null ? r.pg.toFixed(4).replace(".", ",") + "&nbsp;&euro; <small>(" + (r.pg * 1000).toFixed(2).replace(".", ",") + "&nbsp;&euro;/kg)</small>" : "&ndash;") + "</td>"
+      + "<td class='sh-small'>" + (r.unlock ? ebaShE(r.unlock) : "&ndash;") + "</td></tr>";
+  });
+  h += "</table><p class='sh-note'>" + rows.length + " von " + all.length + " Futtersorten.</p>";
+  h += "<h4>Relikte</h4><div class='sh-jobs'><div class='sh-card sh-jcard sh-relikt'>" + ebaShImg(["/img/items/food_osterei.jpg"], "sh-jimg", "Osterei")
+    + ebaShImg(["/img/awards/osterei.png"], "sh-jimg", "Osterei-Abzeichen")
+    + "<div><b>Osterei</b> <span class='sh-tag'>Relikt</span> <span class='sh-small'>(Futterart Protein)</span><div class='sh-small'>"
+    + "Waren w&auml;hrend der Oster-Events 2009, 2010, 2011, 2012 und 2013 sammelbar und sind nicht mehr im Spiel erh&auml;ltlich (au&szlig;er &uuml;ber Verkauf). "
+    + "Zersetzungsrate: die geringste aller Protein-Futter, genauer Wert unbekannt.</div></div></div></div>";
+  h += "<h4>Fr&uuml;here Events</h4><ul class='sh-list'><li>Oster-Events 2009&ndash;2013 (Ostereiersuche, Osterei als Futter)</li>"
+    + "<li>Weihnachtsaktion mit Job als Weihnachtsmann (Jahr/Details unbekannt; siehe Reiter Jobs)</li></ul><p class='sh-small'>Ob die Events wiederkommen, ist offen.</p>";
+  h += "<h4>Futtersuche (Drau&szlig;en &rarr; Futter suchen)</h4><div class='sh-jobs sh-ffind'>";
+  $.each([["Futtertiere sammeln", "findfood.jpg", "Dauer 15, 30, 45 oder 60 Minuten. L\u00E4ngere Suchen geben weniger Ertrag pro Minute. Kosten 0 \u20AC. Liefert Futtertiere.", "Forschung Futtertiere, Stufe 2 (Futtertiersuche)"],
+          ["K\u00F6rner und Samen sammeln", "findfood_loewensamen.jpg", "Dauer 15, 30, 45 oder 60 Minuten. L\u00E4ngere Suchen geben weniger Ertrag pro Minute. Kosten 0 \u20AC. Liefert K\u00F6rner und Samen.", "Forschung Futtertiere, Stufe 6 (Samensuche)", "nach 5000 gefundenen Samen und mit Futtertiere Stufe 10, Forschung Samensammeln, erh\u00F6ht den Ertrag."],
+          ["Bl\u00E4tter sammeln", "findfood_brombeere.jpg", "Feste Dauer 15 Minuten, Kosten 0 \u20AC. Liefert Bl\u00E4tter f\u00FCr Blattschneiderameisen.", "Forschung Exotische Arten, Stufe 3 (Bl\u00E4ttersammeln, mit Futtertiere Stufe 10)", "nach 2000 gefundenen Bl\u00E4ttern, Exotische Arten Stufe 3 und Futtertiere Stufe 10, Forschung Bl\u00E4ttersammeln (Werkzeug kaufen, dann drei Ertragsstufen), erh\u00F6ht den Ertrag."]], function(i, f) {
+    h += "<div class='sh-card sh-jcard'>" + ebaShImg(["/img/tasks/" + f[1]], "sh-jimg", f[0]) + "<div><b>" + ebaShE(f[0]) + "</b><div class='sh-small'>" + ebaShE(f[2])
+      + "<br><b>Freischaltung:</b> " + ebaShE(f[3]) + (f[4] ? "<br><i>Verbesserung</i>: " + ebaShE(f[4]) : "") + "</div></div></div>";
+  });
+  return h + "</div>";
+}
+
+// ---- Reiter: Info -----------------------------------------------------------
+
+function ebaShImgInfoHtml() {
+  var h = "<table class='liste sh-tab sh-imgtab'><tr><th>Forschung</th><th>Ergebnis</th><th>geprobte Dateien</th></tr>", n = 0, found = 0, report = [], running = false, seenGrp = {}, cache = ebaShImgCacheLoad();
+  // Knoten mit Dateinamen sowie eigene Knoten ohne Kandidaten (= nicht gefunden); abgeleitete Knoten (jobs) entfallen
+  var rows = $.grep(ebaShNodes.concat(ebaShImgExtra), function(nd) { return nd[2].length > 0 || nd[4].length === 0 || nd[4][0] === nd[0]; });
+  $.each(rows, function(i, nd) {
+    var r = ebaShImgRes[nd[0]], known = ebaShImgKnown[nd[0]];
+    if (nd[3] === "x" && !seenGrp.x) {
+      seenGrp.x = true;
+      h += "<tr><th colspan='3'>Weitere Bilder (zweites Bild Handwerkliches Geschick, Job Ameisenschutzwarte)</th></tr>";
+    }
+    if (nd[3] !== "x" && nd[3] !== "y") { n++; if (r) { found++; } }
+    if (ebaShImgRun[nd[0]]) { running = true; }
+    var c = cache[nd[0]];
+    if (c && c.s === nd[2].join("|")) { report.push(nd[0] + "=" + (c.f === "none" ? "\u2013" : c.f)); } // geprüft (manuell)
+    h += "<tr><td>" + ebaShE(nd[1].replace(/\n/g, " ")) + "</td><td class='" + (r ? "ok" : (r === "" ? "no" : "")) + "'>"
+      + (r === undefined ? (ebaShImgRun[nd[0]] ? "wird gesucht &hellip;" : "nicht gepr&uuml;ft")
+        : (r ? (known && !ebaShImgDone ? "bekannt: " : "gefunden: ") + ebaShE(r) : "nicht gefunden"))
+      + "</td><td class='sh-small'>" + (known ? "&ndash;" : (nd[2].length ? ebaShE(nd[2].join(", ")) : "siehe BILDERSUCHE_GEPRUEFT.md")) + "</td></tr>";
+  });
+  var out = "<div class='sh-small'>" + found + " von " + n + " Forschungsbildern bekannt. Es gibt keine automatische Suche: Bilder mit festem Dateinamen werden normal geladen, "
+    + "bei den &uuml;brigen steht ein Buchstabe. Der Knopf pr&uuml;ft einmal die Dateinamen der noch unbekannten Bilder im Browser (die bekannten werden nicht angefragt); gefundene Bilder merkt sich der Browser danach f&uuml;r dich. "
+    + "Die Jobverbesserungen werden einzeln gesucht; der Baumknoten zeigt das erste gefundene der drei.</div>"
+    + (ebaShImgProbeCount() > 0
+      ? "<p><button type='button' class='sh-chip sh-imgre'" + (running ? " disabled" : "") + ">Bildnamen jetzt einmal pr&uuml;fen</button> "
+        + "<span class='sh-small'>Macht ca. " + ebaShImgProbeCount() + " Anfragen an den Spielserver.</span></p>"
+      : "<p class='sh-small'>Keine offenen Kandidaten: alle bisher geratenen Dateinamen sind gepr&uuml;ft (siehe BILDERSUCHE_GEPRUEFT.md).</p>")
+    + h + "</table>";
+  if (report.length && !running) {
+    out += "<p class='sh-small'>Ergebnis zum Kopieren (bitte dem Entwickler schicken; &ndash; = nicht gefunden):<br>"
+      + "<textarea class='sh-imgreport' readonly rows='" + Math.min(report.length + 1, 12) + "' style='width:100%;font-family:monospace'>"
+      + ebaShE(report.join("\n")) + "</textarea></p>";
+  }
+  return out;
+}
+function ebaShImgInfoUpdate() {
+  var b = $("#shopitem.ebash .sh-imgbody");
+  if (b.length) { b.html(ebaShImgInfoHtml()); }
+}
+// Reiter Abzeichen: kompakt nach Gruppen, Bilder in Originalgröße 16x16 (alle unter /img/awards/)
+function ebaShBadgesHtml() {
+  var img = function(imgs, name) {
+    var im = "";
+    $.each(imgs, function(k, f) { im += ebaShImg(["/img/awards/" + f], "sh-abzimg", name); });
+    return im;
+  };
+  var it = function(imgs, name, txt) {
+    return "<li>" + img(imgs, name) + " <b>" + name + "</b>" + (txt ? " <span class='sh-small'>" + txt + "</span>" : "") + "</li>";
+  };
+  // Top 3 der Statistik: Gold, Silber, Bronze
+  var top = function(name, g, s, b) { return it([g, s, b], name, ""); };
+  var money = ["money_gold.png", "money_silver.png", "money_bronze.png"];
+  return "<p class='sh-note'>Abzeichen im Profil. Die Bilder kommen vom Spielserver.</p>"
+    + "<div class='sh-card'><h4>Kolonien</h4><ul class='sh-list sh-abzlist'>"
+    + it(["award_star_gold_1.png"], "ausgewachsene &lt;Art&gt;-Kolonie", "Je Art einmal, dauerhaft; z&auml;hlt in der Sammlung als erledigt.")
+    + it(["award_star_gold_3.png", "award_star_silver_3.png", "award_star_bronze_3.png"], "Gr&ouml;&szlig;enrekord", "Gr&ouml;&szlig;te aktuelle Kolonie einer Art (Platz 1&ndash;3).")
+    + "</ul><p class='sh-small'>Der Gr&ouml;&szlig;enrekord richtet sich nach der aktuellen Gr&ouml;&szlig;e und wandert zu anderen Spielern, wenn du die Kolonie einlagerst oder sie &uuml;berholt wird (Wanderpokal).</p></div>"
+    + "<div class='sh-card'><h4>Top 3 der Statistik</h4><p class='sh-small'>Gold, Silber und Bronze f&uuml;r Platz 1&ndash;3 unter Statistik &rarr; Top 3. Auch diese Abzeichen wandern.</p><ul class='sh-list sh-abzlist'>"
+    + top("Pizzaboten", "Pizza_gold_icon.png", "Pizza_silber_icon.png", "Pizza_bronze_icon.png")
+    + top("Kloputzer", "toliette_gold_icon.png", "toliette_silber_icon.png", "toliette_bronze_icon.png")
+    + top("Regaleinr&auml;umer", "1_palette_gold_icon.png", "2_palette_silber_icon.png", "3_palette_bronze_icon.png")
+    + top("Ameisensortierer (Museumsjob)", "1_mikroskop_gold_icon.png", "2_mikroskop_silber_icon.png", "3_mikroskop_bronze_icon.png")
+    + top("Exkursionsleiter", "flasche_gold.png", "flasche_silver.png", "flasche_bronze.png")
+    + it(money, "flei&szlig;igste Arbeiter", "")
+    + it(money, "Verk&auml;ufer in den Kleinanzeigen", "")
+    + it(money, "Lieferanten vom Ameisenshop", "")
+    + top("Ameisensammler", "ameisen_gold_icon.png", "ameisen_silber_icon.png", "ameisen_bronze_icon.png")
+    + top("Futtertiersammler", "bug_gold.png", "bug_silver.png", "bug_bronze.png")
+    + top("Bl&auml;ttersammler", "blatt_gold.png", "blatt_silver.png", "blatt_bronze.png")
+    + top("Samensammler", "samen_gold.png", "samen_silver.png", "samen_bronze.png")
+    + "</ul></div>"
+    + "<div class='sh-card'><h4>ASW</h4><ul class='sh-list sh-abzlist'>"
+    + it(["award_asw_gold.png", "award_asw_silver.png", "award_asw_bronze.png"], "Platz 1&ndash;3 in der ASW-Statistik", "")
+    + it(["award_aswmonhtly_gold.png", "award_aswmonhtly_silver.png", "award_aswmonhtly_bronze.png"], "Platz 1&ndash;3 in der ASW-Statistik des letzten Monats", "")
+    + "</ul></div>"
+    + "<div class='sh-card'><h4>Sonstige</h4><ul class='sh-list sh-abzlist'>"
+    + it(["house_schuppen.png", "house_silver.png", "house_bronze.png", "house_gold.png", "house_schloss.png"], "bei den Eltern ausgezogen", "Das Bild h&auml;ngt von der Wohnung ab.")
+    + it(["forklift.png"], "Gabelstaplerschein bestanden", "")
+    + it(["marsameise.png"], "Marsameise gefunden", "&bdquo;als N. gefunden am &lt;Datum&gt;&ldquo;.")
+    + it(["osterei.png"], "Ostereiersuche", "Platzierung bei den Events 2009&ndash;2013.")
+    + it(["speed1.png", "speed2.png", "speed3.png", "speed4.png"], "Speedserver-Medaillen", "Teilnahme an Speedserver-Events, Stufen 1&ndash;4.")
+    + it(["Sponsor_gold.png", "Sponsor_silver.png", "Sponsor_bronze.png"], "Sponsor", "Fr&uuml;here finanzielle Unterst&uuml;tzung des Spiels.")
+    + "</ul></div>";
+}
+function ebaShBadgeTab() { return ebaShBadgesHtml(); }
+// Bildersuche ist ein Entwickler-Werkzeug: sichtbar nur nach localStorage.setItem("eba_bildersuche", "1") in der Browser-Konsole.
+function ebaShBildersuche() {
+  try { return window.localStorage.getItem("eba_bildersuche") === "1"; } catch (e) { return false; }
+}
+function ebaShInfoTab() {
+  return (ebaShBildersuche() ? "<div class='sh-card'><details class='sh-det-img'" + (ebaShState.open.imgs ? " open" : "") + "><summary><b>Bildersuche</b> <small>(Forschungsbilder)</small></summary>"
+    + "<div class='sh-imgbody'>" + ebaShImgInfoHtml() + "</div></details></div>" : "")
+    + "<div class='sh-card'><h4>Hinweise zum Wachstum</h4><ul class='sh-list'>"
+    + "<li><span class='sh-tag warn'>&gt; 75 %</span> Belegung von Nest oder Formicarium bremst das Wachstum.</li>"
+    + "<li>Hauptwachstumsphase: etwa <b>24&ndash;94&nbsp;%</b> der Koloniegr&ouml;&szlig;e.</li>"
+    + "<li>Brut verbraucht nur Platz im <b>Nest</b>, nicht im Formicarium.</li>"
+    + "<li>Polygyne Arten: Arbeiterinnen = Basis + (K&ouml;niginnen &minus; 1) &times; Zuwachs (Normal- und Speedserver unterschiedlich); den Rechner gibt es in den Details der polygynen Arten.</li></ul>"
+    + "<h4>Legende</h4><p><span class='sh-tag shop'>im Shop</span> die Art ist im Shop kaufbar (blau in der Tabelle) &nbsp; <span class='sh-tag hid'>versteckt</span> versteckte Art (gelb)</p></div>"
+    + "<div class='sh-card'><h4>Quelle und Dank</h4><p>Die Inhalte stammen haupts&auml;chlich aus der Community-Spielhilfe (Excel). Sie wurde um Daten aus dem Lexikon erweitert.<br>"
+    + "<b>Nicht vom Spielbetreiber:</b> Die Angaben können veraltet oder fehlerhaft sein. Karten, Baum und Summen berechnet openEBA selbst aus diesen Daten.</p>"
+    + "<p><b>Speziellen Dank an:</b></p><ul class='sh-list'><li>Pepper (f&uuml;r das openEBA-Skript)</li>"
+    + "<li>Benni93 / l3oodix (f&uuml;r den polygynen Zuwachs auf dem Speedserver)</li><li>Arthuriel (f&uuml;r den Forschungsbaum)</li>"
+    + "<li>Mr_kokonut (Wachstum und &Uuml;bersicht der Ameisen)</li><li>brambob (f&uuml;r den Ankaufspreis der <i>Acromyrmex spec.</i>)</li>"
+    + "<li><a href='https://www.eatenbyants.de/profil.php?id=101011'>Telas</a> (Mod und Korrektur der Formeln in der Spielhilfe)</li>"
+    + "<li>seupai8969 (Discord) &ndash; hat Peppers Skript nach dem Serverumzug (ca. 2019) wieder lauff&auml;hig gemacht.</li></ul>"
+    + "<p><b>N&uuml;tzliche Links:</b></p><ul class='sh-list'>"
+    + "<li><a href='https://discord.gg/Vy2kRC3' target='_blank' rel='noopener noreferrer'>Discord</a></li>"
+    + "<li><a href='https://www.github.com/ifuzzle/openEBA' target='_blank' rel='noopener noreferrer'>openEBA auf GitHub</a> von <a href='https://www.eatenbyants.de/profil.php?id=2577'>iFuzzle</a>"
+    + "<ul class='sh-list'><li>Geforkt von <a href='https://pastebin.com/raw/MZkjZPUW#.user.js' target='_blank' rel='noopener noreferrer'>openEBA-Userscript</a> von Pepper (leider nicht mehr aktiv)</li></ul></li></ul></div>";
+}
+
+// ---- Reiter: Sammlung (Arten abhaken) ---------------------------------------
+
+var ebaShCollHidTip = "versteckte Art. Diese Art wird im Lexikon erst angezeigt, nachdem man sie gefunden hat.";
+var ebaShCollLegend = "open --(Ameise im Lager)--> ready --(Kolonie aufgestellt)--> active --(Kolonie ausgewachsen)--> done";
+var ebaShCollTips = { open: "noch nichts", ready: "Ameise im Lager", active: "Kolonie aufgestellt", done: "Kolonie ausgewachsen" };
+var ebaShCollGroupNames = { 1: "Einheimische Arten", 2: "Südeuropäische Arten", 3: "Exotische Arten" };
+
+// Artname (auch in anderer Schreibweise) -> Name wie in antcat, sonst null
+function ebaCollCanon(kind) {
+  if (typeof kind !== "string") { return null; }
+  var n = ebaAntmaxNorm(kind);
+  for (var name in antcat) { if (Object.prototype.hasOwnProperty.call(antcat, name) && ebaAntmaxNorm(name) === n) { return name; } }
+  return null;
+}
+// Arten im Lager laut zuletzt erfasster Lager-Ameisentabelle: Zwischenspeicher der
+// Seitenleiste (eba_inventory_) oder Lager-Historie (stock_ants), je nachdem, was jünger ist.
+function ebaCollStockNames() {
+  var names = {}, tCache = -1, cache = null, row = null;
+  try { cache = ebaStockCacheRead(); } catch (e) { cache = null; }
+  if (cache) { tCache = cache.t * 60000; }
+  try { var ser = ebaStockSeries("ants"); row = ser.length ? ser[ser.length - 1] : null; } catch (e2) { row = null; }
+  if (row && row.t > tCache) {
+    $.each(row.values, function(n, v) { if (v > 0) { names[n] = true; } });
+  } else if (cache && cache.stock && cache.stock.ants) {
+    $.each(cache.stock.ants, function(n, e) { if (e && (e.q || 0) + (e.w || 0) > 0) { names[n] = true; } });
+  }
+  return names;
+}
+// ---- Profil (Abzeichen, Formicarien) -------------------------------------------
+// Zwischenspeicher je Server: JSON {t: Serverzeit ms, id: Spieler-ID, done: [Arten], active: [Arten]}
+function ebaCollProfileKey() { return "eba_profile_" + srvKey(); }
+function ebaCollProfileRead() {
+  try {
+    var o = JSON.parse(GM_getValue(ebaCollProfileKey(), ""));
+    if (o && typeof o === "object" && $.isArray(o.done) && $.isArray(o.active) && typeof o.t === "number") { return o; }
+  } catch (e) { /* kein Zwischenspeicher */ }
+  return null;
+}
+// Eigene Spieler-ID: aus dem Seitenkopf, sonst aus dem Zwischenspeicher; sonst null
+function ebaCollOwnId() {
+  var h = $("#status a[href^='profil.php?id=']").first().attr("href"), m = h && /[?&]id=(\d+)/.exec(h);
+  if (m) { return m[1]; }
+  var c = ebaCollProfileRead();
+  return c && /^\d+$/.test("" + c.id) ? "" + c.id : null;
+}
+// Profilseite lesen: {done: [Art], active: [Art]} (Namen wie in antcat) oder null, wenn es kein Profil ist.
+// done = Abzeichen "ausgewachsene <Art> Kolonie"; active = Arten im Abschnitt "Formicarien von <Name>".
+function ebaCollParseProfile(html) {
+  var doc;
+  try { doc = new DOMParser().parseFromString(html, "text/html"); } catch (e) { return null; }
+  if ($(doc.body).text().indexOf("registriert seit") < 0) { return null; }
+  var clean = function(t) { return $.trim(("" + t).replace(/[\s ]+/g, " ")); };
+  var done = {}, active = {};
+  $(doc).find("td").each(function() {
+    if ($(this).children().length) { return; }
+    var m = /^ausgewachsene (.+) Kolonie$/.exec(clean($(this).text())), n = m && ebaCollCanon(m[1]);
+    if (n) { done[n] = true; }
+  });
+  var inForm = false;
+  $(doc).find("h3, #shopitem").each(function() {
+    if (this.nodeName.toUpperCase() === "H3") { inForm = /^Formicarien von\b/.test(clean($(this).text())); return; }
+    if (!inForm) { return; }
+    var n = ebaCollCanon(clean($(this).find("b").first().text()));
+    if (n) { active[n] = true; }
+  });
+  return { done: $.map(done, function(v, k) { return k; }), active: $.map(active, function(v, k) { return k; }) };
+}
+// Seite im Hintergrund holen (wie die anderen Hintergrundabrufe); cb(html|null)
+function ebaCollGetPage(path, cb) {
+  var fin = false, end = function(h) { if (!fin) { fin = true; cb(h); } };
+  try {
+    GM_xmlhttpRequest({
+      method: "GET", url: location.origin + "/" + path,
+      overrideMimeType: "text/html; charset=windows-1252", timeout: 20000,
+      onload: function(r) { end(r.status && r.status !== 200 ? null : r.responseText); },
+      onerror: function() { end(null); }, ontimeout: function() { end(null); }
+    });
+  } catch (e) { end(null); }
+}
+// Lager frisch genug (höchstens zwei Ticks alt)?
+function ebaCollStockFresh() {
+  var c = null;
+  try { c = ebaStockCacheRead(); } catch (e) { c = null; }
+  return !!c && getServerNow() - c.t * 60000 <= 2 * getTickMinutes() * 60000;
+}
+// Alle Stati einlesen: Profil und (wenn nicht frisch) Lager abrufen, daraus Vorschau ableiten.
+// cb({err} | {pend: {Art: Status}, why: {Art: Grund}, notes: [Text]}). Setzt nichts.
+function ebaCollReadAll(cb) {
+  var id = ebaCollOwnId(), notes = [];
+  if (!id) { cb({ err: "Eigene Spieler-ID nicht gefunden (Link zum Profil im Seitenkopf)." }); return; }
+  ebaCollGetPage("profil.php?id=" + id, function(html) {
+    var prof = html ? ebaCollParseProfile(html) : null;
+    if (!prof) { cb({ err: "Das eigene Profil konnte nicht gelesen werden (nicht angemeldet oder keine Verbindung)." }); return; }
+    GM_setValue(ebaCollProfileKey(), JSON.stringify({ t: getServerNow(), id: id, done: prof.done, active: prof.active }));
+    var finish = function(stockNames) {
+      var sug = ebaCollDerive(prof, stockNames), cur = ebaCollGet(), pend = {}, why = {};
+      $.each(sug, function(n, v) {
+        if (ebaCollRank[v.st] > ebaCollRank[cur[n] || "open"]) { pend[n] = v.st; why[n] = v.why; }
+      });
+      cb({ pend: pend, why: why, notes: notes });
+    };
+    if (ebaCollStockFresh()) { finish(ebaCollStockNames()); return; }
+    ebaCollGetPage("ameisenzimmer.php?cat=2", function(h2) {
+      var st = h2 ? ebaParseStock(h2) : null;
+      if (!st) { notes.push("Lager nicht abrufbar, letzter bekannter Stand verwendet."); finish(ebaCollStockNames()); return; }
+      var names = {};
+      $.each(st.ants, function(n, e) { if ((e.q || 0) + (e.w || 0) > 0) { names[n] = true; } });
+      finish(names);
+    });
+  });
+}
+
+var ebaCollRank = { open: 0, ready: 1, active: 2, done: 3 };
+// Höchster Schritt je Art aus Profil ({done, active} oder null) und Lagerarten ({Name: true}); done gewinnt.
+function ebaCollDerive(prof, stockNames) {
+  var sug = {};
+  var put = function(name, st, why) { if (name && (!sug[name] || ebaCollRank[st] > ebaCollRank[sug[name].st])) { sug[name] = { st: st, why: why }; } };
+  $.each(stockNames || {}, function(n) { put(ebaCollCanon(n), "ready", "im Lager"); });
+  if (prof) {
+    $.each(prof.active, function(i, n) { put(n, "active", "Formicarium laut Profil"); });
+    $.each(prof.done, function(i, n) { put(n, "done", "Abzeichen"); });
+  }
+  return sug;
+}
+// Vorschläge {Art: {st, why}}: höchster Schritt, der aus den Daten folgt. Setzt nichts.
+// Das Profil aus dem Zwischenspeicher zählt für Abzeichen immer, für Formicarien nur bis 24 h Alter.
+function ebaCollSuggest() {
+  var cp = ebaCollProfileRead(), prof = null;
+  if (cp) { prof = { done: cp.done, active: getServerNow() - cp.t <= 86400000 ? cp.active : [] }; }
+  var sug = ebaCollDerive(prof, ebaCollStockNames());
+  var put = function(name, st, why) { if (name && (!sug[name] || ebaCollRank[st] > ebaCollRank[sug[name].st])) { sug[name] = { st: st, why: why }; } };
+  var act = ebaFormiActiveIds(), speed = isSpeedServer();
+  $.each(ebaFormiIds(), function(i, id) {
+    if (act && $.inArray(id, act) < 0) { return; } // ehemalige Kolonie
+    var kind = ebaFormiKind(id), name = ebaCollCanon(kind);
+    if (!name) { return; }
+    put(name, "active", "Kolonie aktiv");
+    var rows = ebaFormiRows(id), last = null;
+    for (var j = rows.length - 1; j >= 0; j--) { if (rows[j].ants != null) { last = rows[j]; break; } }
+    if (!last) { return; }
+    var mx = ebaMaxPoints(kind, last.queens, speed);
+    if (mx && !mx.unknown && mx.ants && last.ants >= mx.ants) { put(name, "done", "ausgewachsen"); }
+  });
+  return sug;
+}
+
+// Spalten im Profil-Text: Die Profilschrift ist proportional, und normale Leerzeichen werden dort
+// zusammengefasst. Deshalb wird die Lücke hinter dem Artnamen pixelgenau mit breiten Leerzeichen
+// (U+2002, bleibt im Profil erhalten) und schmalen zum Feinabgleich (U+2009, U+200A) aufgefüllt;
+// die Breiten misst ein Canvas mit der Schrift der Seite. Ohne Canvas: U+2007 nach Zeichenzahl.
+var EBA_COLL_FILL_FALLBACK = "\u2007";
+var EBA_COLL_FILLS = ["\u2002", "\u2009", "\u200a"]; // breit -> schmal
+// Messfunktion Text -> Pixel (Schrift des Spiels), oder null
+function ebaCollMeasurer() {
+  try {
+    var c = document.createElement("canvas").getContext("2d");
+    if (!c || typeof c.measureText !== "function") { return null; }
+    var el = $("#text").first(); if (!el.length) { el = $("body"); }
+    var cs = window.getComputedStyle(el[0]);
+    c.font = cs.fontStyle + " " + cs.fontWeight + " " + cs.fontSize + " " + cs.fontFamily;
+    return function(t) { return c.measureText(t).width; };
+  } catch (e) { return null; }
+}
+// Lücke von px Pixeln: greedy erst breite, dann schmale Zeichen; Rest auf das schmalste gerundet
+function ebaCollFillPx(px, m) {
+  var out = "", i, w;
+  for (i = 0; i < EBA_COLL_FILLS.length; i++) {
+    w = m(EBA_COLL_FILLS[i]);
+    if (!(w > 0)) { continue; }
+    var n = i === EBA_COLL_FILLS.length - 1 ? Math.round(px / w) : Math.floor(px / w);
+    if (n > 0) { out += new Array(n + 1).join(EBA_COLL_FILLS[i]); px -= n * w; }
+  }
+  return out;
+}
+// Text für das Spielerprofil (BBCode, nur [b] [i] [center]; eine Zeile je Art, keine Tabs)
+function ebaCollExport() {
+  var cur = ebaCollGet(), groups = { 1: [], 2: [], 3: [] }, m = ebaCollMeasurer();
+  $.each(antcat, function(name, c) { groups[c].push(name); });
+  var out = [], w = 0;
+  // eine gemeinsame Spaltenbreite über alle Gruppen, damit die | überall bündig stehen
+  $.each(antcat, function(n) { w = Math.max(w, m ? m(n) : n.length); });
+  $.each([1, 2, 3], function(i, c) {
+    out.push("== " + ebaShCollGroupNames[c] + " ==");
+    $.each(groups[c], function(j, n) {
+      var st = cur[n] || "open", pad = "";
+      if (m) { pad = ebaCollFillPx(w - m(n), m); }
+      else { for (var k = n.length; k < w; k++) { pad += EBA_COLL_FILL_FALLBACK; } }
+      var line = n + pad + " | " + (st === "ready" || st === "active" ? "[b]" + st + "[/b]" : st);
+      if ($.inArray(n, ebaShHidden) >= 0) { line += " [i]HIDDEN[/i]"; }
+      if (shopPriceLimits[n] != null && st !== "done") { line += " [i]Shop[/i]"; }
+      out.push(line);
+    });
+    out.push("");
+  });
+  out.push("[center][b]open[/b] --[i](Ameise im Lager)[/i]--> [b]ready[/b] --[i](Kolonie aufgestellt)[/i]--> [b]active[/b] --[i](Kolonie ausgewachsen)[/i]--> [b]done[/b][/center]");
+  out.push("");
+  out.push("Hidden: Muss selbst gefangen werden");
+  out.push("Shop: Kann im Shop gekauft werden (nur bei nicht done)");
+  return out.join("\n");
+}
+
+function ebaShCollTab() {
+  var s = ebaShState, cur = ebaCollGet(), sug = ebaCollSuggest();
+  var rank = ebaCollRank;
+  var cnt = { open: 0, ready: 0, active: 0, done: 0 }, groups = { 1: [], 2: [], 3: [] }, total = 0;
+  $.each(antcat, function(name, c) {
+    cnt[cur[name] || "open"]++; total++;
+    groups[c].push(name);
+  });
+  var h = "<div class='sh-card sh-cl-top'><b class='sh-cl-prog'>" + cnt.done + " / " + total + " done</b>"
+    + " &middot; <span class='sh-cl-c active'>" + cnt.active + " active</span> &middot; <span class='sh-cl-c ready'>" + cnt.ready + " ready</span>"
+    + " &middot; <span class='sh-cl-c open'>" + cnt.open + " open</span>"
+    + "<div class='sh-bar'><span style='width:" + Math.round(100 * cnt.done / total) + "%'></span></div>"
+    + "<p class='sh-note'><span class='sh-cl-st st-open'>open</span> &ndash;(Ameise im Lager)&rarr; <span class='sh-cl-st st-ready'>ready</span> &ndash;(Kolonie aufgestellt)&rarr; "
+    + "<span class='sh-cl-st st-active'>active</span> &ndash;(Kolonie ausgewachsen)&rarr; <span class='sh-cl-st st-done'>&#10003; done</span>"
+    + "<br>" + ebaShTip("*", ebaShCollHidTip) + " versteckte Art (Erkl&auml;rung per Klick). <span class='sh-tag shop'>Shop</span> im Shop kaufbar (nur bei nicht done). "
+    + "Klick auf den Status schaltet weiter; gestrichelte Vorschl&auml;ge aus Lager, Kolonien und Statistik werden erst mit einem Klick &uuml;bernommen. "
+    + "Gespeichert wird getrennt f&uuml;r " + "den " + srvName(srvKey()) + ".</p>"
+    + "<button type='button' class='sh-chip" + (s.cdone ? " on" : "") + "' data-f='cdone'>done ausblenden</button> "
+    + "<button type='button' class='sh-chip sh-cl-read'>Alle Stati einlesen</button> <span class='sh-cl-msg sh-note'>" + ebaShE(s.collMsg || "") + "</span>"
+    + ebaShCollPending() + "</div>";
+  $.each([1, 2, 3], function(i, c) {
+    var d = 0;
+    $.each(groups[c], function(j, n) { if (cur[n] === "done") { d++; } });
+    h += "<h4>" + ebaShCatNames[c] + " <small>(" + d + " / " + groups[c].length + ")</small></h4><div class='sh-cl-grid'>";
+    $.each(groups[c], function(j, n) {
+      var st = cur[n] || "open";
+      if (s.cdone && st === "done") { return; }
+      var sg = sug[n], hid = $.inArray(n, ebaShHidden) >= 0;
+      h += "<div class='sh-cl-row st-" + st + "' data-name='" + ebaShE(n) + "'>"
+        + "<button type='button' class='sh-cl-st st-" + st + "' title='" + ebaShE(ebaShCollTips[st]) + " - Klick: n&auml;chster Status'>" + (st === "done" ? "&#10003; " : "") + st + "</button> "
+        + "<span class='sh-cl-n'>" + ebaShE(n) + "</span>"
+        + (hid ? ebaShTip("*", ebaShCollHidTip) : "")
+        + (shopPriceLimits[n] != null && st !== "done" ? " <span class='sh-tag shop'>Shop</span>" : "")
+        + (sg && rank[sg.st] > rank[st] ? " <button type='button' class='sh-cl-sug' data-st='" + sg.st + "' title='Vorschlag &uuml;bernehmen: " + ebaShE(ebaShCollTips[sg.st]) + "'>&rarr; " + sg.st + " (" + ebaShE(sg.why) + ")</button>" : "")
+        + "</div>";
+    });
+    h += "</div>";
+  });
+  h += "<h4>F&uuml;rs Spielerprofil ausgeben</h4><div class='sh-card'><p class='sh-note'>Text mit BBCode f&uuml;r das Profil (erlaubt sind dort nur <code>[b]</code>, <code>[i]</code> und <code>[center]</code>); eine Zeile je Art. Ausrichtung f&uuml;r die Spielschrift berechnet; in anderen Schriften leicht versetzt.</p>"
+    + "<textarea class='sh-cl-txt' rows='10' style='width:98%' readonly placeholder='Hier erscheint der Text'>" + ebaShE(s.collTxt || "") + "</textarea><br>"
+    + "<button type='button' class='sh-chip sh-cl-exp'>Als Text ausgeben (BBCode)</button></div>";
+  return h;
+}
+// Aufklappbarer Hinweis im Stil der Einstellungsseite (a.tooltip mit span), per Hover oder Klick
+function ebaShTip(label, text) { return "<a class='tooltip sh-tip' href='#'>" + label + "<span>" + ebaShE(text) + "</span></a>"; }
+// Vorschau der eingelesenen Änderungen (s.collPend = {pend, why}) mit Übernehmen/Verwerfen
+function ebaShCollPending() {
+  var p = ebaShState.collPend;
+  if (!p) { return ""; }
+  var n = 0, items = [];
+  $.each(p.pend, function(name, st) { n++; items.push(ebaShE(name) + " &rarr; <b>" + st + "</b> <small>(" + ebaShE(p.why[name]) + ")</small>"); });
+  if (!n) { return "<div class='sh-cl-pend'>Keine &Auml;nderungen: Der Stand ist schon aktuell.</div>"; }
+  return "<div class='sh-cl-pend'><b>" + n + " &Auml;nderung" + (n === 1 ? "" : "en") + " &uuml;bernehmen?</b> <button type='button' class='sh-chip sh-cl-apply'>&Uuml;bernehmen</button> "
+    + "<button type='button' class='sh-chip sh-cl-drop'>Verwerfen</button><ul class='sh-list'><li>" + items.join("</li><li>") + "</li></ul>"
+    + "<span class='sh-note'>H&ouml;here Stati, die du selbst gesetzt hast, werden nie herabgestuft.</span></div>";
+}
+function ebaShCollRefresh(root) { root.find(".sh-body").html(ebaShCollTab()); }
+
+// ---- Rahmen -----------------------------------------------------------------
+
+var ebaShCss = "#shopitem.ebash{background:#0e2415;color:#e6f5ea;border:1px solid #3CAC56;border-radius:6px;padding:10px 12px;text-align:left;font-size:13px;line-height:1.35}"
+  + ".ebash a{color:#8fe3a4}.ebash h3{margin:0 0 4px;color:#fff;font-size:18px}.ebash h4{margin:14px 0 6px;color:#8fe3a4;border-bottom:1px solid #2a6a3a}"
+  + ".ebash .sh-banner{background:#14391f;border:1px dashed #E8963C;border-radius:4px;padding:5px 8px;margin:4px 0 8px;font-size:12px}"
+  + ".ebash .sh-tabs{display:flex;flex-wrap:wrap;gap:3px;margin:6px 0 10px;border-bottom:2px solid #3CAC56}"
+  + ".ebash .sh-tabs button{background:#14391f;color:#e6f5ea;border:1px solid #2a6a3a;border-bottom:0;border-radius:5px 5px 0 0;padding:5px 10px;cursor:pointer;font-size:13px}"
+  + ".ebash .sh-tabs button.on{background:#3CAC56;color:#06200d;font-weight:bold}"
+  + ".ebash .sh-chip{background:#14391f;color:#e6f5ea;border:1px solid #2a6a3a;border-radius:12px;padding:2px 9px;cursor:pointer;margin:0 2px 3px 0}"
+  + ".ebash .sh-chip.on{background:#3CAC56;color:#06200d;border-color:#3CAC56}.ebash .sh-tool{margin-bottom:8px}"
+  + ".ebash input[type=text],.ebash input[type=number],.ebash select{background:#0b1c11;color:#e6f5ea;border:1px solid #2a6a3a;border-radius:3px;padding:2px 4px}"
+  + ".ebash .sh-q{width:48px}.ebash .sh-q-in{width:130px}"
+  + ".ebash .sh-grid,.ebash .sh-goals,.ebash .sh-jobs{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:8px}"
+  + ".ebash .sh-wohn{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px}"
+  + ".ebash .sh-card{background:#14391f;border:1px solid #2a6a3a;border-radius:6px;padding:8px;position:relative}"
+  + ".ebash .sh-card:hover{border-color:#3CAC56}"
+  + ".ebash .sh-card-h{display:flex;gap:8px;align-items:center;margin-bottom:6px}.ebash .sh-card-t{flex:1;min-width:0}"
+  + ".ebash .sh-ant{width:72px;height:72px;object-fit:cover;border-radius:6px;border:1px solid #3CAC56;background:#0b1c11}"
+  + ".ebash .sh-ph{display:inline-flex;align-items:center;justify-content:center;background:#0b1c11;color:#3CAC56;border:1px dashed #3CAC56;border-radius:6px;font-weight:bold;font-size:22px}"
+  + ".ebash .sh-ph.sh-ant{width:72px;height:72px}.ebash .sh-mini{height:30px;vertical-align:middle;border-radius:3px}"
+  + ".ebash .sh-tag{display:inline-block;font-size:11px;border-radius:3px;padding:0 5px;margin:2px 3px 0 0;background:#2a6a3a;color:#fff}"
+  + ".ebash .sh-tag.c1{background:#2e7d4a}.ebash .sh-tag.c2{background:#8a6d1c}.ebash .sh-tag.c3{background:#8a3a3a}"
+  + ".ebash .sh-tag.poly{background:#5a3a8a}.ebash .sh-tag.mono{background:#33556b}.ebash .sh-tag.shop{background:#2f6fa8}"
+  + ".ebash .sh-tag.hid{background:#c9a800;color:#222}.ebash .sh-tag.warn{background:#cc4125}"
+  + ".ebash .sh-bar{height:5px;background:#0b1c11;border-radius:3px;margin-top:5px;overflow:hidden}.ebash .sh-bar span{display:block;height:100%;background:#3CAC56}"
+  + ".ebash .sh-fbar{display:inline-block;width:70px;vertical-align:middle;margin:0 6px 0 0}"
+  + ".ebash table.sh-kv{width:100%;border-collapse:collapse;background:none}.ebash .sh-kv td{padding:1px 3px;border-bottom:1px solid #1d4a2a;background:none;color:#e6f5ea}"
+  + ".ebash .sh-kv td:first-child{color:#9cc9a8;width:46%}.ebash .sh-det{margin-top:4px}"
+  + ".ebash .sh-more{cursor:pointer;text-align:center;color:#8fe3a4;font-size:12px;margin-top:4px;user-select:none}"
+  + ".ebash .sh-calc{margin-top:6px;padding:4px 6px;background:#0b1c11;border-radius:4px}.ebash .sh-gal{display:flex;flex-wrap:wrap;gap:3px;margin-top:4px}"
+  + ".ebash .sh-gal img{height:60px;border-radius:3px;border:1px solid #2a6a3a}.ebash .sh-galbox{margin-top:6px}"
+  + ".ebash .sh-cnt,.ebash .sh-note,.ebash .sh-small{font-size:12px;color:#9cc9a8}.ebash .sh-cnt{grid-column:1/-1}.ebash .sh-note{margin:4px 0 8px}"
+  + ".ebash table.sh-tab{width:100%;border-collapse:collapse;font-size:12px}"
+  + ".ebash .sh-tab th{background:#1c5a2d;color:#fff;padding:3px 5px;text-align:left;border:1px solid #2a6a3a}.ebash .sh-tab th.sh-th{cursor:pointer}.ebash .sh-tab th.on{background:#3CAC56;color:#06200d}"
+  + ".ebash .sh-tab td{background:#14391f;color:#e6f5ea;padding:2px 5px;border:1px solid #1d4a2a}.ebash .sh-tab tr:nth-child(even) td{background:#103018}"
+  + ".ebash .sh-grp td{background:#2a6a3a!important;font-weight:bold}.ebash .sh-sum td{background:#1c5a2d!important;font-weight:bold}"
+  + ".ebash .sh-top1{background:#6b5200!important;color:#ffd75e!important;font-weight:bold}.ebash .sh-top2{background:#1c6a35!important;color:#b6f5c6!important;font-weight:bold}"
+  + ".ebash .sh-pos{color:#8fe3a4}.ebash .sh-neg{color:#ff8a7a}.ebash .sh-yel{color:#ffd75e}.ebash .sh-loss td{background:#4a1d17!important}"
+  + ".ebash .sh-wimg,.ebash .sh-jimg{width:100%;height:110px;object-fit:cover;border-radius:5px;border:1px solid #3CAC56;display:flex}.ebash .sh-jimg{width:70px;height:70px;flex:none}"
+  + ".ebash .sh-abzimg{width:16px;height:16px;image-rendering:auto;vertical-align:middle;border:0;margin-right:2px}.ebash .sh-abzlist{list-style:none;margin-left:4px}.ebash .sh-abzlist li{margin:2px 0}.ebash .sh-thanks{margin:14px 0 0;text-align:center;font-size:12px;color:#9cc9a8}.ebash .sh-unk{color:#9cc9a8}"
+  + ".ebash .sh-jcard{display:flex;gap:8px;align-items:center}.ebash .sh-wb{margin-top:6px}"
+  + ".ebash .sh-dots i{display:inline-block;width:9px;height:9px;margin:2px 2px 0 0;background:#3CAC56;border-radius:2px}"
+  + ".ebash .sh-list{margin:4px 0 4px 18px;padding:0}.ebash .sh-det-box{background:#14391f;border:1px solid #2a6a3a;border-radius:4px;padding:4px 8px;margin:3px 0}"
+  + ".ebash .sh-det-box summary{cursor:pointer}.ebash .sh-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px}"
+  + ".ebash .sh-legend{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px;margin-bottom:4px}.ebash .sh-legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px}"
+  + ".ebash .sh-body{overflow-x:auto}.ebash .sh-treewrap{display:block;width:0;min-width:100%;overflow-x:auto}.ebash svg.sh-tree{display:block;box-sizing:border-box;background:#0b1c11;border:1px solid #2a6a3a;border-radius:6px}"
+  + ".ebash .sh-node{fill:#14391f;stroke-width:1.6}.ebash .sh-nph{fill:#0b1c11;stroke:#3CAC56;stroke-dasharray:3 2}.ebash .sh-nphl{fill:#3CAC56;font-size:20px;font-weight:bold}"
+  + ".ebash .sh-nname{fill:#fff;font-size:10.5px;font-weight:bold}.ebash .sh-nstat{fill:#9cc9a8;font-size:8.8px}"
+  + ".ebash .sh-edge{fill:none;stroke-width:1.5;opacity:.75}.ebash .sh-edge.dash{stroke-dasharray:4 3}"
+  + ".ebash .sh-elab{fill:#e6f5ea;font-size:9.5px}.ebash .sh-pill{fill:#0b1c11;stroke-width:1.3}.ebash .sh-bus{stroke:#3CAC56;opacity:.55}"
+  + ".ebash .sh-cl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:3px 10px}"
+  + ".ebash .sh-cl-row{display:flex;align-items:center;flex-wrap:wrap;gap:2px 6px;padding:2px 4px;border-radius:4px;border:1px solid transparent}.ebash .sh-cl-row.st-done .sh-cl-n{color:#9cc9a8}"
+  + ".ebash .sh-cl-st{min-width:64px;border-radius:10px;border:1px solid #2a6a3a;padding:1px 8px;cursor:pointer;font-size:12px;background:#0b1c11;color:#9cc9a8}"
+  + ".ebash .sh-cl-st.st-ready{background:#6b5200;color:#ffd75e;border-color:#c9a800}.ebash .sh-cl-st.st-active{background:#1c6a35;color:#b6f5c6;border-color:#3CAC56}"
+  + ".ebash .sh-cl-st.st-done{background:#3CAC56;color:#06200d;border-color:#3CAC56;font-weight:bold}"
+  + ".ebash .sh-cl-c.ready{color:#ffd75e}.ebash .sh-cl-c.active{color:#b6f5c6}.ebash .sh-cl-c.open{color:#9cc9a8}"
+  + ".ebash a.sh-tip{position:relative;color:#ffd75e;font-weight:bold;cursor:help;text-decoration:none;margin:0 2px}.ebash a.sh-tip span{display:none;position:absolute;left:0;top:1.5em;z-index:20;width:240px;padding:6px 8px;background:#0b1c11;color:#e6f5ea;border:1px solid #3CAC56;border-radius:4px;font-weight:normal;font-size:12px;line-height:1.35;text-align:left}.ebash a.sh-tip:hover span,.ebash a.sh-tip.open span{display:block}.ebash .sh-cl-pend{margin-top:6px;padding:6px 8px;border:1px dashed #c9a800;border-radius:6px}.ebash .sh-cl-pend ul{margin:4px 0}.ebash .sh-cl-sug{background:none;border:1px dashed #c9a800;border-radius:10px;color:#ffd75e;padding:0 7px;cursor:pointer;font-size:11px}"
+  + ".ebash textarea.sh-cl-txt{background:#0b1c11;color:#e6f5ea;border:1px solid #2a6a3a;border-radius:3px;font-size:12px}.ebash .sh-note .sh-cl-st{cursor:default;min-width:0}"
+  + ".ebash .sh-cl-top{margin-bottom:6px}.ebash .sh-cl-prog{font-size:15px;color:#fff}"
+  + ".ebash .sh-imgtab td.ok{color:#8fe3a4}.ebash .sh-imgtab td.no{color:#ff8a7a}.ebash .sh-qm{display:inline-block;font-size:10px;line-height:12px;width:12px;text-align:center;border:1px solid #8fb39a;border-radius:50%;color:#8fb39a;cursor:help;margin-left:3px}.ebash .sh-jid{font-size:10px;color:#6fae80;font-weight:normal}"
+  + ""
+  + "@media screen and (max-width:700px){.ebash .sh-grid,.ebash .sh-goals,.ebash .sh-jobs{grid-template-columns:1fr}.ebash .sh-body{overflow-x:auto}}";
+
+function ebaShMain() {
+  var area = $("#shopinfo").first();
+  if (!area.length) { area = $("td[width='700px']").first(); }
+  if (!area.length) { area = $("#content, #main").first(); }
+  if (!area.length) {
+    area = $("<div id='eba_sh_area'></div>");
+    $("body").prepend(area);
+  }
+  return area;
+}
+
+function ebaShRender(tab) {
+  var s = ebaShState;
+  if (tab) { s.tab = tab; }
+  if (!$("#eba_sh_css").length) { $("head").append("<style id='eba_sh_css'>" + ebaShCss + "</style>"); }
+  var area = ebaShMain(), root = $("#shopitem.ebash").first();
+  if (!root.length) {
+    area.empty();
+    root = $("<div id='shopitem' class='ebash'></div>");
+    area.append(root);
+    root[0].addEventListener("error", ebaShImgError, true);
+    ebaShBind(root);
+  }
+  var tabs = "";
+  $.each(ebaShTabs, function(i, t) { tabs += "<button type='button' data-t='" + t[0] + "'" + (s.tab === t[0] ? " class='on'" : "") + ">" + t[1] + "</button>"; });
+  ebaShImgInit(); // nur Cache und feste Namen, keine Anfragen
+  var body = { ameisen: ebaShAntsTab, shop: ebaShShopTab, wohn: ebaShWohnTab, baum: ebaShTreeTab, ziele: ebaShGoalsTab,
+               jobs: ebaShJobsTab, asw: ebaShAswTab, futter: ebaShFoodTab, samm: ebaShCollTab, abz: ebaShBadgeTab, info: ebaShInfoTab }[s.tab] || ebaShAntsTab;
+  root.html("<h3>openEBA: Spielhilfe</h3>"
+    + "<div class='sh-banner'><b>Community-Daten, nicht vom Spielbetreiber.</b> Zusammengetragen von Spielern, ohne Gew&auml;hr; Quellen unter <a href='#' class='sh-tolinfo'>Info</a>. "
+    + "<label style='white-space:nowrap'><input type='checkbox' class='sh-speed'" + (ebaShSpeed() ? " checked" : "") + "> Speedserver-Werte</label></div>"
+    + "<div class='sh-tabs'>" + tabs + "</div><div class='sh-body'>" + body() + "</div>"
+    + "<p class='sh-thanks'>Danke an Martin f&uuml;r EBA!</p>");
+  ebaShOpenCalc();
+  try { history.replaceState(null, "", "#eba-spielhilfe:" + s.tab); } catch (e) { /* ignorieren */ }
+}
+function ebaShOpenCalc() {
+  $("#shopitem.ebash .sh-calc").each(function() { ebaShCalc($(this)); });
+}
+
+function ebaShBind(root) {
+  var s = ebaShState;
+  var refresh = function(sel) { root.find(".sh-grid").html(ebaShAntBody()); ebaShOpenCalc(); };
+  root.on("click", ".sh-tabs button", function() { ebaShRender($(this).attr("data-t")); });
+  root.on("click", ".sh-imgre", function() { ebaShProbeManual(); });
+  root.on("focus click", ".sh-imgreport", function() { this.select(); });
+  root.on("click", ".sh-jlink", function(e) {
+    e.preventDefault();
+    var t = $(this).attr("data-target");
+    var card = root.find(".sh-jcard").filter(function() { return $(this).attr("data-job") === t; }).first();
+    if (!card.length) { return; }
+    if (card[0].scrollIntoView) { card[0].scrollIntoView({ block: "center" }); }
+    card.css("outline", "2px solid #E8963C");
+    window.setTimeout(function() { card.css("outline", ""); }, 1800);
+  });
+  root.on("click", ".sh-cl-st", function() {
+    var n = $(this).closest(".sh-cl-row").attr("data-name"), cur = ebaCollGet()[n] || "open";
+    var ch = {}; ch[n] = EBA_COLL_STATES[($.inArray(cur, EBA_COLL_STATES) + 1) % EBA_COLL_STATES.length];
+    ebaCollSet(ch); ebaShCollRefresh(root);
+  });
+  root.on("click", ".sh-cl-sug", function() {
+    var ch = {}; ch[$(this).closest(".sh-cl-row").attr("data-name")] = $(this).attr("data-st");
+    ebaCollSet(ch); ebaShCollRefresh(root);
+  });
+  root.on("click", ".sh-cl-read", function() {
+    s.collMsg = "Lese Profil und Lager ..."; s.collPend = null; ebaShCollRefresh(root);
+    ebaCollReadAll(function(r) {
+      if (r.err) { s.collMsg = r.err; } else { s.collPend = r; s.collMsg = r.notes.join(" "); }
+      if (s.tab === "samm") { ebaShCollRefresh(root); }
+    });
+  });
+  root.on("click", ".sh-cl-apply", function() {
+    var n = s.collPend ? ebaCollSet(s.collPend.pend) : 0;
+    s.collPend = null; s.collMsg = n + " Änderung" + (n === 1 ? "" : "en") + " übernommen.";
+    ebaShCollRefresh(root);
+  });
+  root.on("click", ".sh-cl-drop", function() { s.collPend = null; s.collMsg = ""; ebaShCollRefresh(root); });
+  root.on("click", ".sh-cl-exp", function() {
+    s.collTxt = ebaCollExport(); s.collMsg = "Ausgegeben - zum Kopieren ins Textfeld klicken.";
+    ebaShCollRefresh(root);
+    root.find(".sh-cl-txt").first().select();
+  });
+  root.on("click", ".sh-cl-txt", function() { this.select(); });
+  root.on("click", "a.sh-tip", function(e) {
+    e.preventDefault();
+    var o = $(this).hasClass("open");
+    root.find("a.sh-tip.open").removeClass("open");
+    if (!o) { $(this).addClass("open"); }
+  });
+  root.on("click", ".sh-tolinfo", function(e) { e.preventDefault(); ebaShRender("info"); });
+  root.on("change", ".sh-speed", function() { s.speed = this.checked; ebaShRender(); });
+  root.on("click", ".sh-chip", function() {
+    var f = $(this).attr("data-f");
+    if (!f) { return; }
+    if (f === "cat" || f === "vcat") { s[f] = parseInt($(this).attr("data-v"), 10); }
+    else if (f === "vmode" || f === "wsort" || f === "fart" || f === "fshop") { s[f] = $(this).attr("data-v"); } else { s[f] = !s[f]; }
+    ebaShRender();
+  });
+  root.on("input", ".sh-q-in", function() { s.q = $(this).val(); refresh(); });
+  root.on("change", ".sh-sort", function() { s.sort = $(this).val(); s.sortDir = null; ebaShRender(); });
+  root.on("click", ".sh-dir", function() { s.sortDir = ebaShAntDir() === "asc" ? "desc" : "asc"; ebaShRender(); });
+  root.on("click", ".sh-card .sh-more, .sh-card-h", function() {
+    var card = $(this).closest(".sh-card"), n = card.attr("data-name");
+    if (!n) { return; }
+    if (s.open[n]) { delete s.open[n]; } else { s.open[n] = { q: 2 }; }
+    refresh();
+  });
+  root.on("input change", ".sh-q", function() { ebaShCalc($(this).closest(".sh-calc")); });
+  root.on("click", ".sh-th[data-fs]", function() {
+    var k = $(this).attr("data-fs");
+    if (s.fsort === k) { s.fdir = s.fdir === "asc" ? "desc" : "asc"; }
+    else {
+      s.fsort = k; s.fdir = "desc";
+      $.each(ebaShFCols, function(i, c) { if (c[0] === k && c[3]) { s.fdir = "asc"; } });
+    }
+    ebaShRender();
+  });
+  root.on("click", ".sh-th[data-s]", function() {
+    var k = $(this).attr("data-s");
+    if (s.shopSort === k) { s.shopDir = s.shopDir === "asc" ? "desc" : "asc"; }
+    else {
+      s.shopSort = k; s.shopDir = "desc";
+      $.each(ebaShVCols, function(i, c) { if (c[0] === k && c[3]) { s.shopDir = "asc"; } });
+    }
+    ebaShRender();
+  });
+  // toggle bubbelt nicht -> Capture
+  root[0].addEventListener("toggle", function(e) {
+    var d = $(e.target);
+    if (d.is("details.sh-det-img")) { s.open.imgs = d[0].open; return; }
+    if (!d.is("details.sh-det-box")) { return; }
+    var id = d.attr("data-id");
+    s.open["t_" + id] = d[0].open;
+    if (d[0].open && !d.find("table").length) { d.append(ebaShLevelTable(ebaShSec(id), ebaShSpeed())); }
+  }, true);
+}
+
+function enableSpielhilfe() {
+  if (!/lexikon\.php$/.test(location.pathname)) { return; }
+  if ($("#eba_sh_start").length) { return; }
+  var label = "openEBA: Spielhilfe";
+  var link = $("<a id='eba_sh_start' href='/lexikon.php#eba-spielhilfe'>" + label + "</a>");
+  var host = $("#shopmenucats").first();
+  if (!host.length) { host = $("#shopmenu").first(); }
+  if (host.length) {
+    host.append("<hr style='margin:6px 0'>").append(link);
+  } else {
+    // Fallback ohne bekanntes Menü: Linkleiste oben im Inhaltsbereich
+    var bar = $("<div id='eba_sh_bar' style='margin:4px 0'></div>").append(link);
+    var area = $("td[width='700px']").first();
+    if (area.length) { area.prepend(bar); } else { $("body").prepend(bar); }
+  }
+  link.on("click", function(e) {
+    e.preventDefault();
+    try { history.replaceState(null, "", "#eba-spielhilfe"); } catch (x) { location.hash = "eba-spielhilfe"; }
+    ebaShRender();
+  });
+  var m = /^#eba-spielhilfe(?::(\w+))?$/.exec(location.hash);
+  if (m) { ebaShRender(m[1]); }
+}
 
 // ---------------------------------------------------------------------------
 // Start. MUSS die letzte Anweisung der Datei sein: "var"-Konstanten wie
@@ -4853,10 +8468,13 @@ $(window).on("hashchange", function() {
 
 // Einmalige Schema-Migration vor allen Features, damit der Versionsschlüssel
 // auch gesetzt wird, wenn keine der neuen Optionen aktiv ist.
-migrateHistorySchema();
-enableConfig();
-$.each(configItems, function(k, v) {
-  var timer = new Date().getTime();
-  GM_getValue(k, false) && v[0]();
-  var time = new Date().getTime()-timer;
-});
+if (EBA_HOST_OK) {
+  migrateHistorySchema();
+  enableConfig();
+  ebaStockSnapshotEarly();
+  $.each(configItems, function(k, v) {
+    var timer = new Date().getTime();
+    GM_getValue(k, false) && v[0]();
+    var time = new Date().getTime()-timer;
+  });
+}

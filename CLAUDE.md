@@ -4,6 +4,7 @@
 
 - **Niemals auf `main` arbeiten oder nach `main` pushen**, es sei denn, der Nutzer genehmigt das ausdrücklich in der jeweiligen Sitzung.
 - Änderungen werden auf dem eigenen, der Sitzung zugewiesenen Branch (`claude/...`) entwickelt, committet und gepusht.
+- Major-Versionen (z. B. `34.0`) setzt ausschließlich der Nutzer von Hand. Claude-Sitzungen erhöhen nur die letzte Stelle (z. B. `34.0` → `34.1`) und tragen nie selbst eine neue Major-Version ein.
 - Danach werden die Änderungen in den Branch `beta` übernommen und nach `beta` gepusht:
   ```sh
   git fetch origin beta
