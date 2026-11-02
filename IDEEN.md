@@ -8,14 +8,14 @@ Zusätzlich zum bestehenden Schnee-Effekt (Option *Schnee*) jahreszeitliche Effe
 
 - **Winter-/Weihnachts-Titelbilder:** Das Spiel hat Spezial-Titelbilder `https://www.eatenbyants.de/img/winter/winter01.png` bis `winter27.png` (27 Dateien). Zusammen mit dem Schnee-Effekt als winterlicher Kopfbereich nutzbar.
   Quelle der Liste: Spielerprofil https://www.eatenbyants.de/profil.php?id=39267
-- **Winter-Skin:** Im Dezember je Tag das Bild `img/winter/winterNN.png` (NN = Tag des Monats, ggf. bis 27) im Kopfbereich rechts neben dem Logo einblenden (Bereich zwischen Logo und Statusbox im `#header`), zusammen mit dem Schnee-Effekt; eigene Option. Ostern und Halloween analog, sobald passende Bilder gefunden sind (Suche: Info → Bildersuche, Saisonbilder; Abzeichen `img/awards/osterei.png` ist bekannt).
+- **Winter-Skin:** Im Dezember je Tag das Bild `img/winter/winterNN.png` (NN = Tag des Monats, ggf. bis 27) im Kopfbereich rechts neben dem Logo einblenden (Bereich zwischen Logo und Statusbox im `#header`), zusammen mit dem Schnee-Effekt; eigene Option. Ostern und Halloween analog, sobald passende Bilder bekannt sind (bekannt: Abzeichen `img/awards/osterei.png` und Futter `img/items/food_osterei.jpg`; Titelbilder für Ostern nicht gefunden, geprüfte Namen in `BILDERSUCHE_GEPRUEFT.md`).
 - Die Dezember-Events kommen laut Community automatisch (2024 gab es einen Adventskalender im Spiel) – vor einem eigenen Winter-Skin erst abwarten, was das Spiel im Dezember selbst zeigt.
-- Weitere Jahreszeiten (Frühling, Sommer, Herbst, Ostern) als Ideen offen; Bilder dafür sind noch nicht bekannt (Ostern/Halloween werden in der Bildersuche gesucht).
+- Weitere Jahreszeiten (Frühling, Sommer, Herbst, Ostern) als Ideen offen; Bilder dafür sind noch nicht bekannt (Ostern-Titelbilder nicht gefunden; Halloween gab es im Spiel nicht).
 
 ## Vor dem Release v34
 
-- Bildersuche (Info → Bildersuche) entfernen – reines Entwickler-Werkzeug (geprüfte Namen: `BILDERSUCHE_GEPRUEFT.md`).
-- Profil-Blättern (Q/E) prüfen: als Dev-Tool behalten oder entfernen.
+- Bildersuche (Spielhilfe → Info) entfernen – reines Entwickler-Werkzeug (geprüfte Namen und die 136 offenen Kandidaten: `BILDERSUCHE_GEPRUEFT.md`, danach ggf. löschen).
+- Profil-Blättern (Links und Q/E) bleibt (Entscheidung des Nutzers); die Q/E-Option trägt noch den Zusatz „Entwickler-Werkzeug“, den ggf. streichen.
 
 ## Daten und Auswertungen
 

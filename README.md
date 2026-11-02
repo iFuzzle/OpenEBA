@@ -18,11 +18,12 @@ Die Konfiguration steht auf der Statistik-Seite des Spiels unter *openEBA*. Die 
 ## Funktionen
 
 ### Formicarien
-- *Formicarien-Statistik*: Pro Tick eine Zeile je Formicarium (Eier, Larven, Puppen, Ameisen, Punkte, Hunger). In der Übersicht stehen unter jeder Kolonie drei Links: *Verlauf* (Seite *openEBA-Verlauf* mit dieser Kolonie), *CSV* (Download für Excel) und *Tabelle* (Textfeld zum Kopieren).
+- *Formicarien-Statistik*: Pro Tick eine Zeile je Formicarium (Eier, Larven, Puppen, Ameisen, Punkte, Hunger). In der Übersicht stehen unter jeder Kolonie drei Links: *Verlauf* (Seite *openEBA-Verlauf* mit dieser Kolonie), *CSV* (Download für Excel) und *Tabelle* (Textfeld zum Kopieren). Dieselben Links stehen in der Einzelansicht unter den Hungerleisten.
 - *Futterbestand und Ausbruchschutz pro Tick festhalten*: Ergänzt die Statistik um Futtertabelle und Ausbruchschutz.
 - *Ausbruchschutz in der Formicarien-Übersicht anzeigen*: Zeile *Ausbruchschutz* unter Hunger bzw. Pilzstatus mit dem Wert aus dem letzten Tick (z.B. `97,4 %`, Art im Tooltip), unter 20 % orange, unter 10 % rot; ein älterer Wert ist blass und kursiv. Mit *… mit Prozentbalken* (Standard aus) zusätzlich als Balken.
 - *Auswachszustand der Kolonien in Prozent anzeigen*: Zeigt, wie weit die Kolonie ausgewachsen ist, mit Wachstumsphase und Warnung bei Nestbelegung über 75 %.
 - *Maximale Punktzahl in der Formicarien-Übersicht anzeigen*: Zeigt hinter den Punkten die erreichbare Maximalpunktzahl der Art und den Punktezuwachs im letzten Tick (z.B. `4817 / 5000 +37`; fehlen Ticks dazwischen, der Durchschnitt je Tick mit ⌀).
+- *Formicarium-Einzelansicht: höchstens benötigtes Formicarium bzw. Nest anzeigen*: Unter „Formicarium wechseln“ und „Nest wechseln“ steht, was die Art höchstens braucht (Platzbedarf × maximale Arbeiterinnen, bei polygynen Arten mit deiner Königinnenzahl); Symbol dahinter: ↑ = deins ist zu klein, ⚠ = größer als nötig (belegt unnötig Regalplätze), ? = bei mehreren Königinnen unklar, kein Symbol = passt genau. Der Tooltip zeigt die Rechnung.
 - *Hunger-Prozente mit Nachkommastelle*: Genauere Hungeranzeige.
 - *Fütterformular über die Futtertabelle schieben*: Das Formular steht direkt bei der Futtertabelle.
 - *Mit v und n (bzw. q und e) zwischen Formicarien navigieren, mit z bzw. p füttern*: Tastaturbedienung der Einzelansicht.
@@ -51,6 +52,7 @@ Die Konfiguration steht auf der Statistik-Seite des Spiels unter *openEBA*. Die 
 
 ### Draußen und Suchen
 - *Jobs/Forschungen mit Informationen anreichern*: Bei Ameisen- und Futtersuche steht in der Auswahl der Dauer die voraussichtliche Endzeit (z.B. `8:00:00 → morgen 07:53`), gerechnet ab Seitenaufruf nach Serverzeit.
+- *Findbare Arten bei den Suchorten anzeigen (Ameisen suchen)*: Bei jedem Suchort steht eine Zeile *Findbare Arten* laut Community-Spielhilfe (nicht vom Spielbetreiber, evtl. unvollständig; Shop-Arten getrennt, versteckte Arten mit `*`), ohne zusätzliche Abrufe.
 - *Futter- und Ameisensuchen vollständig historisieren*: Speichert alle Ergebnisse statt nur der letzten Treffer.
 - *Alle gespeicherten Ergebnisse unter draussen.php?cat=3 anzeigen*: Zeigt ältere Treffer als einklappbare Tabelle unter den Ergebnissen des Spiels.
 
@@ -60,23 +62,30 @@ Die Konfiguration steht auf der Statistik-Seite des Spiels unter *openEBA*. Die 
 - *Nachrichten nach Absendern filtern*: Blendet Nachrichten bestimmter Absender aus.
 
 ### Lexikon
-- *Spielhilfe im Lexikon anzeigen (Community-Daten)*: Zusätzlicher Menüpunkt *openEBA: Spielhilfe* unter lexikon.php (nicht vom Spielbetreiber, Daten aus der Community-Spielhilfe, Angaben je Königin). Standardmäßig aus. Reiter:
-  - *Ameisen*: Steckbriefe mit Bildern, Filter und Sortierung, Details (Platzbedarf, Fundorte, Futter, Entwicklungszeiten), Polygynie-Rechner, Bildergalerie der Entwicklungsstufen.
-  - *Vergleich*: alle Arten, umschaltbar zwischen *Alle*, *kaufbar (Shop)* und *nur findbar*, mit Kategorie-Filter; Punkte und Geld pro Tag, auch je Regalplatz, ASW-Spalten. Sortierbar (zweiter Klick kehrt um).
+- *Haltbarkeit der Futter im Lexikon anzeigen*: Unter *Zersetzungsrate* (lexikon.php?cat=4) die Zeile *Haltbarkeit*: Ticks, bis die Frische 0 % erreicht (100 % ÷ Rate, aufgerundet), für den aktuellen Server; der Tooltip zeigt die Rechnung und den Wert des anderen Servers.
+- *Spielhilfe im Lexikon anzeigen (Community-Daten)*: Zusätzlicher Menüpunkt *openEBA: Spielhilfe* unter lexikon.php (nicht vom Spielbetreiber, Daten überwiegend aus der Community-Spielhilfe, Angaben je Königin). Standardmäßig aus. Reiter:
+  - *Ameisen*: Steckbriefe mit Bildern (Hauptbild = ausgewachsene Kolonie) und Filtern. Vorne Max. Punkte, Max. Kolonie, ASW-Punkte, Verkaufspreis, Max. Nest und Formicarium sowie Platzbedarf in Regalplätzen; in den Details Polygynie (Rechner), Freischaltung, Fundorte, Futter, Entwicklungszeiten und eine Galerie der Bilder je Wachstumsstufe (lädt erst beim Aufklappen).
+  - *Vergleich*: alle Arten, umschaltbar zwischen *Alle*, *im Shop kaufbar* und *nicht im Shop*, mit Kategorie-Filter; Punkte und Geld pro Tag, Regalplätze, ASW-Spalten. Sortierbar (zweiter Klick kehrt um).
   - *Wohnungen*: in Spielreihenfolge, sortierbar nach Punkten, Preis, Plätzen und € je Platz.
   - *Forschungsbaum*: als Grafik und als Stufentabellen.
-  - *Ziele & Bonus*, *Jobs* (Karten mit Dauer, Lohn, Stundenlohn, Freischaltung), *Futter* (sortier- und filterbar, Shop-Packungen mit Preis pro g) und *Info*.
-  - Ein Schalter zeigt die Werte des Speedservers. Die Bilder lädt das Skript vom Spielserver; unter Info → Bildersuche lässt sich per Button prüfen, welche vorhanden sind.
+  - *Ziele & Bonus*, *Jobs* (Karten mit Dauer, Lohn, Stundenlohn, Freischaltung; auch der Weihnachtsmann-Job), *ASW* (Aktionen der Ameisenschutzwarte mit Kosten und ASW-Punkten) und *Futter* (sortier- und filterbar, Shop-Packungen mit Preis pro g, Rubrik *Relikte* mit dem Osterei, Abschnitt *Frühere Events*).
+  - *Sammlung*: alle 35 Arten zum Abhaken (open → ready → active → done) mit Fortschritt. *Alle Stati einlesen* liest Profil (ausgewachsene Kolonien) und Lager aus und zeigt eine Vorschau; übernommen wird per Klick, nichts wird herabgestuft. Export fürs Spielerprofil (BBCode). Getrennt je Server, in Export/Import und im WebDAV-Abgleich enthalten.
+  - *Abzeichen*: bekannte Abzeichen nach Gruppen (Kolonien, Top 3 der Statistik, ASW, Sonstige).
+  - *Info*: Quellen und Hinweise. Die Bilder lädt das Skript vom Spielserver. Die Bildersuche dort ist ein Entwickler-Werkzeug und wird vor v34 entfernt.
+  - Ein Schalter zeigt die Werte des Speedservers.
+- *Spielhilfe überall zugänglich*: Link *openEBA: Spielhilfe* in der Seitenleiste jeder Seite, unter den Bookmarks (setzt die Spielhilfe im Lexikon voraus).
 
 ### Komfort
 - *Auto-Reload ausschalten*: Keine automatische Neuladung nach Ende eines Jobs oder einer Forschung.
 - *Am Ende des Countdowns einen Sound abspielen*
-- *Jobs/Forschungen mit Informationen anreichern*: Stundenlohn und Dauer; bei den Suchen die Endzeit in der Auswahl der Dauer.
+- *Jobs/Forschungen mit Informationen anreichern*: Stundenlohn und Dauer; bei den Suchen die Endzeit in der Auswahl der Dauer. Die laufende Aktion (Startseite „Momentane Aktion“, Arbeitsamt, Forschung) zeigt ihre Endzeit, laufende Jobs zusätzlich den Stundenlohn.
 - *Forschungsstufe um 1 verringern*: Korrigiert die angezeigte Stufe.
+- *Auf Spielerprofilen zur vorherigen/nächsten ID blättern (Links)*: Links *vorherige ID* / *nächste ID* neben dem Spielernamen, ohne automatische Abrufe. Die Tasten Q / E für dasselbe sind eine eigene Option (Entwickler-Werkzeug).
 - *Notizblock*: Lokaler Notizblock.
 - *Bookmarks einblenden*: Eigene Links im Navigationsmenü.
 - *GUI anpassen*: Breiten, kein Zeilenumbruch in den Kleinanzeigen, Meldungen im Kopf.
 - *Schnee*: Dekoration.
+- Versionsanzeige: Oben auf der Einstellungsseite steht „openEBA Version X“.
 
 ### Daten und Sync
 - *Historien per WebDAV/Nextcloud zwischen Geräten abgleichen*: Gleicht die Verläufe mehrerer Geräte ab (siehe unten).
@@ -87,8 +96,7 @@ Die Konfiguration steht auf der Statistik-Seite des Spiels unter *openEBA*. Die 
 ## Daten und Datenschutz
 
 - Alle Daten liegen lokal im Speicher von Tampermonkey. Ohne WebDAV-Abgleich verlassen sie den Browser nicht.
-- Die vier Server sind vollständig getrennt (Historien, Preise, Auswahlen): Normal, Speed, Test (Normal) und Test (Speed).
-- Das Skript läuft auf vier Servern, die getrennt gespeichert werden: Normal (`eatenbyants.de`, `www.eatenbyants.de`), Speed (`speed.eatenbyants.de`), Test (Normal) (`test.eatenbyants.de`) und Test (Speed) (`testspeed.eatenbyants.de`). Die Test-Server rechnen wie ihr Gegenstück (Tick 60 bzw. 12 Minuten). Auf anderen Subdomains (z.B. `forum.`) tut es nichts und speichert nichts. Die bisherigen Daten von Normal und Speed bleiben unverändert.
+- Das Skript läuft auf vier Servern, die vollständig getrennt gespeichert werden (Historien, Preise, Auswahlen, Sammlung): Normal (`eatenbyants.de`, `www.eatenbyants.de`), Speed (`speed.eatenbyants.de`), Test (Normal) (`test.eatenbyants.de`) und Test (Speed) (`testspeed.eatenbyants.de`). Die Test-Server rechnen wie ihr Gegenstück (Tick 60 bzw. 12 Minuten). Auf anderen Subdomains (z.B. `forum.`) tut es nichts und speichert nichts. Die bisherigen Daten von Normal und Speed bleiben unverändert.
 - Zeiten richten sich nach der Uhr des Spielservers (deutsche Zeit), nicht nach Uhr oder Zeitzone des PCs. Alle Zeitangaben erscheinen in deutscher Zeit, auch wenn der PC z.B. im Urlaub auf eine andere Zeitzone gestellt ist; Daten verschiedener Geräte passen so zusammen. Das gilt auch für Endzeiten, Zeitraumfilter, Punkte pro Stunde und den WebDAV-Abgleich.
 - *Exportieren* / *Importieren* sichert und überträgt die Daten (optional nur für den aktuellen Server). Die WebDAV-Zugangsdaten sind nicht enthalten.
 - *Nur die Daten dieses Servers löschen* und *Alle gespeicherten Daten löschen* setzen zurück, jeweils mit Rückfrage.
