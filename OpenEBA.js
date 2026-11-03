@@ -8,7 +8,7 @@
 // @include        https://*.eatenbyants.de/*
 // @exclude        http://forum.eatenbyants.de/*
 // @exclude        https://forum.eatenbyants.de/*
-// @version        34.4
+// @version        34.5
 // @require        http://ajax.googleapis.com/ajax/libs/jquery/1/jquery.min.js
 // @grant          GM_getValue
 // @grant          GM_setValue
@@ -18,7 +18,7 @@
 // ==/UserScript==
 
 // Fallback für die angezeigte Skriptversion, falls GM_info fehlt (bei Versionserhöhung mit @version angleichen).
-const EBA_VERSION_FALLBACK = "34.4";
+const EBA_VERSION_FALLBACK = "34.5";
 function ebaScriptVersion() {
   try { if (typeof GM_info !== "undefined" && GM_info && GM_info.script && GM_info.script.version) { return String(GM_info.script.version); } } catch (e) { /* ignorieren */ }
   return EBA_VERSION_FALLBACK;
@@ -7338,7 +7338,16 @@ var ebaShNodes = [
     "research_teflon.jpg", "research_teflonbeschichtung.jpg", "research_fluonbeschichtung.jpg",
     "research_fluonschutz.jpg", "research_barriere.jpg", "research_barriere2.jpg",
     "research_ausbruchkante.jpg", "research_kante.jpg", "research_ausbruchsicherung2.jpg",
-    "research_Ausbruchschutz.jpg", "research_Ausbruch.jpg"
+    "research_Ausbruchschutz.jpg", "research_Ausbruch.jpg",
+    "research_AusbruchSchutz.jpg", "research_AusbruchSicherung.jpg", "research_AusbruchVerhinderung.jpg",
+    "research_EscapeProtection.jpg", "research_EscapePrevention.jpg", "research_FluonSchutz.jpg",
+    "research_FluonBeschichtung.jpg", "research_TeflonBeschichtung.jpg", "research_AntiAusbruch.jpg",
+    "research_AusbruchGleitmittel.jpg", "research_AusbruchKante.jpg", "research_AusbruchSchutzmittel.jpg",
+    "research_Schutz.jpg", "research_Sicherung.jpg", "research_Gleitmittel.jpg",
+    "research_Teflon.jpg", "research_Fluon.jpg", "research_Barriere.jpg",
+    "research_Escape.jpg", "research_Protection.jpg", "research_Prevention.jpg",
+    "research_Kante.jpg", "research_Gitter.jpg", "research_Talkum.jpg",
+    "Research_ausbruch.jpg"
   ], "f", ["ausb"]],
   ["futt", "Futtertiere", ["research_futter.jpg"], "f", ["futt"]],
   ["bonus", "Forschungs-\nbonus", ["research_forschungsbonus.jpg"], "b", ["bonus"]],
@@ -7349,7 +7358,16 @@ var ebaShNodes = [
     "research_larve.jpg", "research_puppe.jpg", "research_ei.jpg",
     "research_insekt.jpg", "research_insekten.jpg", "research_biology_drawing.jpg",
     "research_ant_body.jpg", "research_bio_anatomie.jpg", "research_anatomy2.jpg",
-    "research_Biologie.jpg"
+    "research_Biologie.jpg",
+    "research_AmeisenBiologie.jpg", "research_AmeisenAnatomie.jpg", "research_AntBiology.jpg",
+    "research_AntAnatomy.jpg", "research_AmeisenLeben.jpg", "research_KoerperBau.jpg",
+    "research_AmeisenKunde.jpg", "research_AntBody.jpg", "research_AmeisenEntwicklung.jpg",
+    "research_LebensZyklus.jpg", "research_Bio.jpg", "research_Ameisen.jpg",
+    "research_Biology.jpg", "research_Anatomy.jpg", "research_Koerperbau.jpg",
+    "research_Systematik.jpg", "research_Lebenszyklus.jpg", "research_Entwicklung.jpg",
+    "research_Larve.jpg", "research_Puppe.jpg", "research_Insekt.jpg",
+    "research_Lebensweise.jpg", "research_Zoologie.jpg", "research_Anatomie.jpg",
+    "research_Ameisenkunde.jpg"
   ], "b", ["bio"]],
   ["hand", "Handwerkliches\nGeschick", ["research_werkzeug.jpg"], "h", ["hand"]],
   ["find", "Ameisen finden\nund bestimmen", ["research_ameisenfinden.jpg"], "a", ["find"]],
@@ -7367,7 +7385,16 @@ var ebaShNodes = [
     "research_formicarium_glas.jpg", "research_formicarium_kammer.jpg", "research_bauplan.jpg",
     "research_bauplan_formicarium.jpg", "research_formicariumbau2.jpg", "research_formicary2.jpg",
     "research_acrylformicarium.jpg", "research_formicarium_acryl.jpg", "research_Formicarienbau.jpg",
-    "research_Formicarium.jpg"
+    "research_Formicarium.jpg",
+    "research_FormicariumBau.jpg", "research_FormicarienBau.jpg", "research_FormicariumBauen.jpg",
+    "research_FormicariumAnleitung.jpg", "research_FormicaryBuilding.jpg", "research_FormicariumEinrichtung.jpg",
+    "research_FormikariumBau.jpg", "research_FormicariumGlas.jpg", "research_FormicariumAcryl.jpg",
+    "research_BauAnleitung.jpg", "research_Formikarium.jpg", "research_Formicarien.jpg",
+    "research_Formicary.jpg", "research_Bauplan.jpg", "research_Terrarium.jpg",
+    "research_Acryl.jpg", "research_Glas.jpg", "research_Einrichtung.jpg",
+    "research_Behaelter.jpg", "Research_formicarium.jpg", "Research_formikarium.jpg",
+    "Research_formicarien.jpg", "Research_formicary.jpg", "Research_bauplan.jpg",
+    "Research_terrarium.jpg"
   ], "h", ["form"]],
   ["nest", "Nestbau", [
     "research_nestbau3.jpg", "research_nest_material.jpg", "research_nestbau_material2.jpg",
@@ -7377,7 +7404,16 @@ var ebaShNodes = [
     "research_gaenge_bauen.jpg", "research_tunnel.jpg", "research_tunnelbau.jpg",
     "research_bodennest.jpg", "research_nest_untergrund.jpg", "research_nestbau_erde.jpg",
     "research_nest_beton.jpg", "research_zement.jpg", "research_kies.jpg",
-    "research_Nestbau.jpg", "research_Nest.jpg"
+    "research_Nestbau.jpg", "research_Nest.jpg",
+    "research_NestBau.jpg", "research_NestBuilding.jpg", "research_NestKammer.jpg",
+    "research_NestMaterial.jpg", "research_AntNest.jpg", "research_AmeisenNest.jpg",
+    "research_NestYtong.jpg", "research_NestBeton.jpg", "research_TunnelBau.jpg",
+    "research_NestHoehle.jpg", "research_BauMaterial.jpg", "research_Ytong.jpg",
+    "research_Gasbeton.jpg", "research_Beton.jpg", "research_Zement.jpg",
+    "research_Gips.jpg", "research_Lehm.jpg", "research_Kies.jpg",
+    "research_Erde.jpg", "research_Tunnel.jpg", "research_Gaenge.jpg",
+    "research_Kammer.jpg", "research_Nesthoehle.jpg", "Research_nest.jpg",
+    "Research_nestbau.jpg"
   ], "h", ["nest"]],
   ["asw", "Ameisen-\nschutzwarte", ["research_asw.jpg"], "j", ["asw"]],
   ["exot", "Exotische\nArten", ["research_ameisen_exotisch.jpg"], "a", ["exot"]],
@@ -7393,7 +7429,16 @@ var ebaShImgExtra = [
     "research_wc2.jpg", "research_wc_pumpel.jpg", "research_wcbuerste.jpg",
     "research_plunger2.jpg", "research_sauger.jpg", "research_gummisauger.jpg",
     "research_toilettenbuerste.jpg", "research_toilet_plunger.jpg", "research_toilet_pumpel.jpg",
-    "research_Kloputz.jpg", "research_Pumpel.jpg"
+    "research_Kloputz.jpg", "research_Pumpel.jpg",
+    "research_KloPutz.jpg", "research_KloPumpel.jpg", "research_PuempelAusruestung.jpg",
+    "research_PumpelAusruestung.jpg", "research_ToilettenPumpe.jpg", "research_ToilettenBuerste.jpg",
+    "research_WcBuerste.jpg", "research_GummiSauger.jpg", "research_ToiletPlunger.jpg",
+    "research_ToiletBrush.jpg", "research_RohrReiniger.jpg", "research_ToilettenReiniger.jpg",
+    "research_Puempel.jpg", "research_Plunger.jpg", "research_Toilette.jpg",
+    "research_Wc.jpg", "research_Klobuerste.jpg", "research_Sauger.jpg",
+    "research_Klo.jpg", "research_Reiniger.jpg", "research_Gummi.jpg",
+    "research_Abfluss.jpg", "research_Rohr.jpg", "Research_kloputz.jpg",
+    "Research_pumpel.jpg"
   ], "j", []],
   ["jv", "Jobverbesserung:\nVerhaltensforscher", [
     "research_verhaltensforscher2.jpg", "research_verhalten2.jpg", "research_lehrbuch2.jpg",
@@ -7401,7 +7446,16 @@ var ebaShImgExtra = [
     "research_forschungsbuch.jpg", "research_studienbuch.jpg", "research_fachbuecher.jpg",
     "research_notizen.jpg", "research_beobachtungen.jpg", "research_kamera.jpg",
     "research_videokamera.jpg", "research_fernglas.jpg", "research_stoppuhr.jpg",
-    "research_labor.jpg", "research_ethologe.jpg", "research_Verhaltensforscher.jpg"
+    "research_labor.jpg", "research_ethologe.jpg", "research_Verhaltensforscher.jpg",
+    "research_VerhaltensForscher.jpg", "research_LehrBuch.jpg", "research_VerhaltensStudie.jpg",
+    "research_VerhaltensForschung.jpg", "research_StudienBuch.jpg", "research_ForschungsBuch.jpg",
+    "research_FachBuch.jpg", "research_FachBuecher.jpg", "research_NotizBuch.jpg",
+    "research_BehaviorStudy.jpg", "research_EthologyBook.jpg", "research_Verhalten.jpg",
+    "research_Lehrbuch.jpg", "research_Lehrbuecher.jpg", "research_Buch.jpg",
+    "research_Studie.jpg", "research_Behavior.jpg", "research_Ethology.jpg",
+    "research_Ethologie.jpg", "research_Notizen.jpg", "research_Fernglas.jpg",
+    "research_Kamera.jpg", "research_Labor.jpg", "research_Buecher.jpg",
+    "research_Forschung.jpg"
   ], "j", []],
   ["jf", "Jobverbesserung:\nGabelstaplerschein", ["research_gabelstapler.jpg"], "j", []],
   // Weiteres Bild (nur Bildersuche): zweites Bild von Handwerkliches Geschick (Stufe 2); neue Kandidaten, siehe BILDERSUCHE_GEPRUEFT.md
@@ -7412,7 +7466,16 @@ var ebaShImgExtra = [
     "research_craft_2.jpg", "research_tools2.jpg", "research_tools_2.jpg",
     "research_tool.jpg", "research_werkbank.jpg", "research_bohrmaschine.jpg",
     "research_schraube.jpg", "research_leim.jpg", "research_schere.jpg",
-    "research_Werkzeug.jpg"
+    "research_Werkzeug.jpg",
+    "research_WerkzeugStufe.jpg", "research_HandWerk.jpg", "research_HandWerkzeug.jpg",
+    "research_CraftTools.jpg", "research_WerkBank.jpg", "research_BohrMaschine.jpg",
+    "research_WerkzeugKasten.jpg", "research_WerkzeugSet.jpg", "research_Handwerk.jpg",
+    "research_Craft.jpg", "research_Crafting.jpg", "research_Tools.jpg",
+    "research_Hand.jpg", "research_Werkbank.jpg", "research_Basteln.jpg",
+    "research_Schraube.jpg", "research_Leim.jpg", "research_Schere.jpg",
+    "research_Bohrmaschine.jpg", "research_Zange.jpg", "research_Hammer.jpg",
+    "Research_werkzeug.jpg", "Research_handwerk.jpg", "Research_craft.jpg",
+    "Research_crafting.jpg"
   ], "x", []]
 ];
 // Raster von oben nach unten: id -> [Spalte, Zeile, eingerückt]. Zeile 0 = Zweige unter der Wurzel,
@@ -7814,7 +7877,7 @@ function ebaShAswTab() {
     + "<i>Statistik</i>, <i>Kolonie auswildern</i>, <i>ehemalige Kolonien</i> und <i>Aktionen</i>. Die Mitgliedschaft schaltet die Forschung <i>Ameisenschutzwarte (ASW)</i> frei (siehe Forschungsbaum). "
     + "<b>ASW-Punkte</b> erh&auml;ltst du, indem du Kolonien auswilderst (<i>Kolonie auswildern</i>); f&uuml;r nicht einheimische Arten f&auml;llt dabei eine Geb&uuml;hr an. "
     + "Wie viele Punkte welche Art bringt, steht in den Ameisen-Karten und im Vergleich (Spalte ASW-Punkte). "
-    + "<b>Faustformel:</b> ASW-Punkte &asymp; 1,57 &times; &#8731;(Punkte der ausgewachsenen Kolonie); sie stimmt bei Arten bis ca. 75.000 Punkte auf &plusmn;1; bei sehr gro&szlig;en Kolonien liegt der echte Wert h&ouml;her (bis +11).</p>"
+    + "<b>Formel:</b> ASW-Punkte = &lfloor;&radic;(&radic;P / 7 + P / 5000) &times; 10 &minus; 6&rfloor; (abgerundet, mindestens 1), dabei ist P die Punktzahl der Kolonie.</p>"
     + "<p class='sh-note'><b>Dauer:</b> Die Angaben im Spiel gelten f&uuml;r den Normalserver. "
     + (speed ? "Der Schalter &bdquo;Speedserver-Werte&ldquo; ist an: die Dauern sind mit Faktor 1/5 umgerechnet (wie bei den Jobs), die Kosten bleiben gleich. "
              : "Mit dem Schalter &bdquo;Speedserver-Werte&ldquo; oben werden die Dauern mit Faktor 1/5 umgerechnet (wie bei den Jobs), die Kosten bleiben gleich. ")
