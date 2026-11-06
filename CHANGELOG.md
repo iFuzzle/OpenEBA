@@ -4,6 +4,7 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
 
 ## Seit dem Fork
 
+- **34.6 Shop-Menü:** Der Spielhilfe-Link steht im Ameisenshop jetzt als letzter Eintrag nach „Ankauf“ (das Spiel hat zwei Menüblöcke mit derselben id `shopmenucats`; vorher landete „Ankauf“ unter dem Link).
 - **34.5 ASW-Formel:** Die Spielhilfe (Reiter ASW) nennt jetzt die exakte Formel für ASW-Punkte: ⌊√(√P/7 + P/5000) · 10 − 6⌋ (P = Punktzahl der Kolonie, abgerundet, mindestens 1); sie trifft alle 84 geprüften Kolonien.
 - **34.5 Bildersuche:** 175 weitere Kandidaten mit Großbuchstaben-Varianten (je 25 für Ausbruchschutz, Biologie, Formicarienbau, Nestbau, Handwerk Stufe 2, Kloputz- und Verhaltensforscher-Verbesserung).
 - **34.4 Speed-Brutdauer:** Im Arten-Steckbrief der Spielhilfe zeigt „Entwicklung (Lexikon)“ (Ei/Larve/Puppe und Summe) bei eingeschaltetem Speedserver-Schalter jetzt die Speed-Werte (Normalwert / 5, z. B. 4 / 7 / 3,6 h) statt der Normalserver-Stunden.

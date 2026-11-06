@@ -8,7 +8,7 @@
 // @include        https://*.eatenbyants.de/*
 // @exclude        http://forum.eatenbyants.de/*
 // @exclude        https://forum.eatenbyants.de/*
-// @version        34.5
+// @version        34.6
 // @require        http://ajax.googleapis.com/ajax/libs/jquery/1/jquery.min.js
 // @grant          GM_getValue
 // @grant          GM_setValue
@@ -18,7 +18,7 @@
 // ==/UserScript==
 
 // Fallback für die angezeigte Skriptversion, falls GM_info fehlt (bei Versionserhöhung mit @version angleichen).
-const EBA_VERSION_FALLBACK = "34.5";
+const EBA_VERSION_FALLBACK = "34.6";
 function ebaScriptVersion() {
   try { if (typeof GM_info !== "undefined" && GM_info && GM_info.script && GM_info.script.version) { return String(GM_info.script.version); } } catch (e) { /* ignorieren */ }
   return EBA_VERSION_FALLBACK;
@@ -3881,7 +3881,9 @@ function ebaLexikonFoodLife() {
 // Spielhilfe-Link in der Seitenleiste jeder Seite (nicht auf lexikon.php, dort fügt enableSpielhilfe ihn ein)
 function ebaSpielhilfeEverywhere() {
   if (/lexikon\.php$/.test(location.pathname) || !GM_getValue("eba_enable_spielhilfe", false)) { return; }
-  var host = $("#shopmenucats").first();
+  // Im Shop gibt es zwei Blöcke mit id shopmenucats (Kategorien, dann Ankauf): ans Ende des letzten
+  var host = $("div[id=shopmenucats]").last();
+  if (!host.length) { host = $("#shopmenucats").first(); }
   if (!host.length || $("#eba_sh_start").length) { return; }
   host.append("<hr style='margin:6px 0'>").append("<a id='eba_sh_start' href='/lexikon.php#eba-spielhilfe'>openEBA: Spielhilfe</a>");
 }
