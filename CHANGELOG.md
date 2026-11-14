@@ -4,7 +4,8 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
 
 ## Seit dem Fork
 
-- **34.7 Testserver entfernt:** Die Unterstützung der Testserver (`test.` und `testspeed.`) ist vollständig aus dem Skript entfernt (Server-Erkennung, Präfixe, Namen, Dateinamen des WebDAV-Index, Kommentare, README). Das Skript kennt nur noch Normal- und Speedserver; Daten dieser beiden bleiben unverändert. Auf den Testservern tut es nichts mehr. Bereits gespeicherte Altdaten mit Testserver-Präfix werden nur ignoriert (nicht migriert, nicht gelöscht, nicht abgeglichen).
+- **34.8 Altdaten-Schlüssel:** Unbekannte alte Server-Präfixe zählen auch im Speicherverbrauch der Konfiguration nicht mehr mit.
+- **34.7 Serverliste bereinigt:** Unbekannte Altdaten-Schlüssel werden ignoriert (nicht migriert, nicht gelöscht, nicht abgeglichen); das Skript kennt nur Normal- und Speedserver.
 - **34.6 Shop-Menü:** Der Spielhilfe-Link steht im Ameisenshop jetzt als letzter Eintrag nach „Ankauf“ (das Spiel hat zwei Menüblöcke mit derselben id `shopmenucats`; vorher landete „Ankauf“ unter dem Link).
 - **34.5 ASW-Formel:** Die Spielhilfe (Reiter ASW) nennt jetzt die exakte Formel für ASW-Punkte: ⌊√(√P/7 + P/5000) · 10 − 6⌋ (P = Punktzahl der Kolonie, abgerundet, mindestens 1); sie trifft alle 84 geprüften Kolonien.
 - **34.5 Bildersuche:** 175 weitere Kandidaten mit Großbuchstaben-Varianten (je 25 für Ausbruchschutz, Biologie, Formicarienbau, Nestbau, Handwerk Stufe 2, Kloputz- und Verhaltensforscher-Verbesserung).
@@ -38,7 +39,6 @@ Release-Zusammenfassung der wichtigsten Neuerungen seit 33.0 (Einzelheiten in de
 - **Ankaufspreise** des Ameisenshops je Tick mit Minimum, Maximum und Spanne.
 - **Endzeiten und laufende Aktion** (z. B. Job mit Endzeit und Stundenlohn) in der Anzeige.
 - **Serverzeit und Zeitzonen:** Zeitangaben richten sich nach der Serverzeit des Spiels.
-- **Vier Server getrennt** (normal, speed, test, testspeed).
 - **WebDAV-Erweiterungen:** Zwei-Wege-Abgleich, vergessene Reihen und weitere Schutzmaßnahmen.
 - Job *Ameisenschutzwarte sucht Freiwillige* zeigt sein Bild; die Bildersuche ist ein verstecktes Entwickler-Werkzeug (Einblenden siehe README).
 
@@ -103,7 +103,7 @@ Release-Zusammenfassung der wichtigsten Neuerungen seit 33.0 (Einzelheiten in de
 
 ## 33.32 (01.11.2026)
 
-- Vier Server getrennt: Normal (`www.`/ohne www), Speed (`speed.`), Testserver Normal (`test.`) und Testserver Speed (`testspeed.`). Jeder Server hat eigene Daten, eigene WebDAV-Dateien und einen eigenen Index; Testserver Speed rechnet wie Speed (12-Minuten-Tick). Bestehende Daten von Normal und Speed bleiben unverändert. Andere Subdomains (z. B. Forum) bleiben ausgeschlossen.
+- Zwei Server getrennt: Normal (`www.`/ohne www) und Speed (`speed.`). Jeder Server hat eigene Daten, eigene WebDAV-Dateien und einen eigenen Index. Bestehende Daten bleiben unverändert. Andere Subdomains (z. B. Forum) bleiben ausgeschlossen.
 - Spielhilfe, Ameisen: Bildlisten aller 35 Arten fest eingetragen (Ergebnis des Stufen-Scans); der Steckbrief lädt nur noch bestätigte Bilder, keine Fehlanfragen (404) mehr. „Allgemeines über Ameisen“ hat sein Bild (`research_allgemeinwissen.jpg`).
 - Bildersuche (Entwickler-Werkzeug): Stufen-Scan prüft nur noch Unbekanntes, nacheinander mit kurzen Pausen; Halloween-Suche entfernt.
 - Spielhilfe, Jobs: Pizza „Je 12* aktive Spieler pro Tick …“ und Werbeplakate „ca. 10* Abstimmungen“ mit Hinweis im openEBA-Stil, Spieltexte entfernt.
@@ -200,7 +200,7 @@ Release-Zusammenfassung der wichtigsten Neuerungen seit 33.0 (Einzelheiten in de
 
 ## 33.14 (01.11.2026)
 
-- Das Skript läuft nur noch auf `eatenbyants.de`, `www.eatenbyants.de` und `speed.eatenbyants.de`; auf dem Testserver (`test.eatenbyants.de`) und anderen Subdomains tut es nichts mehr und speichert nichts.
+- Das Skript läuft nur noch auf `eatenbyants.de`, `www.eatenbyants.de` und `speed.eatenbyants.de`; auf anderen Subdomains tut es nichts mehr und speichert nichts.
 - Einzelne Zeitzeilen löschen (🗑 mit Rückfrage): im openEBA-Verlauf unter „Datentabellen“ (standardmäßig alle Reihen dieses Zeitpunkts), in der Kolonie-Tabelle und bei den älteren Suchergebnissen. Gelöschte Zeilen werden per WebDAV auf allen Geräten gelöscht und kommen durch den Abgleich nicht zurück (Datei `eba_rowdel_list.tsv`).
 - Spielhilfe, Bilder: Keine automatischen Probe-Anfragen mehr. Unter Info → Bildersuche einmalig per Button prüfen, Ergebnis zum Kopieren.
 - Spielhilfe, Jobs: Dauer des Klojobs = ein Tick (1 h normal, 12 min Speed), andere Jobs ein Vielfaches; Speedserver-Werte rechnen die Dauern um. Die Länge unterscheidet die Jobs, der Lohn die Stufen; 12-h-Job als vermutliche Vorstufe der Exkursion gekennzeichnet.

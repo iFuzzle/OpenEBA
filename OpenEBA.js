@@ -8,7 +8,7 @@
 // @include        https://*.eatenbyants.de/*
 // @exclude        http://forum.eatenbyants.de/*
 // @exclude        https://forum.eatenbyants.de/*
-// @version        34.7
+// @version        34.8
 // @require        http://ajax.googleapis.com/ajax/libs/jquery/1/jquery.min.js
 // @grant          GM_getValue
 // @grant          GM_setValue
@@ -18,7 +18,7 @@
 // ==/UserScript==
 
 // Fallback für die angezeigte Skriptversion, falls GM_info fehlt (bei Versionserhöhung mit @version angleichen).
-const EBA_VERSION_FALLBACK = "34.7";
+const EBA_VERSION_FALLBACK = "34.8";
 function ebaScriptVersion() {
   try { if (typeof GM_info !== "undefined" && GM_info && GM_info.script && GM_info.script.version) { return String(GM_info.script.version); } } catch (e) { /* ignorieren */ }
   return EBA_VERSION_FALLBACK;
@@ -632,14 +632,14 @@ function ebaSrvFileName(key) { return key ? key.replace(/_$/, "") : "normal"; }
 // Zu welchem Server gehört ein gespeicherter Wert?
 // Alle servergetrennten Schlüssel haben die Form "<bereich>" + srvKey() + "<rest>",
 // der Server steckt also direkt hinter dem festen Bereichspräfix.
-// Rückgabe: "" (Normal), "speed_" oder null (gilt für alle).
+// Rückgabe: "" (Normal), "speed_", "alt_" (unbekannte alte Präfixe, ignoriert) oder null (gilt für alle).
 function keyServer(k) {
   for (var i = 0; i < EBA_SRV_PREFIXES.length; i++) {
     var p = EBA_SRV_PREFIXES[i];
     if (k.indexOf(p) === 0) {
       var rest = k.substr(p.length);
       if (rest.indexOf("speed_") === 0) { return "speed_"; }
-      // Altdaten früherer, nicht mehr unterstützter Server-Präfixe: weder Normal noch Speed, werden ignoriert
+      // unbekannte alte Server-Präfixe: weder Normal noch Speed, werden ignoriert
       if (/^test(speed)?_/.test(rest)) { return "alt_"; }
       return "";
     }
@@ -2893,6 +2893,7 @@ function historyStorageInfo() {
   var info = {chars: 0, series: 0, lines: 0};
   $.each(GM_listValues(), function(i, k) {
     if (k.indexOf("eba_") !== 0) { return; }
+    if (keyServer(k) === "alt_") { return; } // unbekannte alte Server-Präfixe: ignorieren
     var v = GM_getValue(k, "");
     var s = (typeof v === "string") ? v : "" + v;
     info.chars += s.length + k.length;
