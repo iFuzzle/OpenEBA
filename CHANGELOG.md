@@ -4,6 +4,7 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
 
 ## Seit dem Fork
 
+- **34.7 Testserver entfernt:** Die Unterstützung der Testserver (`test.` und `testspeed.`) ist vollständig aus dem Skript entfernt (Server-Erkennung, Präfixe, Namen, Dateinamen des WebDAV-Index, Kommentare, README). Das Skript kennt nur noch Normal- und Speedserver; Daten dieser beiden bleiben unverändert. Auf den Testservern tut es nichts mehr. Bereits gespeicherte Altdaten mit Testserver-Präfix werden nur ignoriert (nicht migriert, nicht gelöscht, nicht abgeglichen).
 - **34.6 Shop-Menü:** Der Spielhilfe-Link steht im Ameisenshop jetzt als letzter Eintrag nach „Ankauf“ (das Spiel hat zwei Menüblöcke mit derselben id `shopmenucats`; vorher landete „Ankauf“ unter dem Link).
 - **34.5 ASW-Formel:** Die Spielhilfe (Reiter ASW) nennt jetzt die exakte Formel für ASW-Punkte: ⌊√(√P/7 + P/5000) · 10 − 6⌋ (P = Punktzahl der Kolonie, abgerundet, mindestens 1); sie trifft alle 84 geprüften Kolonien.
 - **34.5 Bildersuche:** 175 weitere Kandidaten mit Großbuchstaben-Varianten (je 25 für Ausbruchschutz, Biologie, Formicarienbau, Nestbau, Handwerk Stufe 2, Kloputz- und Verhaltensforscher-Verbesserung).
