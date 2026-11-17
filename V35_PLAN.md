@@ -77,7 +77,7 @@ Abhängigkeiten: jQuery 1 (`@require`, ca. 470 `$(`-Aufrufe), `GM_getValue/setVa
 - [ ] Probleme sammeln (z. B. Mischung aus Optionen/Daten/Betriebszustand im selben Speicher, Präfix-Liste `EBA_SRV_PREFIXES` händisch gepflegt, `eba_dav_*`-Zustand neben Nutzerdaten, uneinheitliche Zeitreihenformate, Migrationen im Hauptpfad).
 - [ ] Optionen bewerten, jeweils mit Vor-/Nachteilen: (a) Format beibehalten, nur dokumentieren und kapseln (Speicher-Zugriffsschicht); (b) Schlüssel umbenennen/neu gruppieren; (c) **Breaking Change** mit neuem Gesamtformat.
 - [ ] Auswirkungen je Option auf: GM-Speicher/localStorage, Serverpräfixe, Export/Import (JSON), WebDAV-Abgleich (Dateinamen `<key>.tsv`, Index `eba_index_<srv>`, Löschliste `rowdel`), ältere Skriptversionen auf anderen Geräten (parallel laufende Versionen!).
-- [ ] Migrationsstrategie für bestehende Nutzerdaten entwerfen (einmalig, umkehrbar oder mit Sicherung vor Migration; Schema-Version 5; Verhalten bei WebDAV-Konflikt zwischen alten und neuen Geräten).
+- [ ] Migrationsstrategie für bestehende Nutzerdaten entwerfen (formatunabhängiger Vorplan, Anforderungen an das neue Format und offene Entscheidungen: siehe `V35_MIGRATION.md`, Abschnitte 3 und 10) (einmalig, umkehrbar oder mit Sicherung vor Migration; Schema-Version 5; Verhalten bei WebDAV-Konflikt zwischen alten und neuen Geräten).
 - [ ] **Diskussion mit dem Nutzer; kein Breaking Change ohne ausdrückliche Freigabe.**
 - [ ] Ergebnis: beschlossenes Datenmodell mit Migrationsplan und Testfällen (alte Daten → neu, Export/Import-Rundlauf, WebDAV-Rundlauf).
 
@@ -137,6 +137,7 @@ Reihenfolge (jeder Schritt: eigener Commit, Version +1 letzte Stelle, `CHANGELOG
 - [ ] 5.5 Seiten-Router einführen; Kleinfunktionen darauf umstellen (je Funktion ein kleiner Commit).
 - [ ] 5.6 Modul für Zeit/Server/Tick herauslösen (Grundlage).
 - [ ] 5.7 Datenserien, Merge, Export/Import ordnen; ggf. Datenmodell (Abschnitt 2) umsetzen inkl. Migration (`--webdav`-Tests).
+  - Migrationswerkzeug (Stufenkette F1→F2→F3, Backup/Vorschau, WebDAV-Neuablage mit Übergangsmodus): Arbeitspakete und Tests siehe `V35_MIGRATION.md`, Abschnitte 8 und 9.
 - [ ] 5.8 WebDAV-Block gliedern (Request, Validierung, Index, Löschliste, Lauf, UI); `--webdav`-Tests.
 - [ ] 5.9 Verlauf-Modul gliedern; Config-/Verlaufsseite nach Abschnitt 4.
 - [ ] 5.10 Spielhilfe: Daten (Konstanten) von Reitern trennen, Reiter als gleichförmige Module.
