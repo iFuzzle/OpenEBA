@@ -68,11 +68,12 @@ Die Konfiguration steht auf der Statistik-Seite des Spiels unter *openEBA*. Die 
   - *Vergleich*: alle Arten, umschaltbar zwischen *Alle*, *im Shop kaufbar* und *nicht im Shop*, mit Kategorie-Filter; Punkte und Geld pro Tag, Regalplätze, ASW-Spalten. Sortierbar (zweiter Klick kehrt um).
   - *Wohnungen*: in Spielreihenfolge, sortierbar nach Punkten, Preis, Plätzen und € je Platz.
   - *Forschungsbaum*: als Grafik und als Stufentabellen.
-  - *Ziele & Bonus*, *Jobs* (Karten mit Dauer, Lohn, Stundenlohn, Freischaltung; auch der Weihnachtsmann-Job), *ASW* (Aktionen der Ameisenschutzwarte mit Kosten und ASW-Punkten) und *Futter* (sortier- und filterbar, Shop-Packungen mit Preis pro g, Rubrik *Relikte* mit dem Osterei, Abschnitt *Frühere Events*).
+  - *Ziele & Bonus*, *Jobs* (Karten mit Dauer, Lohn, Stundenlohn, Freischaltung; auch der Weihnachtsmann-Job), *ASW* (Aktionen der Ameisenschutzwarte mit Kosten, ASW-Punkten und der exakten Formel für ASW-Punkte) und *Futter* (sortier- und filterbar, Shop-Packungen mit Preis pro g, Rubrik *Relikte* mit dem Osterei, Abschnitt *Frühere Events*).
   - *Sammlung*: alle 35 Arten zum Abhaken (open → ready → active → done) mit Fortschritt. *Alle Stati einlesen* liest Profil (ausgewachsene Kolonien) und Lager aus und zeigt eine Vorschau; übernommen wird per Klick, nichts wird herabgestuft. Export fürs Spielerprofil (BBCode). Getrennt je Server, in Export/Import und im WebDAV-Abgleich enthalten.
-  - *Abzeichen*: bekannte Abzeichen nach Gruppen (Kolonien, Top 3 der Statistik, ASW, Sonstige).
+  - *Abzeichen*: bekannte Abzeichen nach Gruppen (Kolonien, Top 3 der Statistik, ASW, Sonstige) sowie die Symbole für gesperrte Spieler und den Urlaubsmodus.
   - *Info*: Quellen und Hinweise. Die Bilder lädt das Skript vom Spielserver.
-  - Ein Schalter zeigt die Werte des Speedservers.
+  - Ein Schalter zeigt die Werte des Speedservers (auch die Brutdauern im Steckbrief).
+  - Im Ameisenshop steht der Link zur Spielhilfe als letzter Menüeintrag nach „Ankauf“.
 - *Spielhilfe überall zugänglich*: Link *openEBA: Spielhilfe* in der Seitenleiste jeder Seite, unter den Bookmarks (setzt die Spielhilfe im Lexikon voraus).
 
 ### Komfort
@@ -97,7 +98,7 @@ Die Konfiguration steht auf der Statistik-Seite des Spiels unter *openEBA*. Die 
 ## Daten und Datenschutz
 
 - Alle Daten liegen lokal im Speicher von Tampermonkey. Ohne WebDAV-Abgleich verlassen sie den Browser nicht.
-- Das Skript läuft auf vier Servern, die vollständig getrennt gespeichert werden (Historien, Preise, Auswahlen, Sammlung): Normal (`eatenbyants.de`, `www.eatenbyants.de`), Speed (`speed.eatenbyants.de`), Test (Normal) (`test.eatenbyants.de`) und Test (Speed) (`testspeed.eatenbyants.de`). Die Test-Server rechnen wie ihr Gegenstück (Tick 60 bzw. 12 Minuten). Auf anderen Subdomains (z.B. `forum.`) tut es nichts und speichert nichts. Die bisherigen Daten von Normal und Speed bleiben unverändert.
+- Das Skript läuft auf zwei Servern, die vollständig getrennt gespeichert werden (Historien, Preise, Auswahlen, Sammlung): Normal (`eatenbyants.de`, `www.eatenbyants.de`), und Speed (`speed.eatenbyants.de`). Auf anderen Subdomains (z.B. `forum.`) tut es nichts und speichert nichts. Die bisherigen Daten von Normal und Speed bleiben unverändert.
 - Zeiten richten sich nach der Uhr des Spielservers (deutsche Zeit), nicht nach Uhr oder Zeitzone des PCs. Alle Zeitangaben erscheinen in deutscher Zeit, auch wenn der PC z.B. im Urlaub auf eine andere Zeitzone gestellt ist; Daten verschiedener Geräte passen so zusammen. Das gilt auch für Endzeiten, Zeitraumfilter, Punkte pro Stunde und den WebDAV-Abgleich.
 - *Exportieren* / *Importieren* sichert und überträgt die Daten (optional nur für den aktuellen Server). Die WebDAV-Zugangsdaten sind nicht enthalten.
 - *Nur die Daten dieses Servers löschen* und *Alle gespeicherten Daten löschen* setzen zurück, jeweils mit Rückfrage.
@@ -129,7 +130,7 @@ Am Skript muss nichts geändert werden. Nur ein Skriptmanager, der fremde Hosts 
 - Zeilen mit unplausiblem Zeitstempel (z.B. von einem Gerät mit falsch gestellter Uhr) werden beim Abgleich verworfen und nicht hochgeladen.
 - Nach 401/403 hält der automatische Abgleich an, bis ein Verbindungstest oder ein manueller Abgleich klappt (Nextcloud sperrt sonst nach wiederholten Fehlanmeldungen die IP). Netz- und Serverfehler pausieren ihn 5, 15, dann 60 Minuten.
 - Wird lokal *Nur die Daten dieses Servers löschen* gedrückt, holt der nächste Abgleich die Reihen aus der Cloud zurück.
-- **Zwei-Wege-Abgleich:** Ein Gerät holt auch Reihen, die es noch nie gesehen hat. Dazu fragt jeder Lauf zuerst den Ordnerinhalt ab (WebDAV-`PROPFIND`, Tiefe 1) und liest die Index-Datei `eba_index_normal.tsv`, `eba_index_speed.tsv`, `eba_index_test.tsv` bzw. `eba_index_testspeed.tsv`. Jedes Gerät trägt dort seine Reihen ein; das ist der Ersatz, falls der Server `PROPFIND` verbietet (Verbindungstest zeigt, was geht). Ein neues Gerät holt nach *Verbindung testen* mit *Jetzt abgleichen* alle Reihen auf einmal (Fortschritt „x von y Reihen“). Der automatische Lauf holt noch nie abgeglichene Reihen in Portionen (bis zu rund 45 Requests je Tick) und fragt das Inventar höchstens alle 30 Minuten.
+- **Zwei-Wege-Abgleich:** Ein Gerät holt auch Reihen, die es noch nie gesehen hat. Dazu fragt jeder Lauf zuerst den Ordnerinhalt ab (WebDAV-`PROPFIND`, Tiefe 1) und liest die Index-Datei `eba_index_normal.tsv` bzw. `eba_index_speed.tsv`. Jedes Gerät trägt dort seine Reihen ein; das ist der Ersatz, falls der Server `PROPFIND` verbietet (Verbindungstest zeigt, was geht). Ein neues Gerät holt nach *Verbindung testen* mit *Jetzt abgleichen* alle Reihen auf einmal (Fortschritt „x von y Reihen“). Der automatische Lauf holt noch nie abgeglichene Reihen in Portionen (bis zu rund 45 Requests je Tick) und fragt das Inventar höchstens alle 30 Minuten.
 - **Vergessene Reihen (Tombstones):** *Vergessen* (ehemalige Kolonien) und *Kolonie umziehen* (alte ID löschen) tragen die Reihe als „vergessen“ in die Index-Datei ein. Alle Geräte ignorieren sie dann: weder holen noch hochladen. Die Datei der Reihe wird nie vom Server gelöscht, und ein Gerät, das die Reihe noch lokal hat, behält sie. Kennt ein Gerät das Formicarium noch als aktiv, ignoriert es den Marker. *Vergessene Reihen wieder zulassen* hebt alle Marker auf. Geräte mit älterer Skriptversion kennen die Marker nicht; sie laden ihre Reihe höchstens wie bisher hoch. Die Zeitstempel der Marker richten sich nach der Serverzeit des Spiels, nicht nach der PC-Uhr: auch bei falsch gehender PC-Uhr gewinnt die zuletzt ausgeführte Aktion (Geräte mit älterer Skriptversion stempeln noch mit ihrer PC-Uhr).
 
 ## Änderungen

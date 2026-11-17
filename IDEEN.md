@@ -12,16 +12,18 @@ Zusätzlich zum bestehenden Schnee-Effekt (Option *Schnee*) jahreszeitliche Effe
 - Die Dezember-Events kommen laut Community automatisch (2024 gab es einen Adventskalender im Spiel) – vor einem eigenen Winter-Skin erst abwarten, was das Spiel im Dezember selbst zeigt.
 - Weitere Jahreszeiten (Frühling, Sommer, Herbst, Ostern) als Ideen offen; Bilder dafür sind noch nicht bekannt (Ostern-Titelbilder nicht gefunden; Halloween gab es im Spiel nicht).
 
-## Release v34 (erledigt)
+## Offen nach v34
 
-- Bildersuche ist versteckt (nur per Konsole einblendbar, siehe README); Kandidatenliste leer.
-- Profil-Blättern (Links und Q/E) bleibt (Entscheidung des Nutzers).
-
-## Daten und Auswertungen
-
-- **Auswachszeit-Schätzung** für nicht kaufbare Arten: Faustformel Tage ≈ 6,6 × ln(max. Arbeiterinnen) (einheimisch/südeuropäisch) bzw. 8,7 × ln(…) (exotisch), typisch ±10 %, bis ±25 %. Vertagt, bis genug vollständig getrackte Verläufe vorliegen.
-- **Fundorte aus eigenen Funden:** Die gespeicherten Suchergebnisse je Ort auswerten und neben die Spielhilfe-Angaben stellen („selbst gefunden ✓“). Vertagt, bis mehr Suchdaten vorliegen.
-- **Polygynie-Zuwachs auf dem Speedserver** für Lasius fuliginosus und Cataglyphis velox nur über viele Messwerte bestimmbar.
+- **Auswachsprognose:** dW/dt = r·W·b, r ≈ 0,0052/h bei Stufe 12, Bremse ab 81 %, Restzeit-Formeln; braucht noch Daten für Pheidole und Camponotus.
+- **Verkaufserlös im Lager:** Erlös ≈ Punkte·(0,084 + 0,013·Grundpreis) für L. niger; offen: Skalierung mit der Koloniegröße, Einfluss des Nests.
+- **Job-Anzeige Pizza/ASW im Menü** (Idee eines anderen Spielers); Variante ohne Hintergrundabruf: Angebot beim Besuch der Jobseite merken.
+- **Fundorte aus eigenen Funden** (siehe unten, vertagt).
+- **Polygynie-Zuwachs auf dem Speedserver** (siehe unten, vertagt).
+- **Fehlende Forschungsbilder:** Bildersuche-Kandidaten im Spiel prüfen.
+- **Bildersuche entfernen?** Entscheidung offen (derzeit versteckt, nur per Konsole einblendbar).
+- **Profil-Blättern (Links und Q/E):** Beibehalten vom Nutzer noch zu bestätigen.
+- **Winter-Skin** (Dezember beobachten) und Saison-Effekte (siehe oben).
+- **Unbekannte Spieldaten:** Weihnachtsmann-Job, Werbeplakate stapelbar, Brut-Platzbedarf, Speed-Abzeichen ab Stufe 5.
 
 ## Bilder
 

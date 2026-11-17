@@ -8,7 +8,7 @@
 // @include        https://*.eatenbyants.de/*
 // @exclude        http://forum.eatenbyants.de/*
 // @exclude        https://forum.eatenbyants.de/*
-// @version        34.0
+// @version        34.8
 // @require        http://ajax.googleapis.com/ajax/libs/jquery/1/jquery.min.js
 // @grant          GM_getValue
 // @grant          GM_setValue
@@ -18,7 +18,7 @@
 // ==/UserScript==
 
 // Fallback für die angezeigte Skriptversion, falls GM_info fehlt (bei Versionserhöhung mit @version angleichen).
-const EBA_VERSION_FALLBACK = "34.0";
+const EBA_VERSION_FALLBACK = "34.8";
 function ebaScriptVersion() {
   try { if (typeof GM_info !== "undefined" && GM_info && GM_info.script && GM_info.script.version) { return String(GM_info.script.version); } } catch (e) { /* ignorieren */ }
   return EBA_VERSION_FALLBACK;
@@ -40,7 +40,7 @@ const EBA_HIST_FORMAT = 2;
 const EBA_HIST_MAX_LINES = 2000;
 
 // Bereichspräfixe aller servergetrennten Schlüssel. Direkt dahinter steht
-// srvKey(), also "", "speed_", "test_" oder "testspeed_". Siehe keyServer().
+// srvKey(), also "" oder "speed_". Siehe keyServer().
 // Bewusst NICHT hier: Optionen (eba_enable_*, eba_disable_*, eba_sort_*),
 // eba_shopfilter, eba_bookmarks, eba_note, eba_stock_items - die gelten für
 // alle Server.
@@ -167,9 +167,10 @@ const antcat = {
 //   n    = Platzbedarf im Nest bei a Arbeiterinnen            (Spalte M = C * Q)
 //   f    = Platzbedarf im Formicarium bei a Arbeiterinnen     (Spalte N = C * R)
 //   b    = Platzbedarf der Brut je Arbeiterin im Nest         (Spalte O), derzeit nicht verwendet
-// Punkte werden immer als Math.round(arbeiterinnen * p / a) gerechnet. Dadurch
-// bleiben alle Werte Ganzzahlen aus dem Blatt; die krummen Float-Werte der
-// Spalten Q/R (z.B. 7.0000000000000007E-2) kommen hier bewusst nicht vor.
+// Punkte werden immer als Math.floor(arbeiterinnen * p / a) gerechnet (das Spiel
+// rundet ab, an Messdaten belegt). Dadurch bleiben alle Werte Ganzzahlen aus
+// dem Blatt; die krummen Float-Werte der Spalten Q/R (z.B. 7.0000000000000007E-2)
+// kommen hier bewusst nicht vor.
 const antmax = {
   // --- Einheimische Arten (Blatt "Ameisen", Zeile 2) ---
   "Camponotus herculeanus":    { p: 5000, a: 10000, poly: false, n: 4000, f: 4000 },
@@ -182,7 +183,7 @@ const antmax = {
   "Lasius niger":              { p: 5000, a: 50000, poly: false, n: 5000, f: 7500 },
   "Myrmica rubra":             { p: 4000, a: 20000, poly: true, pn: 5000, ps: 10000, n: 3000, f: 4000 },
   "Myrmica ruginodis":         { p: 30000, a: 100000, poly: true, pn: 10000, ps: 80000, n: 20000, f: 20000 },
-  "Ponera coarctata":          { p: 2500, a: 125, poly: true, pn: 150, ps: 150, n: 6.25, f: 12.5 },
+  "Ponera coarctata":          { p: 2500, a: 125, poly: false, n: 6.25, f: 12.5 },
   "Solenopsis fugax":          { p: 125000, a: 250000, poly: false, n: 17500, f: 25000 },
   "Temnothorax nylanderi":     { p: 250, a: 250, poly: false, n: 12.5, f: 25 },
   // --- Südeuropäische Arten (Blatt "Ameisen", Zeile 17) ---
@@ -600,51 +601,46 @@ function getServerNow() {
   return now + diff;
 }
 
-// Vier Server, getrennt gespeichert: Normal (eatenbyants.de, www.), Speed (speed.),
-// TestNormal (test.) und TestSpeed (testspeed.). Alle anderen Hosts (z.B. forum.,
-// speedtest.) werden ignoriert, damit dort nichts in die gemeinsamen GM-Daten
+// Zwei Server, getrennt gespeichert: Normal (eatenbyants.de, www.) und Speed (speed.).
+// Alle anderen Hosts (z.B. forum.) werden ignoriert, damit dort nichts in die gemeinsamen GM-Daten
 // geschrieben wird. Die Prüfung im Code ist nötig, weil @include/@exclude bei
 // bestehenden Installationen erst nach einem Update gelten. Die Subdomain wird
 // verankert geprüft (frühere unverankerte Prüfung erkannte jedes "speed").
 function ebaHostAllowed(h) {
-  return /^(www\.|speed\.|test\.|testspeed\.)?eatenbyants\.de$/i.test(h === undefined ? location.hostname : h);
+  return /^(www\.|speed\.)?eatenbyants\.de$/i.test(h === undefined ? location.hostname : h);
 }
 var EBA_HOST_OK = ebaHostAllowed();
-// Server-Präfix zu einem Hostnamen: "" (Normal), "speed_", "test_", "testspeed_"
+// Server-Präfix zu einem Hostnamen: "" (Normal), "speed_"
 function ebaHostSrvKey(h) {
   h = h === undefined ? location.hostname : h;
-  if (/^testspeed\./i.test(h)) { return "testspeed_"; }
   if (/^speed\./i.test(h)) { return "speed_"; }
-  if (/^test\./i.test(h)) { return "test_"; }
   return "";
 }
-// "Speed-Regeln" (Tick 12 min, Jobdauer 1/5, Speed-Polygynie ...) gelten für Speed UND TestSpeed
-function isSpeedServer() { return /^(testspeed_|speed_)$/.test(ebaHostSrvKey()); }
-// Tick-Länge in Minuten: Normal/TestNormal = 60, Speed/TestSpeed = 12
+// "Speed-Regeln" (Tick 12 min, Jobdauer 1/5, Speed-Polygynie ...) gelten für den Speedserver
+function isSpeedServer() { return ebaHostSrvKey() === "speed_"; }
+// Tick-Länge in Minuten: Normal = 60, Speed = 12
 function getTickMinutes() { return isSpeedServer() ? 12 : 60; }
 // GM-Werte gelten für alle Subdomains, daher eigener Präfix je Server
 function srvKey() { return ebaHostSrvKey(); }
 // Klartextname zu einem Server-Präfix, für Dialoge und Anzeigen
 function srvName(key) {
-  return key === "speed_" ? "Speedserver" : key === "test_" ? "Testserver (Normal)"
-    : key === "testspeed_" ? "Testserver (Speed)" : "Normalserver";
+  return key === "speed_" ? "Speedserver" : "Normalserver";
 }
-// Kurzname für Dateinamen (WebDAV-Index): normal, speed, test, testspeed
+// Kurzname für Dateinamen (WebDAV-Index): normal, speed
 function ebaSrvFileName(key) { return key ? key.replace(/_$/, "") : "normal"; }
 
 // Zu welchem Server gehört ein gespeicherter Wert?
 // Alle servergetrennten Schlüssel haben die Form "<bereich>" + srvKey() + "<rest>",
 // der Server steckt also direkt hinter dem festen Bereichspräfix.
-// Rückgabe: "" (Normal), "speed_", "test_", "testspeed_" oder null (gilt für alle).
+// Rückgabe: "" (Normal), "speed_", "alt_" (unbekannte alte Präfixe, ignoriert) oder null (gilt für alle).
 function keyServer(k) {
   for (var i = 0; i < EBA_SRV_PREFIXES.length; i++) {
     var p = EBA_SRV_PREFIXES[i];
     if (k.indexOf(p) === 0) {
       var rest = k.substr(p.length);
-      // "testspeed_" vor "speed_" und "test_" prüfen; ein Präfix ist nie Teilstück eines anderen
-      if (rest.indexOf("testspeed_") === 0) { return "testspeed_"; }
       if (rest.indexOf("speed_") === 0) { return "speed_"; }
-      if (rest.indexOf("test_") === 0) { return "test_"; }
+      // unbekannte alte Server-Präfixe: weder Normal noch Speed, werden ignoriert
+      if (/^test(speed)?_/.test(rest)) { return "alt_"; }
       return "";
     }
   }
@@ -2326,7 +2322,7 @@ function migrateMisfiledSearches() {
 var EBA_COLL_STATES = ["open", "ready", "active", "done"];
 var EBA_COLL_MAX = 2000;
 function ebaCollKey() { return "eba_collection_" + srvKey() + "ants"; }
-function ebaIsCollKey(k) { return typeof k === "string" && /^eba_collection_(speed_|test_|testspeed_)?ants$/.test(k); }
+function ebaIsCollKey(k) { return typeof k === "string" && /^eba_collection_(speed_)?ants$/.test(k); }
 
 // Zeilen aus text in die Map dict ("k"+Art -> {name, st, ts}) einarbeiten
 function ebaCollParseInto(dict, text) {
@@ -2571,7 +2567,7 @@ function ebaRowDelSeriesAt(minute) {
 }
 // Lesbarer Name einer Reihe für Rückfragen
 function ebaRowDelLabel(key) {
-  var rest = key.replace(/^eba_(hist|statistic|food)_(testspeed_|speed_|test_)?/, "");
+  var rest = key.replace(/^eba_(hist|statistic|food)_(speed_)?/, "");
   if (key.indexOf("eba_hist_") === 0) {
     var names = { money: "Geld", points: "Punkte", tickdur: "Ticklänge", foodsearch: "Futtersuchen", antsearch: "Ameisensuchen",
       stock_food: "Lager Futter", stock_acc: "Lager Zubehör", stock_nest: "Lager Nester", stock_furn: "Lager Möbel", stock_ants: "Lager Ameisen", shopprice: "Ankaufspreise" };
@@ -2897,6 +2893,7 @@ function historyStorageInfo() {
   var info = {chars: 0, series: 0, lines: 0};
   $.each(GM_listValues(), function(i, k) {
     if (k.indexOf("eba_") !== 0) { return; }
+    if (keyServer(k) === "alt_") { return; } // unbekannte alte Server-Präfixe: ignorieren
     var v = GM_getValue(k, "");
     var s = (typeof v === "string") ? v : "" + v;
     info.chars += s.length + k.length;
@@ -3880,7 +3877,9 @@ function ebaLexikonFoodLife() {
 // Spielhilfe-Link in der Seitenleiste jeder Seite (nicht auf lexikon.php, dort fügt enableSpielhilfe ihn ein)
 function ebaSpielhilfeEverywhere() {
   if (/lexikon\.php$/.test(location.pathname) || !GM_getValue("eba_enable_spielhilfe", false)) { return; }
-  var host = $("#shopmenucats").first();
+  // Im Shop gibt es zwei Blöcke mit id shopmenucats (Kategorien, dann Ankauf): ans Ende des letzten
+  var host = $("div[id=shopmenucats]").last();
+  if (!host.length) { host = $("#shopmenucats").first(); }
   if (!host.length || $("#eba_sh_start").length) { return; }
   host.append("<hr style='margin:6px 0'>").append("<a id='eba_sh_start' href='/lexikon.php#eba-spielhilfe'>openEBA: Spielhilfe</a>");
 }
@@ -4292,7 +4291,7 @@ function enableConfig() {
     //Reset: beide Varianten fragen vorher nach, weil hier Monate an Historie hängen
     $("#eba_config_reset").on("click", function(e) {
       if (!window.confirm("ALLE gespeicherten openEBA-Daten werden unwiderruflich gelöscht - "
-        + "und zwar für ALLE Server (Normal, Speed, Test), weil der Speicher "
+        + "und zwar für ALLE Server (Normal, Speed), weil der Speicher "
         + "für alle eatenbyants.de-Adressen derselbe ist.\n\n"
         + "Betroffen sind sämtliche Historien (Formicarien, Futter, Geld, Punkte, "
         + "Ticklänge, Suchen) sowie alle Optionen, Filter, Bookmarks und Notizen.\n\n"
@@ -4359,7 +4358,7 @@ function initSnow(){
 // Spielhilfe-Excel steht in Spalte B die Formel PRODUCT(C,P), also
 // Punkte = Arbeiterinnen * Pt/Arbeiterin. Daraus folgt für eine Kolonie mit
 // mehr Arbeiterinnen als dem Einzelköniginnen-Maximum:
-//   Punkte = Math.round(Arbeiterinnen * p / a)
+//   Punkte = Math.floor(Arbeiterinnen * p / a)
 // Beide Operanden sind Ganzzahlen aus dem Blatt, deshalb genau diese Form und
 // nicht arbeiterinnen * (p/a) -- sonst schlägt die Gleitkomma-Ungenauigkeit
 // der Division durch.
@@ -4432,7 +4431,7 @@ function ebaMaxPoints(kind, queens, speed) {
     return { points: e.p, ants: e.a, poly: true, queens: 1, grow: null, ratio: ratio, base: e.a, unknown: false };
   }
   var ants = e.a + (q - 1) * z;
-  return { points: Math.round(ants * e.p / e.a), ants: ants, poly: true, queens: q,
+  return { points: Math.floor(ants * e.p / e.a), ants: ants, poly: true, queens: q,
            grow: z, ratio: ratio, base: e.a, unknown: false };
 }
 
@@ -5079,7 +5078,7 @@ function davKind(key) {
   if (key.indexOf("eba_statistic_") === 0) { return "formi"; }
   if (key.indexOf("eba_food_") === 0) { return "food"; }
   if (/_(foodsearch|antsearch)$/.test(key)) { return "search"; }
-  if (/^eba_hist_(speed_|test_|testspeed_)?(stock_(food|acc|nest|furn|ants)|shopprice)$/.test(key)) { return "stock"; }
+  if (/^eba_hist_(speed_)?(stock_(food|acc|nest|furn|ants)|shopprice)$/.test(key)) { return "stock"; }
   return "hist";
 }
 // Sammlung bereinigen: Zeilen mit unplausiblem Zeitstempel fliegen raus (Rückgabe kanonischer Text)
@@ -5248,13 +5247,13 @@ function davSetBad(key, bad) {
 }
 
 // Schlüssel, der als Datei im Ordner liegen darf: Zeitreihe des aktuellen Servers.
-// (Präfix-Falle: eba_hist_ ist auch Präfix von eba_hist_speed_/_test_/_testspeed_; der Name wird Dateiname.)
+// (Präfix-Falle: eba_hist_ ist auch Präfix von eba_hist_speed_; der Name wird Dateiname.)
 function davKeyValid(k) {
   return typeof k === "string" && (isHistoryKey(k) || ebaIsCollKey(k)) && keyServer(k) === srvKey() && /^[a-z0-9_]+$/.test(k);
 }
 
 // ---------------------------------------------------------------------------
-// Index-Datei eba_index_<normal|speed|test|testspeed>.tsv im Ordner
+// Index-Datei eba_index_<normal|speed>.tsv im Ordner
 //
 // Sie hat zwei Aufgaben:
 //  1. Inventar, falls der Server PROPFIND (Dateiliste) nicht erlaubt: jedes
@@ -6820,7 +6819,7 @@ $(window).on("hashchange", function() {
 // ebaShFood:  [Name, Preis, Menge, Art, Zersetzung %, Vermehrung, züchtbar]
 // ebaShTree:  [id, Titel, Voraussetzung, Hinweis, Stufen]; Stufe = [Bezeichnung, Punkte, Kosten,
 //             Dauer in Minuten (Normalserver; Speed = Minuten * 12 Sekunden), Voraussetzung, Sonstiges]
-const ebaShAnts = {"Camponotus herculeanus":["mittlere Anlage","mittleres Ytong","Wald, Kaiserstuhl, Bulgarien","Zucker/ Protein",27,null,null,"20/35/18"],"Camponotus ligniperda":["mittlere Anlage","mittleres Ytong","Wald, Kaiserstuhl","Zucker/ Protein",25,"396,50-423",29.99,"20/35/18"],"Formica fusca":["großes Formi","großes Nest","Stadt, Wiese, Wald, Kaiserstuhl","Zucker/ Protein",17,"160,20-170,30",19.99,"13/20/14"],"Formica sanguinea":["mittlere Anlage","mittleres Ytong","Wald","Zucker/ Protein",34,null,null,"14/25/15"],"Lasius emarginatus":["mittlere Anlage","mittleres Ytong","Wiese, Kaiserstuhl","Zucker/ Protein",39,null,null,"10/16/10"],"Lasius flavus":["mittlere Anlage","mittleres Ytong","Stadt, Wiese, Wald, Kaiserstuhl","Zucker/ Protein",36,"753-800,50",9.99,"11/16/12"],"Lasius fuliginosus":["riesige Anlage","riesiges Ytong","Stadt, Wiese, Wald","Zucker/ Protein",135,null,null,"15/20/18"],"Lasius niger":["mittlere Anlage","mittleres Ytong","Stadt, Wiese, Wald, Kaiserstuhl, Bulgarien","Zucker/ Protein",27,"486-516,50",5.0,"10/15/8"],"Myrmica rubra":["mittlere Anlage","mittleres Ytong","Stadt, Wiese, Wald, Kaiserstuhl","Zucker/ Protein",25,"395-420,50",12.99,"12/17/13"],"Myrmica ruginodis":["große Anlage","großes Ytong","Wiese, Wald, Kaiserstuhl","Zucker/ Protein",49,null,null,"13/18/14"],"Ponera coarctata":["Mini Arena","Reagenzglas","Stadt, Wiese, Wald, Kaiserstuhl","Zucker/ Protein",21,null,null,null],"Solenopsis fugax":["große Anlage","großes Ytong","Stadt, Wiese, Kaiserstuhl","Zucker/ Protein",80,null,null,"13/18/14"],"Temnothorax nylanderi":["Mini Arena","Haselnuss","Wald","Zucker/ Protein",9,null,null,"13/18/14"],"Aphaenogaster senilis":["mittlere Anlage","mittleres Ytong","Bulgarien, Spanien","Zucker/ Protein",27,null,null,"12/25/14"],"Anochetus ghilianii":["kleines Formi","kleines Nest","Spanien","Zucker/ Protein",34,null,null,null],"Camponotus cruentatus":["große Anlage","großes Ytong","Spanien","Zucker/ Protein",65,null,null,"12/25/14"],"Camponotus lateralis":["mittlere Anlage","mittleres Ytong","Bulgarien, Frankreich, Spanien, Orient","Zucker/ Protein",67,null,null,null],"Cataglyphis velox":["mittlere Anlage","mittleres Ytong","Spanien, Orient","Zucker/ Protein",37,null,null,"14/27/18"],"Crematogaster scutellaris":["große Anlage","mittleres Ytong","Stadt, Bulgarien, Spanien","Zucker/ Protein",52,"1290-1370",49.99,"12/22/15"],"Lasius grandis":["mittlere Anlage","mittleres Ytong","Frankreich","Zucker/ Protein",69,null,null,"10/16/10"],"Messor barbarus":["große Anlage","großes Ytong","Frankreich, Spanien","Körner/ Protein",52,"1280-1370",39.99,"12/20/15"],"Messor structor":["große Anlage","großes Ytong","Kaiserstuhl, Bulgarien, Frankreich, Spanien","Körner/ Protein",56,null,null,"12/20/15"],"Pheidole pallidula":["große Anlage","großes Ytong","Bulgarien, Frankreich, Spanien, Orient","Zucker/ Protein",58,"1540-1640",59.99,"12/19/14"],"Plagiolepis pygmaea":["mittlere Anlage","mittleres Ytong","Spanien, Orient","Zucker/ Protein",74,null,null,"12/19/14"],"Acromyrmex spec.":["große Anlage","große Anlage","Südamerika: Costa Rica","Zucker/ Blätter",79,"????-2572,22",249.99,"13/25/15"],"Acromyrmex versicolor":["große Anlage","große Anlage","Amerika: Arizona","Zucker/ Blätter",86,null,null,"13/25/15"],"Camponotus sericeus":["große Anlage","großes Ytong","Süd-Ost Asien","Zucker/ Protein",104,null,null,null],"Camponotus substitutus":["große Anlage","großes Ytong","Südamerika: Costa Rica","Zucker/ Protein",69,"1950-2080",119.99,"13/25/14"],"Messor alexandri":["große Anlage","großes Ytong","Orient","Körner/ Protein",86,null,null,"12/20/15"],"Myrmecia chrysogaster":["mittleres Formi","mittleres Nest","Australien","Zucker/ Protein",65,null,null,"16/26/26"],"Myrmecia pavida":["mittleres Formi","mittleres Nest","Australien","Zucker/ Protein",58,null,null,"18/28/36"],"Myrmecocystus mexicanus":["große Anlage","großes Ytong","Amerika: Arizona","Zucker/ Protein",89,null,null,"13/25/15"],"Pheidologeton diversus":["große Anlage","großes Ytong","Süd-Ost Asien","Zucker/ Protein",82,null,null,"13/25/15"],"Polyrhachis dives":["große Anlage","große Anlage","Süd-Ost Asien","Zucker/ Protein",72,"~2200€",219.99,"13/25/15"],"Marsameise":["mittleres Formi","mittleres Nest","Südamerika: Mars-Plateau","Zucker/ Protein",58,null,null,null]};
+const ebaShAnts = {"Camponotus herculeanus":["mittlere Anlage","mittleres Ytong","Wald, Kaiserstuhl, Bulgarien","Zucker/ Protein",27,null,null,"20/35/18"],"Camponotus ligniperda":["mittlere Anlage","mittleres Ytong","Wald, Kaiserstuhl","Zucker/ Protein",25,"396,50-423",29.99,"20/35/18"],"Formica fusca":["großes Formi","großes Nest","Stadt, Wiese, Wald, Kaiserstuhl","Zucker/ Protein",17,"160,20-170,30",19.99,"13/20/14"],"Formica sanguinea":["mittlere Anlage","mittleres Ytong","Wald","Zucker/ Protein",34,null,null,"14/25/15"],"Lasius emarginatus":["mittlere Anlage","mittleres Ytong","Wiese, Kaiserstuhl","Zucker/ Protein",39,null,null,"10/16/10"],"Lasius flavus":["mittlere Anlage","mittleres Ytong","Stadt, Wiese, Wald, Kaiserstuhl","Zucker/ Protein",36,"753-800,50",9.99,"11/16/12"],"Lasius fuliginosus":["riesige Anlage","riesiges Ytong","Stadt, Wiese, Wald","Zucker/ Protein",135,null,null,"15/20/18"],"Lasius niger":["mittlere Anlage","mittleres Ytong","Stadt, Wiese, Wald, Kaiserstuhl, Bulgarien","Zucker/ Protein",27,"486-516,50",5.0,"10/15/8"],"Myrmica rubra":["mittlere Anlage","mittleres Ytong","Stadt, Wiese, Wald, Kaiserstuhl","Zucker/ Protein",25,"395-420,50",12.99,"12/17/13"],"Myrmica ruginodis":["große Anlage","großes Ytong","Wiese, Wald, Kaiserstuhl","Zucker/ Protein",49,null,null,"13/18/14"],"Ponera coarctata":["Mini Arena","Reagenzglas","Stadt, Wiese, Wald, Kaiserstuhl","Zucker/ Protein",21,null,null,"15/17/15"],"Solenopsis fugax":["große Anlage","großes Ytong","Stadt, Wiese, Kaiserstuhl","Zucker/ Protein",80,null,null,"13/18/14"],"Temnothorax nylanderi":["Mini Arena","Haselnuss","Wald","Zucker/ Protein",9,null,null,"13/18/14"],"Aphaenogaster senilis":["mittlere Anlage","mittleres Ytong","Bulgarien, Spanien","Zucker/ Protein",27,null,null,"12/25/14"],"Anochetus ghilianii":["kleines Formi","kleines Nest","Spanien","Zucker/ Protein",34,null,null,"13/14/13"],"Camponotus cruentatus":["große Anlage","großes Ytong","Spanien","Zucker/ Protein",65,null,null,"12/25/14"],"Camponotus lateralis":["mittlere Anlage","mittleres Ytong","Bulgarien, Frankreich, Spanien, Orient","Zucker/ Protein",67,null,null,"11/24/13"],"Cataglyphis velox":["mittlere Anlage","mittleres Ytong","Spanien, Orient","Zucker/ Protein",37,null,null,"14/27/18"],"Crematogaster scutellaris":["große Anlage","mittleres Ytong","Stadt, Bulgarien, Spanien","Zucker/ Protein",52,"1290-1370",49.99,"12/22/15"],"Lasius grandis":["mittlere Anlage","mittleres Ytong","Frankreich","Zucker/ Protein",69,null,null,"10/16/10"],"Messor barbarus":["große Anlage","großes Ytong","Frankreich, Spanien","Körner/ Protein",52,"1280-1370",39.99,"12/20/15"],"Messor structor":["große Anlage","großes Ytong","Kaiserstuhl, Bulgarien, Frankreich, Spanien","Körner/ Protein",56,null,null,"12/20/15"],"Pheidole pallidula":["große Anlage","großes Ytong","Bulgarien, Frankreich, Spanien, Orient","Zucker/ Protein",58,"1540-1640",59.99,"12/19/14"],"Plagiolepis pygmaea":["mittlere Anlage","mittleres Ytong","Spanien, Orient","Zucker/ Protein",74,null,null,"12/19/14"],"Acromyrmex spec.":["große Anlage","große Anlage","Südamerika: Costa Rica","Zucker/ Blätter",79,"????-2572,22",249.99,"13/25/15"],"Acromyrmex versicolor":["große Anlage","große Anlage","Amerika: Arizona","Zucker/ Blätter",86,null,null,"13/25/15"],"Camponotus sericeus":["große Anlage","großes Ytong","Süd-Ost Asien","Zucker/ Protein",104,null,null,"15/30/16"],"Camponotus substitutus":["große Anlage","großes Ytong","Südamerika: Costa Rica","Zucker/ Protein",69,"1950-2080",119.99,"13/25/14"],"Messor alexandri":["große Anlage","großes Ytong","Orient","Körner/ Protein",86,null,null,"12/20/15"],"Myrmecia chrysogaster":["mittleres Formi","mittleres Nest","Australien","Zucker/ Protein",65,null,null,"16/26/26"],"Myrmecia pavida":["mittleres Formi","mittleres Nest","Australien","Zucker/ Protein",58,null,null,"18/28/36"],"Myrmecocystus mexicanus":["große Anlage","großes Ytong","Amerika: Arizona","Zucker/ Protein",89,null,null,"13/25/15"],"Pheidologeton diversus":["große Anlage","großes Ytong","Süd-Ost Asien","Zucker/ Protein",82,null,null,"13/25/15"],"Polyrhachis dives":["große Anlage","große Anlage","Süd-Ost Asien","Zucker/ Protein",72,"~2200€",219.99,"13/25/15"],"Marsameise":["mittleres Formi","mittleres Nest","Südamerika: Mars-Plateau","Zucker/ Protein",58,null,null,"12/20/15"]};
 const ebaShShop = {"Camponotus ligniperda":[59,4,396.5,423],"Formica fusca":[50,3,160.2,170.3],"Lasius flavus":[75,4,753,800.5],"Lasius niger":[67,4,486,516.5],"Myrmica rubra":[83,4,395,420.5],"Crematogaster scutellaris":[85,6,1290,1370],"Messor barbarus":[76,6,1280,1370],"Pheidole pallidula":[70,6,1540,1640],"Acromyrmex spec.":[102,6,null,2572.22],"Camponotus substitutus":[89,6,1950,2080],"Polyrhachis dives":[108,6,2200,2200]};
 const ebaShWohn = [["Zimmer bei deinen Eltern",2,0,0,"Eltern"],["alter Schuppen",3,100,2000,"Schuppen"],["Dachboden bei Oma Gertrude",4,500,500,"Dachboden"],["Zimmerwohnung in Hochhaus",6,2000,50000,"Hochhaus"],["Haus",8,5000,5000,"Haus"],["Schloss",12,50000,1000000,"Schloss"]];
 const ebaShFood = [["Mehlwürmer",1.49,50,"Protein",1.2,0.3,1],["Maden",1.99,50,"Protein",1.1,null,0],["Grashüpfer",null,null,"Protein",0.95,null,0],["Regenwürmer",null,null,"Protein",0.85,null,0],["Baumwanzen",null,null,"Protein",0.75,null,0],["Käferlarven",null,null,"Protein",0.65,null,0],["Heimchen",5.99,50,"Protein",1.75,0.45,1],["Waldschaben",9.99,50,"Protein",2.5,0.6,1],["Zuckerwasser",0.99,50,"Zuckerhaltig",0.7,null,0],["gemixtes Zuckerwasser",null,null,"Zuckerhaltig",0.6,null,0],["Honig",2.99,200,"Zuckerhaltig",0.3,null,0],["Grassamen",5.99,100,"Körner",0.3,null,0],["Löwenzahnsamen",null,null,"Körner",0.5,null,0],["Brombeerblätter",null,null,"Blätter",2.0,null,0]];
@@ -7000,7 +6999,7 @@ function ebaShAntRows() {
 // ---- Reiter: Ameisen --------------------------------------------------------
 
 function ebaShAntCard(r, maxP) {
-  var m = r.m, a = r.a, n = r.name, rg = ebaShRegal(n), speed = ebaShSpeed(), dev = a[7] ? a[7].split("/") : null;
+  var m = r.m, a = r.a, n = r.name, rg = ebaShRegal(n), speed = ebaShSpeed(), dev = a[7] ? a[7].split("/") : null, dv = speed ? 5 : 1;
   var w = Math.max(3, Math.round(100 * Math.sqrt(m.p / maxP))), open = ebaShState.open[n];
   var pv = speed ? m.ps : m.pn;
   var zuw = !m.poly ? "nein" : (pv == null ? "ja, Zuwachs unbekannt" : ebaShN(pv) + "&nbsp;A je K");
@@ -7036,8 +7035,9 @@ function ebaShAntCard(r, maxP) {
       + "<tr><td>Platzbedarf Formicarium</td><td>" + ebaShN(m.f, 2) + " <small>(" + ebaShN(pf, 4) + " je Arbeiterin)</small></td></tr>"
       + (m.b != null ? "<tr><td>Brut (nur im Nest)</td><td>" + ebaShN(m.b, 3) + " Platz je Arbeiterin</td></tr>" : "")
       + "<tr><td>Futter</td><td>" + ebaShE(a[3]) + "</td></tr>"
-      + "<tr><td>Entwicklung (Lexikon)</td><td>" + (dev ? "Ei " + dev[0] + " h &middot; Larve " + dev[1] + " h &middot; Puppe " + dev[2] + " h <small>(&Sigma; "
-          + (+dev[0] + +dev[1] + +dev[2]) + " h)</small>" : "&ndash;") + "</td></tr>"
+      + (n === "Marsameise" ? "<tr><td>Hinweis</td><td>Eine reine Spiel-Art, inspiriert von <i>Martialis heureka</i> (2008 beschriebene augenlose Ameise; &bdquo;wie vom Mars&ldquo;).</td></tr>" : "")
+      + "<tr><td>Entwicklung (Lexikon)</td><td>" + (dev ? "Ei " + ebaShN(dev[0] / dv, 1) + " h &middot; Larve " + ebaShN(dev[1] / dv, 1) + " h &middot; Puppe " + ebaShN(dev[2] / dv, 1) + " h <small>(&Sigma; "
+          + ebaShN((+dev[0] + +dev[1] + +dev[2]) / dv, 1) + " h)</small>" : "&ndash;") + "</td></tr>"
       + "<tr><td>Shop-Preis (Lexikon)</td><td>" + ebaShEuro(a[6]) + "</td></tr>"
       + "<tr><td>Freischaltung</td><td>" + (ebaShUnlock(n) ? ebaShE(ebaShUnlock(n)) : "&ndash;") + "</td></tr></table>";
     if (m.poly) {
@@ -7329,10 +7329,44 @@ function ebaShWohnTab() {
 var ebaShNodes = [
   ["allg", "Allgemeines\nüber Ameisen", ["research_allgemeinwissen.jpg"], "t", ["allg"]],
   ["einh", "Einheimische\nArten", ["research_ameisen_einheimisch.jpg"], "a", ["einh"]],
-  ["ausb", "Ausbruchschutz", [], "f", ["ausb"]],
+  ["ausb", "Ausbruchschutz", [
+    "research_escapeprevention.jpg", "research_ausbruchverhinderung.jpg", "research_ausbruch_verhindern.jpg",
+    "research_anti_ausbruch.jpg", "research_antiausbruch.jpg", "research_ausbruchschutzmittel.jpg",
+    "research_schutzmittel.jpg", "research_gleitmittel.jpg", "research_ausbruch_gleitmittel.jpg",
+    "research_teflon.jpg", "research_teflonbeschichtung.jpg", "research_fluonbeschichtung.jpg",
+    "research_fluonschutz.jpg", "research_barriere.jpg", "research_barriere2.jpg",
+    "research_ausbruchkante.jpg", "research_kante.jpg", "research_ausbruchsicherung2.jpg",
+    "research_Ausbruchschutz.jpg", "research_Ausbruch.jpg",
+    "research_AusbruchSchutz.jpg", "research_AusbruchSicherung.jpg", "research_AusbruchVerhinderung.jpg",
+    "research_EscapeProtection.jpg", "research_EscapePrevention.jpg", "research_FluonSchutz.jpg",
+    "research_FluonBeschichtung.jpg", "research_TeflonBeschichtung.jpg", "research_AntiAusbruch.jpg",
+    "research_AusbruchGleitmittel.jpg", "research_AusbruchKante.jpg", "research_AusbruchSchutzmittel.jpg",
+    "research_Schutz.jpg", "research_Sicherung.jpg", "research_Gleitmittel.jpg",
+    "research_Teflon.jpg", "research_Fluon.jpg", "research_Barriere.jpg",
+    "research_Escape.jpg", "research_Protection.jpg", "research_Prevention.jpg",
+    "research_Kante.jpg", "research_Gitter.jpg", "research_Talkum.jpg",
+    "Research_ausbruch.jpg"
+  ], "f", ["ausb"]],
   ["futt", "Futtertiere", ["research_futter.jpg"], "f", ["futt"]],
   ["bonus", "Forschungs-\nbonus", ["research_forschungsbonus.jpg"], "b", ["bonus"]],
-  ["bio", "Biologie der\nAmeisen", [], "b", ["bio"]],
+  ["bio", "Biologie der\nAmeisen", [
+    "research_biologie3.jpg", "research_bio2.jpg", "research_bio_ameisen.jpg",
+    "research_ameisen_bio.jpg", "research_ameisenbio.jpg", "research_ameisenkunde.jpg",
+    "research_ameisenleben.jpg", "research_lebenszyklus.jpg", "research_entwicklung.jpg",
+    "research_larve.jpg", "research_puppe.jpg", "research_ei.jpg",
+    "research_insekt.jpg", "research_insekten.jpg", "research_biology_drawing.jpg",
+    "research_ant_body.jpg", "research_bio_anatomie.jpg", "research_anatomy2.jpg",
+    "research_Biologie.jpg",
+    "research_AmeisenBiologie.jpg", "research_AmeisenAnatomie.jpg", "research_AntBiology.jpg",
+    "research_AntAnatomy.jpg", "research_AmeisenLeben.jpg", "research_KoerperBau.jpg",
+    "research_AmeisenKunde.jpg", "research_AntBody.jpg", "research_AmeisenEntwicklung.jpg",
+    "research_LebensZyklus.jpg", "research_Bio.jpg", "research_Ameisen.jpg",
+    "research_Biology.jpg", "research_Anatomy.jpg", "research_Koerperbau.jpg",
+    "research_Systematik.jpg", "research_Lebenszyklus.jpg", "research_Entwicklung.jpg",
+    "research_Larve.jpg", "research_Puppe.jpg", "research_Insekt.jpg",
+    "research_Lebensweise.jpg", "research_Zoologie.jpg", "research_Anatomie.jpg",
+    "research_Ameisenkunde.jpg"
+  ], "b", ["bio"]],
   ["hand", "Handwerkliches\nGeschick", ["research_werkzeug.jpg"], "h", ["hand"]],
   ["find", "Ameisen finden\nund bestimmen", ["research_ameisenfinden.jpg"], "a", ["find"]],
   ["jobs", "Jobver-\nbesserungen", [], "j", ["jk", "jv", "jf"]],
@@ -7342,8 +7376,43 @@ var ebaShNodes = [
   ["zucker", "Zuckerwasser\nselbst\nherstellen", ["research_sugarwater.jpg"], "f", ["zucker"]],
   ["poly", "Polygynie", ["research_polygyny.jpg"], "b", ["poly"]],
   ["wachs", "Ameisen-\nwachstum", ["research_wachstum.jpg"], "b", ["wachs"]],
-  ["form", "Formicarien-\nbau", [], "h", ["form"]],
-  ["nest", "Nestbau", [], "h", ["nest"]],
+  ["form", "Formicarien-\nbau", [
+    "research_formicarium_bauen.jpg", "research_formicariumbauen.jpg", "research_formikarium_bauen.jpg",
+    "research_formicarienbauanleitung.jpg", "research_formicarien_bauanleitung.jpg", "research_formicariumbauanleitung.jpg",
+    "research_formicarium_anleitung.jpg", "research_formicarium_einrichtung.jpg", "research_formicarium_setup.jpg",
+    "research_formicarium_glas.jpg", "research_formicarium_kammer.jpg", "research_bauplan.jpg",
+    "research_bauplan_formicarium.jpg", "research_formicariumbau2.jpg", "research_formicary2.jpg",
+    "research_acrylformicarium.jpg", "research_formicarium_acryl.jpg", "research_Formicarienbau.jpg",
+    "research_Formicarium.jpg",
+    "research_FormicariumBau.jpg", "research_FormicarienBau.jpg", "research_FormicariumBauen.jpg",
+    "research_FormicariumAnleitung.jpg", "research_FormicaryBuilding.jpg", "research_FormicariumEinrichtung.jpg",
+    "research_FormikariumBau.jpg", "research_FormicariumGlas.jpg", "research_FormicariumAcryl.jpg",
+    "research_BauAnleitung.jpg", "research_Formikarium.jpg", "research_Formicarien.jpg",
+    "research_Formicary.jpg", "research_Bauplan.jpg", "research_Terrarium.jpg",
+    "research_Acryl.jpg", "research_Glas.jpg", "research_Einrichtung.jpg",
+    "research_Behaelter.jpg", "Research_formicarium.jpg", "Research_formikarium.jpg",
+    "Research_formicarien.jpg", "Research_formicary.jpg", "Research_bauplan.jpg",
+    "Research_terrarium.jpg"
+  ], "h", ["form"]],
+  ["nest", "Nestbau", [
+    "research_nestbau3.jpg", "research_nest_material.jpg", "research_nestbau_material2.jpg",
+    "research_nester3.jpg", "research_ameisenbau.jpg", "research_ameisenbau_nest.jpg",
+    "research_bau.jpg", "research_nesthoehle.jpg", "research_nest_kammer.jpg",
+    "research_nestkammer.jpg", "research_kammerbau.jpg", "research_gaenge.jpg",
+    "research_gaenge_bauen.jpg", "research_tunnel.jpg", "research_tunnelbau.jpg",
+    "research_bodennest.jpg", "research_nest_untergrund.jpg", "research_nestbau_erde.jpg",
+    "research_nest_beton.jpg", "research_zement.jpg", "research_kies.jpg",
+    "research_Nestbau.jpg", "research_Nest.jpg",
+    "research_NestBau.jpg", "research_NestBuilding.jpg", "research_NestKammer.jpg",
+    "research_NestMaterial.jpg", "research_AntNest.jpg", "research_AmeisenNest.jpg",
+    "research_NestYtong.jpg", "research_NestBeton.jpg", "research_TunnelBau.jpg",
+    "research_NestHoehle.jpg", "research_BauMaterial.jpg", "research_Ytong.jpg",
+    "research_Gasbeton.jpg", "research_Beton.jpg", "research_Zement.jpg",
+    "research_Gips.jpg", "research_Lehm.jpg", "research_Kies.jpg",
+    "research_Erde.jpg", "research_Tunnel.jpg", "research_Gaenge.jpg",
+    "research_Kammer.jpg", "research_Nesthoehle.jpg", "Research_nest.jpg",
+    "Research_nestbau.jpg"
+  ], "h", ["nest"]],
   ["asw", "Ameisen-\nschutzwarte", ["research_asw.jpg"], "j", ["asw"]],
   ["exot", "Exotische\nArten", ["research_ameisen_exotisch.jpg"], "a", ["exot"]],
   ["blaetter", "Blätter-\nsammeln", ["research_blaetter.jpg"], "f", ["blaetter"]]
@@ -7351,11 +7420,61 @@ var ebaShNodes = [
 // Die drei Jobverbesserungen einzeln (nur Bildsuche, kein eigener Baumknoten): Kloputz-Ausrüstung (Pümpel),
 // Verhaltensforscher (Lehrbücher), Online-Fahrschule (Gabelstaplerschein).
 var ebaShImgExtra = [
-  ["jk", "Jobverbesserung:\nKloputz (Pümpel)", [], "j", []],
-  ["jv", "Jobverbesserung:\nVerhaltensforscher", [], "j", []],
+  ["jk", "Jobverbesserung:\nKloputz (Pümpel)", [
+    "research_kloputzer.jpg", "research_kloputzer2.jpg", "research_kloputzer_pumpel.jpg",
+    "research_puempel2.jpg", "research_pumpel2.jpg", "research_pumpelausruestung.jpg",
+    "research_puempel_ausruestung.jpg", "research_toilettenpumpe.jpg", "research_toilettenreiniger.jpg",
+    "research_wc2.jpg", "research_wc_pumpel.jpg", "research_wcbuerste.jpg",
+    "research_plunger2.jpg", "research_sauger.jpg", "research_gummisauger.jpg",
+    "research_toilettenbuerste.jpg", "research_toilet_plunger.jpg", "research_toilet_pumpel.jpg",
+    "research_Kloputz.jpg", "research_Pumpel.jpg",
+    "research_KloPutz.jpg", "research_KloPumpel.jpg", "research_PuempelAusruestung.jpg",
+    "research_PumpelAusruestung.jpg", "research_ToilettenPumpe.jpg", "research_ToilettenBuerste.jpg",
+    "research_WcBuerste.jpg", "research_GummiSauger.jpg", "research_ToiletPlunger.jpg",
+    "research_ToiletBrush.jpg", "research_RohrReiniger.jpg", "research_ToilettenReiniger.jpg",
+    "research_Puempel.jpg", "research_Plunger.jpg", "research_Toilette.jpg",
+    "research_Wc.jpg", "research_Klobuerste.jpg", "research_Sauger.jpg",
+    "research_Klo.jpg", "research_Reiniger.jpg", "research_Gummi.jpg",
+    "research_Abfluss.jpg", "research_Rohr.jpg", "Research_kloputz.jpg",
+    "Research_pumpel.jpg"
+  ], "j", []],
+  ["jv", "Jobverbesserung:\nVerhaltensforscher", [
+    "research_verhaltensforscher2.jpg", "research_verhalten2.jpg", "research_lehrbuch2.jpg",
+    "research_lehrbuecher2.jpg", "research_buch.jpg", "research_buch_forschung.jpg",
+    "research_forschungsbuch.jpg", "research_studienbuch.jpg", "research_fachbuecher.jpg",
+    "research_notizen.jpg", "research_beobachtungen.jpg", "research_kamera.jpg",
+    "research_videokamera.jpg", "research_fernglas.jpg", "research_stoppuhr.jpg",
+    "research_labor.jpg", "research_ethologe.jpg", "research_Verhaltensforscher.jpg",
+    "research_VerhaltensForscher.jpg", "research_LehrBuch.jpg", "research_VerhaltensStudie.jpg",
+    "research_VerhaltensForschung.jpg", "research_StudienBuch.jpg", "research_ForschungsBuch.jpg",
+    "research_FachBuch.jpg", "research_FachBuecher.jpg", "research_NotizBuch.jpg",
+    "research_BehaviorStudy.jpg", "research_EthologyBook.jpg", "research_Verhalten.jpg",
+    "research_Lehrbuch.jpg", "research_Lehrbuecher.jpg", "research_Buch.jpg",
+    "research_Studie.jpg", "research_Behavior.jpg", "research_Ethology.jpg",
+    "research_Ethologie.jpg", "research_Notizen.jpg", "research_Fernglas.jpg",
+    "research_Kamera.jpg", "research_Labor.jpg", "research_Buecher.jpg",
+    "research_Forschung.jpg"
+  ], "j", []],
   ["jf", "Jobverbesserung:\nGabelstaplerschein", ["research_gabelstapler.jpg"], "j", []],
   // Weiteres Bild (nur Bildersuche): zweites Bild von Handwerkliches Geschick (Stufe 2); neue Kandidaten, siehe BILDERSUCHE_GEPRUEFT.md
-  ["ha2", "Handwerkliches Geschick:\nzweites Bild", [], "x", []]
+  ["ha2", "Handwerkliches Geschick:\nzweites Bild", [
+    "research_werkzeugb.jpg", "research_werkzeug_stufe_2.jpg", "research_stufe2.jpg",
+    "research_stufe_2.jpg", "research_hand2.jpg", "research_hand_2.jpg",
+    "research_craft2.jpg", "research_crafting2.jpg", "research_crafting_2.jpg",
+    "research_craft_2.jpg", "research_tools2.jpg", "research_tools_2.jpg",
+    "research_tool.jpg", "research_werkbank.jpg", "research_bohrmaschine.jpg",
+    "research_schraube.jpg", "research_leim.jpg", "research_schere.jpg",
+    "research_Werkzeug.jpg",
+    "research_WerkzeugStufe.jpg", "research_HandWerk.jpg", "research_HandWerkzeug.jpg",
+    "research_CraftTools.jpg", "research_WerkBank.jpg", "research_BohrMaschine.jpg",
+    "research_WerkzeugKasten.jpg", "research_WerkzeugSet.jpg", "research_Handwerk.jpg",
+    "research_Craft.jpg", "research_Crafting.jpg", "research_Tools.jpg",
+    "research_Hand.jpg", "research_Werkbank.jpg", "research_Basteln.jpg",
+    "research_Schraube.jpg", "research_Leim.jpg", "research_Schere.jpg",
+    "research_Bohrmaschine.jpg", "research_Zange.jpg", "research_Hammer.jpg",
+    "Research_werkzeug.jpg", "Research_handwerk.jpg", "Research_craft.jpg",
+    "Research_crafting.jpg"
+  ], "x", []]
 ];
 // Raster von oben nach unten: id -> [Spalte, Zeile, eingerückt]. Zeile 0 = Zweige unter der Wurzel,
 // darunter hängen deren Folge-Forschungen (eingerückt, Ast links daneben) bzw. stehen bei Ketten direkt darunter;
@@ -7756,7 +7875,7 @@ function ebaShAswTab() {
     + "<i>Statistik</i>, <i>Kolonie auswildern</i>, <i>ehemalige Kolonien</i> und <i>Aktionen</i>. Die Mitgliedschaft schaltet die Forschung <i>Ameisenschutzwarte (ASW)</i> frei (siehe Forschungsbaum). "
     + "<b>ASW-Punkte</b> erh&auml;ltst du, indem du Kolonien auswilderst (<i>Kolonie auswildern</i>); f&uuml;r nicht einheimische Arten f&auml;llt dabei eine Geb&uuml;hr an. "
     + "Wie viele Punkte welche Art bringt, steht in den Ameisen-Karten und im Vergleich (Spalte ASW-Punkte). "
-    + "<b>Faustformel:</b> ASW-Punkte &asymp; 1,57 &times; &#8731;(Punkte der ausgewachsenen Kolonie); sie stimmt bei Arten bis ca. 75.000 Punkte auf &plusmn;1; bei sehr gro&szlig;en Kolonien liegt der echte Wert h&ouml;her (bis +11).</p>"
+    + "<b>Formel:</b> ASW-Punkte = &lfloor;&radic;(&radic;P / 7 + P / 5000) &times; 10 &minus; 6&rfloor; (abgerundet, mindestens 1), dabei ist P die Punktzahl der Kolonie.</p>"
     + "<p class='sh-note'><b>Dauer:</b> Die Angaben im Spiel gelten f&uuml;r den Normalserver. "
     + (speed ? "Der Schalter &bdquo;Speedserver-Werte&ldquo; ist an: die Dauern sind mit Faktor 1/5 umgerechnet (wie bei den Jobs), die Kosten bleiben gleich. "
              : "Mit dem Schalter &bdquo;Speedserver-Werte&ldquo; oben werden die Dauern mit Faktor 1/5 umgerechnet (wie bei den Jobs), die Kosten bleiben gleich. ")
@@ -7911,6 +8030,10 @@ function ebaShBadgesHtml() {
   var it = function(imgs, name, txt) {
     return "<li>" + img(imgs, name) + " <b>" + name + "</b>" + (txt ? " <span class='sh-small'>" + txt + "</span>" : "") + "</li>";
   };
+  // Profil-Symbole liegen direkt unter /img/
+  var sym = function(f, name, txt) {
+    return "<li>" + ebaShImg(["/img/" + f], "sh-abzimg", name) + " <b>" + name + "</b>" + (txt ? " <span class='sh-small'>" + txt + "</span>" : "") + "</li>";
+  };
   // Top 3 der Statistik: Gold, Silber, Bronze
   var top = function(name, g, s, b) { return it([g, s, b], name, ""); };
   var money = ["money_gold.png", "money_silver.png", "money_bronze.png"];
@@ -7944,6 +8067,10 @@ function ebaShBadgesHtml() {
     + it(["osterei.png"], "Ostereiersuche", "Platzierung bei den Events 2009&ndash;2013.")
     + it(["speed1.png", "speed2.png", "speed3.png", "speed4.png"], "Speedserver-Medaillen", "Teilnahme an Speedserver-Events, Stufen 1&ndash;4.")
     + it(["Sponsor_gold.png", "Sponsor_silver.png", "Sponsor_bronze.png"], "Sponsor", "Fr&uuml;here finanzielle Unterst&uuml;tzung des Spiels.")
+    + "</ul></div>"
+    + "<div class='sh-card'><h4>Profil-Symbole</h4><p class='sh-small'>Keine Abzeichen, sondern Symbole im Profil hinter dem Spielernamen.</p><ul class='sh-list sh-abzlist'>"
+    + sym("icon_gesperrt.png", "gesperrter Spieler", "")
+    + sym("icon_urlaub.png", "Urlaubsmodus", "Die Kolonien entwickeln sich in dieser Zeit nicht weiter.")
     + "</ul></div>";
 }
 function ebaShBadgeTab() { return ebaShBadgesHtml(); }

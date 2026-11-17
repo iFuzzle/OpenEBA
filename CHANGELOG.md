@@ -4,6 +4,16 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
 
 ## Seit dem Fork
 
+- **Abschluss v34:** Spielhilfe und README auf Stand 34.8, offene Ideen in `IDEEN.md` gesammelt.
+- **34.8 Altdaten-Schlüssel:** Unbekannte alte Server-Präfixe zählen auch im Speicherverbrauch der Konfiguration nicht mehr mit.
+- **34.7 Serverliste bereinigt:** Unbekannte Altdaten-Schlüssel werden ignoriert (nicht migriert, nicht gelöscht, nicht abgeglichen); das Skript kennt nur Normal- und Speedserver.
+- **34.6 Shop-Menü:** Der Spielhilfe-Link steht im Ameisenshop jetzt als letzter Eintrag nach „Ankauf“ (das Spiel hat zwei Menüblöcke mit derselben id `shopmenucats`; vorher landete „Ankauf“ unter dem Link).
+- **34.5 ASW-Formel:** Die Spielhilfe (Reiter ASW) nennt jetzt die exakte Formel für ASW-Punkte: ⌊√(√P/7 + P/5000) · 10 − 6⌋ (P = Punktzahl der Kolonie, abgerundet, mindestens 1); sie trifft alle 84 geprüften Kolonien.
+- **34.5 Bildersuche:** 175 weitere Kandidaten mit Großbuchstaben-Varianten (je 25 für Ausbruchschutz, Biologie, Formicarienbau, Nestbau, Handwerk Stufe 2, Kloputz- und Verhaltensforscher-Verbesserung).
+- **34.4 Speed-Brutdauer:** Im Arten-Steckbrief der Spielhilfe zeigt „Entwicklung (Lexikon)“ (Ei/Larve/Puppe und Summe) bei eingeschaltetem Speedserver-Schalter jetzt die Speed-Werte (Normalwert / 5, z. B. 4 / 7 / 3,6 h) statt der Normalserver-Stunden.
+- **34.3 Profil-Symbole:** Die Spielhilfe zeigt im Abschnitt Abzeichen die Symbole für gesperrte Spieler und den Urlaubsmodus (im Profil hinter dem Spielernamen).
+- **34.3 Bildersuche:** neue Kandidaten für die 7 fehlenden Forschungsbilder (nur auf Knopfdruck geprüft).
+- **34.2 Punkte-Rundung:** Das Spiel rundet Kolonie-Punkte ab (Arbeiterinnen × Pt/Arbeiterin, an sechs Kolonien belegt). Die maximale Punktzahl bei Polygynie und der Königinnenrechner in der Spielhilfe runden jetzt ebenfalls ab statt zu runden.
 - **Vollständige Historien:** Neben der Formicarien-Statistik werden jetzt auch Geld, Punkte, Ticklänge sowie Futter- und Ameisensuchen als Zeitreihen gespeichert. Ältere Treffer der Suchen bleiben erhalten.
 - **Verlaufsgrafiken:** Kurven für Geld und Punkte in der Kopfzeile und eine eigene Seite *openEBA-Verlauf* mit Diagrammen je Formicarium (Hunger, Brut, Ausbruchschutz).
 - **Mehr Infos zu Kolonien:** maximale Punktzahl, Auswachszustand in Prozent mit Wachstumsphasen und Nestwarnung.
@@ -15,6 +25,11 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
 
 > **Hinweis vor dem Update:** Mehrere Versionen (31.1, 31.7, 31.9) wandeln gespeicherte Daten beim ersten Start automatisch um. Empfehlung: vorher in der openEBA-Konfiguration die Daten über *Exportieren* sichern.
 
+## 34.1 (02.11.2026)
+
+- **Lexikon:** Daten der versteckten und seltenen Arten ergänzt bzw. korrigiert: Ponera coarctata (jetzt monogyn statt polygyn), Anochetus ghilianii, Camponotus lateralis und Marsameise haben nun Entwicklungszeiten für Ei, Larve und Puppe. Der Marsameise-Steckbrief enthält einen Hinweis auf Martialis heureka.
+- **Lexikon:** Camponotus sericeus mit Entwicklungszeiten (Ei/Larve/Puppe 15/30/16 h) aus den Spieldaten ergänzt.
+
 ## 34.0 (02.11.2026)
 
 Release-Zusammenfassung der wichtigsten Neuerungen seit 33.0 (Einzelheiten in den Abschnitten darunter):
@@ -25,7 +40,6 @@ Release-Zusammenfassung der wichtigsten Neuerungen seit 33.0 (Einzelheiten in de
 - **Ankaufspreise** des Ameisenshops je Tick mit Minimum, Maximum und Spanne.
 - **Endzeiten und laufende Aktion** (z. B. Job mit Endzeit und Stundenlohn) in der Anzeige.
 - **Serverzeit und Zeitzonen:** Zeitangaben richten sich nach der Serverzeit des Spiels.
-- **Vier Server getrennt** (normal, speed, test, testspeed).
 - **WebDAV-Erweiterungen:** Zwei-Wege-Abgleich, vergessene Reihen und weitere Schutzmaßnahmen.
 - Job *Ameisenschutzwarte sucht Freiwillige* zeigt sein Bild; die Bildersuche ist ein verstecktes Entwickler-Werkzeug (Einblenden siehe README).
 
@@ -90,7 +104,7 @@ Release-Zusammenfassung der wichtigsten Neuerungen seit 33.0 (Einzelheiten in de
 
 ## 33.32 (01.11.2026)
 
-- Vier Server getrennt: Normal (`www.`/ohne www), Speed (`speed.`), Testserver Normal (`test.`) und Testserver Speed (`testspeed.`). Jeder Server hat eigene Daten, eigene WebDAV-Dateien und einen eigenen Index; Testserver Speed rechnet wie Speed (12-Minuten-Tick). Bestehende Daten von Normal und Speed bleiben unverändert. Andere Subdomains (z. B. Forum) bleiben ausgeschlossen.
+- Zwei Server getrennt: Normal (`www.`/ohne www) und Speed (`speed.`). Jeder Server hat eigene Daten, eigene WebDAV-Dateien und einen eigenen Index. Bestehende Daten bleiben unverändert. Andere Subdomains (z. B. Forum) bleiben ausgeschlossen.
 - Spielhilfe, Ameisen: Bildlisten aller 35 Arten fest eingetragen (Ergebnis des Stufen-Scans); der Steckbrief lädt nur noch bestätigte Bilder, keine Fehlanfragen (404) mehr. „Allgemeines über Ameisen“ hat sein Bild (`research_allgemeinwissen.jpg`).
 - Bildersuche (Entwickler-Werkzeug): Stufen-Scan prüft nur noch Unbekanntes, nacheinander mit kurzen Pausen; Halloween-Suche entfernt.
 - Spielhilfe, Jobs: Pizza „Je 12* aktive Spieler pro Tick …“ und Werbeplakate „ca. 10* Abstimmungen“ mit Hinweis im openEBA-Stil, Spieltexte entfernt.
@@ -187,7 +201,7 @@ Release-Zusammenfassung der wichtigsten Neuerungen seit 33.0 (Einzelheiten in de
 
 ## 33.14 (01.11.2026)
 
-- Das Skript läuft nur noch auf `eatenbyants.de`, `www.eatenbyants.de` und `speed.eatenbyants.de`; auf dem Testserver (`test.eatenbyants.de`) und anderen Subdomains tut es nichts mehr und speichert nichts.
+- Das Skript läuft nur noch auf `eatenbyants.de`, `www.eatenbyants.de` und `speed.eatenbyants.de`; auf anderen Subdomains tut es nichts mehr und speichert nichts.
 - Einzelne Zeitzeilen löschen (🗑 mit Rückfrage): im openEBA-Verlauf unter „Datentabellen“ (standardmäßig alle Reihen dieses Zeitpunkts), in der Kolonie-Tabelle und bei den älteren Suchergebnissen. Gelöschte Zeilen werden per WebDAV auf allen Geräten gelöscht und kommen durch den Abgleich nicht zurück (Datei `eba_rowdel_list.tsv`).
 - Spielhilfe, Bilder: Keine automatischen Probe-Anfragen mehr. Unter Info → Bildersuche einmalig per Button prüfen, Ergebnis zum Kopieren.
 - Spielhilfe, Jobs: Dauer des Klojobs = ein Tick (1 h normal, 12 min Speed), andere Jobs ein Vielfaches; Speedserver-Werte rechnen die Dauern um. Die Länge unterscheidet die Jobs, der Lohn die Stufen; 12-h-Job als vermutliche Vorstufe der Exkursion gekennzeichnet.
