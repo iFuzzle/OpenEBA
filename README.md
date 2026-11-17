@@ -68,11 +68,12 @@ Die Konfiguration steht auf der Statistik-Seite des Spiels unter *openEBA*. Die 
   - *Vergleich*: alle Arten, umschaltbar zwischen *Alle*, *im Shop kaufbar* und *nicht im Shop*, mit Kategorie-Filter; Punkte und Geld pro Tag, Regalplätze, ASW-Spalten. Sortierbar (zweiter Klick kehrt um).
   - *Wohnungen*: in Spielreihenfolge, sortierbar nach Punkten, Preis, Plätzen und € je Platz.
   - *Forschungsbaum*: als Grafik und als Stufentabellen.
-  - *Ziele & Bonus*, *Jobs* (Karten mit Dauer, Lohn, Stundenlohn, Freischaltung; auch der Weihnachtsmann-Job), *ASW* (Aktionen der Ameisenschutzwarte mit Kosten und ASW-Punkten) und *Futter* (sortier- und filterbar, Shop-Packungen mit Preis pro g, Rubrik *Relikte* mit dem Osterei, Abschnitt *Frühere Events*).
+  - *Ziele & Bonus*, *Jobs* (Karten mit Dauer, Lohn, Stundenlohn, Freischaltung; auch der Weihnachtsmann-Job), *ASW* (Aktionen der Ameisenschutzwarte mit Kosten, ASW-Punkten und der exakten Formel für ASW-Punkte) und *Futter* (sortier- und filterbar, Shop-Packungen mit Preis pro g, Rubrik *Relikte* mit dem Osterei, Abschnitt *Frühere Events*).
   - *Sammlung*: alle 35 Arten zum Abhaken (open → ready → active → done) mit Fortschritt. *Alle Stati einlesen* liest Profil (ausgewachsene Kolonien) und Lager aus und zeigt eine Vorschau; übernommen wird per Klick, nichts wird herabgestuft. Export fürs Spielerprofil (BBCode). Getrennt je Server, in Export/Import und im WebDAV-Abgleich enthalten.
-  - *Abzeichen*: bekannte Abzeichen nach Gruppen (Kolonien, Top 3 der Statistik, ASW, Sonstige).
+  - *Abzeichen*: bekannte Abzeichen nach Gruppen (Kolonien, Top 3 der Statistik, ASW, Sonstige) sowie die Symbole für gesperrte Spieler und den Urlaubsmodus.
   - *Info*: Quellen und Hinweise. Die Bilder lädt das Skript vom Spielserver.
-  - Ein Schalter zeigt die Werte des Speedservers.
+  - Ein Schalter zeigt die Werte des Speedservers (auch die Brutdauern im Steckbrief).
+  - Im Ameisenshop steht der Link zur Spielhilfe als letzter Menüeintrag nach „Ankauf“.
 - *Spielhilfe überall zugänglich*: Link *openEBA: Spielhilfe* in der Seitenleiste jeder Seite, unter den Bookmarks (setzt die Spielhilfe im Lexikon voraus).
 
 ### Komfort

@@ -4,6 +4,7 @@ Alle Änderungen an openEBA seit dem Fork des Skripts von Pepper (Version 31, si
 
 ## Seit dem Fork
 
+- **Abschluss v34:** Spielhilfe und README auf Stand 34.8, offene Ideen in `IDEEN.md` gesammelt.
 - **34.8 Altdaten-Schlüssel:** Unbekannte alte Server-Präfixe zählen auch im Speicherverbrauch der Konfiguration nicht mehr mit.
 - **34.7 Serverliste bereinigt:** Unbekannte Altdaten-Schlüssel werden ignoriert (nicht migriert, nicht gelöscht, nicht abgeglichen); das Skript kennt nur Normal- und Speedserver.
 - **34.6 Shop-Menü:** Der Spielhilfe-Link steht im Ameisenshop jetzt als letzter Eintrag nach „Ankauf“ (das Spiel hat zwei Menüblöcke mit derselben id `shopmenucats`; vorher landete „Ankauf“ unter dem Link).
