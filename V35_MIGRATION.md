@@ -56,6 +56,8 @@ Erkennung (Reihenfolge, **je Server getrennt**, da die Migration heute je Server
 
 ## 3 Anforderungen an das Zielformat F3 (Input für Phase 2)
 
+> Orientierung: Datenkonzept des Nutzers (Monatsdateien je Kolonie, Ereignisse, Geräte-ID in der Kennung) und seine Prüfung in `V35_DATENKONZEPT.md`; noch keine Formatentscheidung.
+
 Damit Migration, Rückweg und Mehrgeräte-Betrieb einfach werden:
 
 - [ ] **Formatversion im Speicher** (ein Schlüssel, atomar zuletzt gesetzt) plus Migrationsprotokoll (von→nach, Zeit, Skriptversion, Zähler).

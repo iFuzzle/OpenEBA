@@ -73,6 +73,8 @@ Abhängigkeiten: jQuery 1 (`@require`, ca. 470 `$(`-Aufrufe), `GM_getValue/setVa
 
 ## 2 Datenmodell
 
+> Orientierung (nicht Entscheidung): Datenkonzept des Nutzers und seine Prüfung gegen Code und Projektregeln in `V35_DATENKONZEPT.md` (Hintergrundabrufe, WebDAV ohne Append, Datenvolumen, `foodid`-Mehrdeutigkeit).
+
 - [ ] Bestandsaufnahme: alle Schlüssel, Formate (TSV-Reihen, Kopfzeilen, Schemaversion 4), Besitzer (welche Funktion schreibt/liest), Größen.
 - [ ] Probleme sammeln (z. B. Mischung aus Optionen/Daten/Betriebszustand im selben Speicher, Präfix-Liste `EBA_SRV_PREFIXES` händisch gepflegt, `eba_dav_*`-Zustand neben Nutzerdaten, uneinheitliche Zeitreihenformate, Migrationen im Hauptpfad).
 - [ ] Optionen bewerten, jeweils mit Vor-/Nachteilen: (a) Format beibehalten, nur dokumentieren und kapseln (Speicher-Zugriffsschicht); (b) Schlüssel umbenennen/neu gruppieren; (c) **Breaking Change** mit neuem Gesamtformat.
